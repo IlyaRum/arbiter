@@ -7,6 +7,7 @@ import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
 //mvn exec:java
+//java -jar .\target\arbiter-1.0.0-SNAPSHOT-main.jar
 
 
 public class MainVerticle extends AbstractVerticle {
