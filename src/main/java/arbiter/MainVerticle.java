@@ -1,8 +1,12 @@
 package arbiter;
 
+import arbiter.config.AppConfig;
+import arbiter.di.DependencyInjector;
+import arbiter.router.MainRouter;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
+import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
@@ -11,30 +15,47 @@ import io.vertx.ext.web.RoutingContext;
 
 
 public class MainVerticle extends AbstractVerticle {
-
+  private HttpServer httpServer;
+  private DependencyInjector dependencyInjector;
   @Override
   public void start(Promise<Void> startPromise) {
 
-    // Создаем роутер
-    Router router = Router.router(vertx);
+    // Инициализация зависимостей
+    dependencyInjector = new DependencyInjector(vertx);
 
-    // Добавляем обработчик маршрута GET /
-    //curl -v http://localhost:8080
-    router.get("/").handler(routingContext -> {
-      routingContext.response()
-        .putHeader("content-type", "application/json")
-        .end("{\"message\": \"Hello from Vert.x!\"}");
-    });
+    // Создаем роутер
+//    Router router = Router.router(vertx);
+//
+//    // Добавляем обработчик маршрута GET /
+//    //curl -v http://localhost:8080
+//    router.get("/").handler(routingContext -> {
+//      routingContext.response()
+//        .putHeader("content-type", "application/json")
+//        .end("{\"message\": \"Service running...\"}");
+//    });
+
+    // Создание роутера
+    MainRouter mainRouter = new MainRouter(
+      vertx,
+      dependencyInjector.getWebSocketController() // Добавляем WebSocket контроллер
+    );
+
+    Router router = mainRouter.createRouter();
 
     // Запускаем сервер
-    vertx.createHttpServer()
-      .requestHandler(router)
-      .listen(8080)
+    httpServer  = vertx.createHttpServer();
+    httpServer.requestHandler(router)
+      .listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
-        System.out.println("Server started on port 8080");
+        System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
+        System.out.println("API available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX);
+        System.out.println("WebSocket available at: ws://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX + AppConfig.WS_PATH);
         startPromise.complete();
       })
-      .onFailure(startPromise::fail);
+      .onFailure(failure -> {
+        System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
+        startPromise.fail(failure);
+        });
   }
 
   private Handler<RoutingContext> getRoutingContextHandler(RoutingContext ctx) {
@@ -43,5 +64,16 @@ public class MainVerticle extends AbstractVerticle {
         .putHeader("content-type", "application/json")
         .end("{\"message\": \"Hello from Vert.x!\"}");
     };
+  }
+
+  @Override
+  public void stop(Promise<Void> stopPromise) {
+    if (httpServer != null) {
+      httpServer.close()
+        .onSuccess(v -> stopPromise.complete())
+        .onFailure(stopPromise::fail);
+    } else {
+      stopPromise.complete();
+    }
   }
 }
