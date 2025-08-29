@@ -19,7 +19,7 @@ public class WebSocketController extends ABaseController{
   @Override
   public void registerRoutes(Router router) {
     // Эндпоинт для инициализации WebSocket соединения
-    router.post("/channels/connect").handler(this::connectToWebSocket);
+    router.post(AppConfig.API_PREFIX + "/channels/connect").handler(this::connectToWebSocket);
   }
 
   public void connectToWebSocket(RoutingContext ctx) {

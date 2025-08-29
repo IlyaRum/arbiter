@@ -27,28 +27,12 @@ public class MainRouter {
       ctx.next();
     });
 
-    // API routes
-    //Router apiRouter = Router.router(vertx);
-
-
-    //webSocketController.registerRoutes(apiRouter);
-
-    // Mount API router with prefix
-    //router.route(AppConfig.API_PREFIX).subRouter(apiRouter);
-
     // Health check
     router.get("/health").handler(ctx -> {
       ctx.json(new JsonObject().put("status", "OK"));
     });
 
-    // API routes - регистрируем напрямую без mountSubRouter
-    registerWebSocketRoutes(router);
-
+    webSocketController.registerRoutes(router);
     return router;
-  }
-
-  private void registerWebSocketRoutes(Router router) {
-    // Создаем отдельный роутер для API
-    router.post(AppConfig.API_PREFIX + "/channels/connect").handler(webSocketController::connectToWebSocket);
   }
 }
