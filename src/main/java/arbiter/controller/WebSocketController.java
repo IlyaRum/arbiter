@@ -33,7 +33,7 @@ public class WebSocketController extends ABaseController{
 
 //    String apiUrl = requestBody.getString("apiUrl");
 //    String token = requestBody.getString("token");
-    String token = "ifxWuOiZjN00HLwgu20k9yYfYynvAkQOaO1YpcedliIvMJteTkHeiLibr-K99NPSwV7YONAav-iQSe_LcUzUFgHpuPXUTP-ozionoPmoWBJqJw68WYdt8ObcOhZYQnIrzKyu-HPP3DQr05CyiCgi_uK_soPoBp40C9fBbz08t4U4e_ikyTZioBg2UULaC-zdEv_MiTDToZ0P0iOZZmXQfL8OekaypTI9Wzu__TELHYFSpoIlabcDiAeYzie-iQRiElAaSfrbp3GGQt6ifk2ZgS9LxJ8dihm8Agc9E5EyKmFD6QSlcA4XvGiOi4WZ6pmlwLNia0W2sl9TA1Cw1Fy8WQ";
+    String token = "xAY0rJSauPYT7opuNOSBszuuM84y6ODgFuIU9kueMAQ1z2q5-MfxonFGLXfKoa2DP4Fp3_qwI9Fd1nlI0MkUwauqRoiyUkLS0Rndty5nTcNeQHGV_J6lmQkpGillng_52-BGrmwUZruW5zx7K_Vpj-iztZsbWon3RhiNVQnmUfcbD_bv0ltAQ4X2JCNBGwNRvdkaIydteA1v5Xb0ma34pzXGRXRi2RJW7UZoEURDv0fGj2EhgTZ2RDepjR4YP2mtu1Ej6jWFT_n84LP0TL6FjbYtUkUwC0tXcMKy6J98t_iwhj7lk5ptX2Yh7XD9bdx2qRZjj1TlFM-ZKSZa3aGNow";
 
 //    if ( token == null) {
 //      handleError(ctx, new IllegalArgumentException("apiUrl and token are required"));
