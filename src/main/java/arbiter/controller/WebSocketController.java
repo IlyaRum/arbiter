@@ -1,16 +1,19 @@
 package arbiter.controller;
 
+import arbiter.MainVerticle;
 import arbiter.config.AppConfig;
 import arbiter.service.WebSocketService;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
+import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.client.WebClient;
 
-public class WebSocketController extends ABaseController{
+public class WebSocketController extends ABaseController {
 
   private final WebSocketService webSocketService;
 
@@ -21,56 +24,77 @@ public class WebSocketController extends ABaseController{
 
   @Override
   public void registerRoutes(Router router) {
-    router.get(AppConfig.API_PREFIX + "/channels/open").handler(this::connectToWebSocket);
+    router.get(AppConfig.API_PREFIX + "/channels/open")
+      .handler(this::getAndValidateToken)
+      .handler(this::connectToWebSocket);
   }
 
-  public void connectToWebSocket(RoutingContext ctx) {
-//    JsonObject requestBody = ctx.body().asJsonObject();
-//    if (requestBody == null) {
-//      handleError(ctx, new IllegalArgumentException("Request body is required"));
-//      return;
-//    }
+  public void connectToWebSocket(RoutingContext context) {
+    String token = context.get("authToken");
 
-//    String apiUrl = requestBody.getString("apiUrl");
-//    String token = requestBody.getString("token");
-    String token = "xAY0rJSauPYT7opuNOSBszuuM84y6ODgFuIU9kueMAQ1z2q5-MfxonFGLXfKoa2DP4Fp3_qwI9Fd1nlI0MkUwauqRoiyUkLS0Rndty5nTcNeQHGV_J6lmQkpGillng_52-BGrmwUZruW5zx7K_Vpj-iztZsbWon3RhiNVQnmUfcbD_bv0ltAQ4X2JCNBGwNRvdkaIydteA1v5Xb0ma34pzXGRXRi2RJW7UZoEURDv0fGj2EhgTZ2RDepjR4YP2mtu1Ej6jWFT_n84LP0TL6FjbYtUkUwC0tXcMKy6J98t_iwhj7lk5ptX2Yh7XD9bdx2qRZjj1TlFM-ZKSZa3aGNow";
+    System.out.println("access_token: " + token);
 
-//    if ( token == null) {
-//      handleError(ctx, new IllegalArgumentException("apiUrl and token are required"));
-//      return;
-//    }
+    if (token == null) {
+      handleError(context, new IllegalArgumentException("token are required"));
+      return;
+    }
 
-
-    Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
-
-
-    jsonObjectFuture
+    webSocketService.connectToWebSocketServer(token)
       .onSuccess(webSocket -> {
         JsonObject response = new JsonObject()
           .put("status", "connected")
           .put("channelId", webSocketService.getCurrentChannelId())
           .put("message", "WebSocket connection established successfully");
 
-        handleSuccess(ctx, response);
+        handleSuccess(context, response);
       })
       .onFailure(throwable -> {
-        handleError(ctx, throwable);
+        handleError(context, throwable);
       });
   }
 
-//  private static void attemptReconnect(Vertx vertx) {
-//    if (retryCount < MAX_RETRIES) {
-//      retryCount++;
-//      long delay = (long) (1000 * Math.pow(2, retryCount)); // Экспоненциальная задержка
-//
-//      System.out.println("Reconnecting in " + delay + "ms (attempt " + retryCount + ")");
-//
-//      vertx.setTimer(delay, id -> {
-//        connectWebSocket(vertx);
-//      });
-//    } else {
-//      System.out.println("Max reconnection attempts reached");
-//      vertx.close();
-//    }
-//  }
+  private void getAndValidateToken(RoutingContext context) {
+    // Специальные настройки для обхода SSL
+    HttpClientOptions options = new HttpClientOptions()
+      .setSsl(true)
+      .setTrustAll(true) //отключает проверку сертификатов
+      .setVerifyHost(false); //Отключает проверку hostname
+
+    WebClient insecureClient = WebClient.wrap(context.vertx().createHttpClient(options));
+
+    // Вызываем эндпоинт для получения токена
+    insecureClient.postAbs("https://ia-oc-w-aiptst.cdu.so:9443/auth/app/token")
+      .putHeader("Authorization", "Basic " + MainVerticle.getAuthBasicCredentials())
+      .putHeader("Content-Type", "application/json")
+      .send()
+      .onSuccess(response -> {
+        if (response.statusCode() == 200) {
+          try {
+            JsonObject tokenResponse = response.bodyAsJsonObject();
+            String token = tokenResponse.getString("access_token"); // предполагаемое поле с токеном
+
+            if (token != null && !token.isEmpty()) {
+              context.put("authToken", token);
+              context.next();
+            } else {
+              sendError(context, 401, "Token not found in response");
+            }
+          } catch (Exception e) {
+            sendError(context, 500, "Invalid token response format");
+          }
+        } else {
+          sendError(context, response.statusCode(), "Token request failed: " + response.bodyAsString());
+        }
+      })
+      .onFailure(err -> {
+        sendError(context, 500, "Token service unavailable: " + err.getMessage());
+      });
+  }
+
+  private void sendError(RoutingContext context, int statusCode, String message) {
+    context.response()
+      .setStatusCode(statusCode)
+      .putHeader("Content-Type", "application/json")
+      .end("{\"error\": \"" + message + "\"}");
+  }
 }
