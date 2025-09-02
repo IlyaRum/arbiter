@@ -1,9 +1,17 @@
 package arbiter.service;
 
+import arbiter.util.WebSocketUtils;
 import io.vertx.core.Future;
+import io.vertx.core.MultiMap;
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.*;
 import io.vertx.core.json.JsonObject;
+import io.vertx.core.http.WebSocket;
+import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.http.HttpClient;
+import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.http.RequestOptions;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -20,44 +28,223 @@ public class WebSocketService extends ABaseService{
   public WebSocketService(Vertx vertx) {
     super(vertx);
     this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
-      .setMaxFrameSize(1000000)
-      .setMaxMessageSize(1000000)
-      //.setTryUsePerFrameWebSocketCompression(true)
-      //.setTryUsePerMessageWebSocketCompression(true)
+      .setSsl(false)
+      .setTrustAll(true)
+      .setVerifyHost(false)
+      .setLogActivity(true)
+      .setTryUsePerFrameCompression(true)
+      .setTryUsePerMessageCompression(true)
     );
   }
 
-  public Future<JsonObject> connectToWebSocketServer(String apiBaseUrl, String token) {
-    // Заменяем http на ws в базовом URL
-    String wsUrl = "wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.0/channels/open";
+  public Future<JsonObject> connectToWebSocketServer(String token) {
+    Promise<JsonObject> promise = Promise.promise();
 
+    // Создаем WebSocketClient
     WebSocketConnectOptions options = new WebSocketConnectOptions()
-      .setURI("/api/public/core/v2.0/channels/open")
+      //https://ia-oc-w-aiptst.cdu.so/api/public/core/v{apiVersion}"
+      //https://ia-oc-w-aiptst.cdu.so/api/public/core/v{apiVersion}
+      .setURI("/api/public/core/v2.1/channels/open")
       .setHost("ia-oc-w-aiptst.cdu.so")
-      .setPort(443)
+      .setPort(433)
       .setSsl(true)
-      .addSubProtocol("cloudevents.json")
-      .putHeader("Authorization", "Bearer " + token)
-      .putHeader("Sec-WebSocket-Protocol", "cloudevents.json");
+      .addHeader("authorization", "Bearer " + token)
+      .addHeader("Host", "ia-oc-w-aiptst.cdu.so")
+      .addHeader("User-Agent", "Vertx-WebSocket-Client/5.0.3")
+      .addHeader("Accept", "*/*")
+      .addHeader("Connection", "Upgrade")
+      .addHeader("Upgrade", "websocket")
+      .addHeader("Sec-WebSocket-Version", "13")
+      .addHeader("Sec-WebSocket-Key", "PETcxOa1Hoo6p8SCN/9Jhg==")
+      .addHeader("Sec-WebSocket-Protocol", "cloudevents.json");
 
-    connectionResponseFuture = new CompletableFuture<>();
+//    WebSocketClientOptions webClientOptions = new WebSocketClientOptions()
+//      .setSsl(false)
+//      .setTrustAll(true)
+//      .setVerifyHost(false)
+//      .setLogActivity(true)
+//      .setTryUsePerFrameCompression(true)
+//      .setTryUsePerMessageCompression(true)
+//      ;
 
-    return webSocketClient.connect(options)
-      .compose(webSocket -> {
-        currentWebSocket.set(webSocket);
+//    clientH.webSocket(httpClientOptions)
+//      .onSuccess(webSocket -> {
+//        System.out.println("WebSocket connected successfully!");
+//
+//        // Обработка входящих сообщений
+//        webSocket.textMessageHandler(message -> {
+//          System.out.println("Received message: " + message);
+//          // Обработка сообщения в формате CloudEvents
+//          try {
+//            JsonObject cloudEvent = new JsonObject(message);
+//            processCloudEvent(cloudEvent);
+//          } catch (Exception e) {
+//            System.err.println("Failed to parse CloudEvent: " + e.getMessage());
+//          }
+//        });
+//
+//        // Обработка закрытия соединения
+//        webSocket.closeHandler(v -> {
+//          System.out.println("WebSocket connection closed");
+//        });
+//
+//        // Обработка ошибок
+//        webSocket.exceptionHandler(e -> {
+//          System.err.println("WebSocket error: " + e.getMessage());
+//          e.printStackTrace();
+//        });
+//
+//        // Отправка тестового сообщения (если нужно)
+//        // sendTestMessage(webSocket);
+//      })
+//      .onFailure(error -> {
+//        System.err.println("Failed to connect WebSocket: " + error.getMessage());
+//        error.printStackTrace();
+//      });
 
-        // Настраиваем обработчики сообщений
-        setupWebSocketHandlers(webSocket);
 
-        // Ждем ответное сообщение от сервера с таймаутом
-        return waitForConnectionResponse(webSocket);
-      })
-      .onFailure(throwable -> {
-        if (connectionResponseFuture != null && !connectionResponseFuture.isDone()) {
-          connectionResponseFuture.completeExceptionally(throwable);
+
+
+    //WebSocketClient clientW = vertx.createWebSocketClient(webSocketClient);
+
+    // Устанавливаем соединение
+    webSocketClient
+      .connect(options)
+      .onComplete(res -> {
+        if (res.succeeded()) {
+          WebSocket ws = res.result();
+          System.out.println("Connected!");
+          promise.complete();
         }
+      })
+      .onSuccess(webSocket -> {
+        System.out.println("WebSocket соединение установлено успешно!");
+      })
+      .onFailure(error -> {
+        String fullUri = buildUriFromOptions(options);
+        System.err.println("Ошибка подключения к " + fullUri + ": " + error.getMessage());
+        promise.fail("Ошибка подключения: " + error.getMessage());
       });
+
+
+
+
+//    client.connect(options)
+//      .onSuccess(webSocket -> {
+//        System.out.println("WebSocket соединение установлено успешно!");
+//
+//        // Обработка входящих сообщений
+//        webSocket.textMessageHandler(message -> {
+//          System.out.println("Получено сообщение: " + message);
+//          try {
+//            JsonObject cloudEvent = new JsonObject(message);
+//            //processCloudEvent(cloudEvent);
+//
+//            promise.complete(cloudEvent);
+//            webSocket.close();
+//          } catch (Exception e) {
+//            System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
+//            promise.fail(e);
+//          }
+//        });
+//
+//        // Обработка закрытия соединения
+//        webSocket.closeHandler(v -> {
+//          System.out.println("WebSocket соединение закрыто");
+//        });
+//
+//        // Обработка ошибок
+//        webSocket.exceptionHandler(error -> {
+//          System.err.println("Ошибка WebSocket: " + error.getMessage());
+//          promise.fail("WebSocket ошибка: " + error.getMessage());
+//        });
+//
+//        // Таймаут на случай, если данные не придут
+//        vertx.setTimer(30000, timerId -> {
+//          if (!promise.future().isComplete()) {
+//            promise.fail("Таймаут ожидания данных");
+//            webSocket.close();
+//          }
+//        });
+//
+//        // Отправка тестового CloudEvent сообщения
+//        //sendTestCloudEvent(webSocket);
+//      })
+//      .onFailure(error -> {
+//        System.err.println("Не удалось установить WebSocket соединение: " + error.getMessage());
+//        promise.fail("Ошибка подключения: " + error.getMessage());
+//        //vertx.close();
+//      });
+
+    return promise.future();
+
+//      webSocketClient.connect(options)
+//      .compose(webSocket -> {
+//        currentWebSocket.set(webSocket);
+//
+//        // Настраиваем обработчики сообщений
+//        setupWebSocketHandlers(webSocket);
+//
+//        // Ждем ответное сообщение от сервера с таймаутом
+//        return waitForConnectionResponse(webSocket);
+//      })
+//      .onFailure(throwable -> {
+//        if (connectionResponseFuture != null && !connectionResponseFuture.isDone()) {
+//          connectionResponseFuture.completeExceptionally(throwable);
+//        }
+//      });
   }
+
+  private String buildUriFromOptions(WebSocketConnectOptions options) {
+    String protocol = options.isSsl() ? "wss" : "ws";
+    String host = options.getHost();
+    int port = options.getPort();
+    String path = options.getURI();
+
+    // Стандартные порты можно не указывать
+    if ((options.isSsl() && port == 443) || (!options.isSsl() && port == 80)) {
+      return protocol + "://" + host + path;
+    } else {
+      return protocol + "://" + host + ":" + port + path;
+    }
+  }
+
+
+  // Обработка CloudEvent сообщения
+  private static void processCloudEvent(JsonObject cloudEvent) {
+    String id = cloudEvent.getString("id");
+    String source = cloudEvent.getString("source");
+    String type = cloudEvent.getString("type");
+    String specVersion = cloudEvent.getString("specversion");
+    JsonObject data = cloudEvent.getJsonObject("data");
+
+    System.out.println("Обработка CloudEvent:");
+    System.out.println("ID: " + id);
+    System.out.println("Source: " + source);
+    System.out.println("Type: " + type);
+    System.out.println("Spec Version: " + specVersion);
+    if (data != null) {
+      System.out.println("Data: " + data);
+    }
+  }
+
+  private static void sendTestCloudEvent(WebSocket webSocket) {
+    JsonObject cloudEvent = new JsonObject()
+      .put("specversion", "1.0")
+      .put("type", "com.example.test")
+      .put("source", "urn:example:test-client")
+      .put("id", "test-event-" + System.currentTimeMillis())
+      .put("time", java.time.Instant.now().toString())
+      .put("datacontenttype", "application/json")
+      .put("data", new JsonObject()
+        .put("message", "Тестовое сообщение")
+        .put("timestamp", System.currentTimeMillis()));
+
+    webSocket.writeTextMessage(cloudEvent.toString());
+    System.out.println("Отправлено тестовое CloudEvent сообщение");
+  }
+
+
 
   private Future<JsonObject> waitForConnectionResponse(WebSocket webSocket) {
     return Future.future(promise -> {

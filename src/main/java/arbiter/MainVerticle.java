@@ -35,7 +35,7 @@ public class MainVerticle extends AbstractVerticle {
       .onSuccess(server -> {
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
         System.out.println("API available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX);
-        System.out.println("WebSocket available at: ws://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX + AppConfig.WS_PATH);
+        System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX + AppConfig.WS_PATH);
         startPromise.complete();
       })
       .onFailure(failure -> {
