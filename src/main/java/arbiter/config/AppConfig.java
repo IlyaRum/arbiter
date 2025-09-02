@@ -5,7 +5,7 @@ import io.vertx.core.json.JsonObject;
 public class AppConfig {
   public static final int HTTP_PORT = 8080;
   public static final String API_PREFIX = "/api/public/core/v2.1";
-  public static final String WS_PATH = "/channels/connect";
+  public static final String WS_PATH = "/channels/open";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
   public static final String BEARER_PREFIX = "Bearer ";
 
