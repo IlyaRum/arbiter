@@ -8,6 +8,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
@@ -71,7 +72,15 @@ public class MainVerticle extends AbstractVerticle {
 
     try {
       Properties props = new Properties();
-      props.load(new FileInputStream(".\\src\\main\\resources\\" + configFile));
+      String filePath = ".\\" + configFile;
+      File file = new File(filePath);
+      if (!file.exists()) {
+        filePath = ".\\src\\main\\resources\\" + configFile;
+      }
+
+      System.out.println("Config file is here: " + filePath);
+
+      props.load(new FileInputStream(filePath));
 
       authBasicCredentials = props.getProperty("auth.basic.credentials");
       authTokenUrl = props.getProperty("auth.token.url");
