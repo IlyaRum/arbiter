@@ -46,15 +46,25 @@ public class WebSocketService extends ABaseService {
       .connect(options)
       .onComplete(res -> {
         if (res.succeeded()) {
-          WebSocket ws = res.result();
-          ws.textMessageHandler(message -> {
+          WebSocket webSocket = res.result();
+          webSocket.textMessageHandler(message -> {
 
             try {
-              JsonObject json = new JsonObject(message);
-              System.out.println(json.encodePrettily());
+              JsonObject receivedJson = new JsonObject(message);
+              System.out.println(receivedJson.encodePrettily());
             } catch (Exception e) {
               System.out.println("Не удалось распарсить JSON: " + e.getMessage());
             }
+          });
+
+          webSocket.closeHandler(v -> {
+            System.out.println("WebSocket connection closed");
+          });
+
+          // Обработка ошибок
+          webSocket.exceptionHandler(error -> {
+            promise.fail("WebSocket ошибка: " + error.getMessage());
+            webSocket.close((short)1011, "Server error");
           });
 
           promise.complete();
