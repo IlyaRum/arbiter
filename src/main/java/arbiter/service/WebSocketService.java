@@ -33,7 +33,7 @@ public class WebSocketService extends ABaseService {
     );
   }
 
-  public Future<JsonObject> connectToWebSocketServer(String token) {
+  public Future<JsonObject> connectToWebSocketServer(RoutingContext context, String token) {
     Promise<JsonObject> promise = Promise.promise();
 
     WebSocketConnectOptions options = new WebSocketConnectOptions()
@@ -52,6 +52,7 @@ public class WebSocketService extends ABaseService {
             try {
               JsonObject receivedJson = new JsonObject(message);
               System.out.println(receivedJson.encodePrettily());
+              handleSuccess(context, message);
 
             } catch (Exception e) {
               System.out.println("Не удалось распарсить JSON: " + e.getMessage());

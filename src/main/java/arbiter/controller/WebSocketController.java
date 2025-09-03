@@ -33,7 +33,7 @@ public class WebSocketController extends ABaseController {
       return;
     }
 
-    webSocketService.connectToWebSocketServer(token)
+    webSocketService.connectToWebSocketServer(context, token)
       .onSuccess(webSocket -> {
         JsonObject response = new JsonObject()
           .put("status", "connected")
