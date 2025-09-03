@@ -391,7 +391,6 @@ public class WebSocketService extends ABaseService {
     return currentWebSocket.get();
   }
 
-  @Override
   public void stop() {
     if (isConnected()) {
       closeConnection();

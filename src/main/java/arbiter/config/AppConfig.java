@@ -10,12 +10,15 @@ import java.util.Properties;
 public class AppConfig {
   public static final int HTTP_PORT = 8080;
   public static final String CORE_VERSION = "2.1";
+  public static final String MEASUREMENT_VERSION = "2.1";
   public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
+  public static final String MEASUREMENT_PREFIX = "/api/public/measurement-values/v" + MEASUREMENT_VERSION;
   public static final String WS_PATH = "/channels/open";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
 
   private static String authBasicCredentials;
   private static String authTokenUrl;
+  private static String subscriptionsAddUrl;
 
   public static JsonObject getConfig() {
     return new JsonObject()
@@ -43,6 +46,7 @@ public class AppConfig {
 
       authBasicCredentials = props.getProperty("auth.basic.credentials");
       authTokenUrl = props.getProperty("auth.token.url");
+      subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
 
       if (authBasicCredentials == null) {
         throw new RuntimeException("Missing required properties in config file");
@@ -59,5 +63,9 @@ public class AppConfig {
 
   public static String getAuthBasicCredentials() {
     return authBasicCredentials;
+  }
+
+  public static String getSubscriptionsAddUrl() {
+    return subscriptionsAddUrl;
   }
 }

@@ -50,6 +50,4 @@ public abstract class ABaseService {
       .putHeader("Content-Type", "application/json")
       .end("{\"error\": \"" + message + "\"}");
   }
-
-  public abstract void stop();
 }

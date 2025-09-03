@@ -22,11 +22,11 @@ public class MainVerticle extends AbstractVerticle {
 
     dependencyInjector = new DependencyInjector(vertx);
 
-    // Создание роутера
     MainRouter mainRouter = new MainRouter(
       vertx,
-      dependencyInjector.getWebSocketController(), // Добавляем WebSocket контроллер
-      dependencyInjector.getMonitoringController()
+      dependencyInjector.getWebSocketController(),
+      dependencyInjector.getMonitoringController(),
+      dependencyInjector.getSubscriptionController()
     );
 
     Router router = mainRouter.createRouter();
