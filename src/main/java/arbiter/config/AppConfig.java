@@ -2,18 +2,62 @@ package arbiter.config;
 
 import io.vertx.core.json.JsonObject;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.Properties;
+
 public class AppConfig {
   public static final int HTTP_PORT = 8080;
-  public static final String API_PREFIX = "/api/public/core/v2.1";
+  public static final String CORE_VERSION = "2.1";
+  public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
   public static final String WS_PATH = "/channels/open";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
-  public static final String BEARER_PREFIX = "Bearer ";
+
+  private static String authBasicCredentials;
+  private static String authTokenUrl;
 
   public static JsonObject getConfig() {
     return new JsonObject()
       .put("http.port", HTTP_PORT)
-      .put("api.prefix", API_PREFIX)
+      .put("api.prefix", CORE_PREFIX)
       .put("ws.path", WS_PATH)
       .put("cloudevents.protocol", CLOUDEVENTS_PROTOCOL);
+  }
+
+  public static void loadConfig() {
+    // Чтение конфигурации из файла или системных свойств
+    String configFile = System.getProperty("config.file", "config.properties");
+
+    try {
+      Properties props = new Properties();
+      String filePath = ".\\" + configFile;
+      File file = new File(filePath);
+      if (!file.exists()) {
+        filePath = ".\\src\\main\\resources\\" + configFile;
+      }
+
+      System.out.println("Config file is here: " + filePath);
+
+      props.load(new FileInputStream(filePath));
+
+      authBasicCredentials = props.getProperty("auth.basic.credentials");
+      authTokenUrl = props.getProperty("auth.token.url");
+
+      if (authBasicCredentials == null) {
+        throw new RuntimeException("Missing required properties in config file");
+      }
+
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to load configuration file: " + configFile, e);
+    }
+  }
+
+  public static String getAuthTokenUrl() {
+    return authTokenUrl;
+  }
+
+  public static String getAuthBasicCredentials() {
+    return authBasicCredentials;
   }
 }
