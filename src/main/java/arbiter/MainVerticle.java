@@ -8,11 +8,6 @@ import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Properties;
-
 //mvn exec:java
 //java -jar .\target\arbiter-1.0.0-SNAPSHOT-main.jar
 
@@ -20,13 +15,10 @@ public class MainVerticle extends AbstractVerticle {
   private HttpServer httpServer;
   private DependencyInjector dependencyInjector;
 
-
-  private static String authBasicCredentials;
-  private String authTokenUrl;
   @Override
   public void start(Promise<Void> startPromise) {
 
-    loadConfig();
+    AppConfig.loadConfig();
 
     dependencyInjector = new DependencyInjector(vertx);
 
@@ -45,8 +37,8 @@ public class MainVerticle extends AbstractVerticle {
       .listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
-        System.out.println("API available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX);
-        System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.API_PREFIX + AppConfig.WS_PATH);
+        System.out.println("API available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX);
+        System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.WS_PATH);
         startPromise.complete();
       })
       .onFailure(failure -> {
@@ -64,38 +56,5 @@ public class MainVerticle extends AbstractVerticle {
     } else {
       stopPromise.complete();
     }
-  }
-
-  private void loadConfig() {
-    // Чтение конфигурации из файла или системных свойств
-    String configFile = System.getProperty("config.file", "config.properties");
-
-    try {
-      Properties props = new Properties();
-      String filePath = ".\\" + configFile;
-      File file = new File(filePath);
-      if (!file.exists()) {
-        filePath = ".\\src\\main\\resources\\" + configFile;
-      }
-
-      System.out.println("Config file is here: " + filePath);
-
-      props.load(new FileInputStream(filePath));
-
-      authBasicCredentials = props.getProperty("auth.basic.credentials");
-      authTokenUrl = props.getProperty("auth.token.url");
-
-      if (authBasicCredentials == null) {
-        throw new RuntimeException("Missing required properties in config file");
-      }
-
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to load configuration file: " + configFile, e);
-    }
-  }
-
-
-  public static String getAuthBasicCredentials() {
-    return authBasicCredentials;
   }
 }
