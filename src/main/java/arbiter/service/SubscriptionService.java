@@ -26,7 +26,15 @@ public class SubscriptionService extends ABaseService {
 
   public void handleCreateSubscription(RoutingContext ctx) {
     String channelId = ctx.pathParam("channelId");
-    String token = /*ctx.get("authToken")*/ "LfoTeu5U1qelbjAvzFEehCba6FkZzfUyL2sXO_NBAs8JkHQa8LzN_1hxs8tlO7Jv03_5qXtYw9SGMXHkzshDMfYsY-AS0RdvQ1mEpmZ0CSW8GarRzBN2XW5XEKhJ48MGqOSeqwokBzOoz98VYyna2Cj3J423xQAqFExPWrYAs_ODkGwCuCow7Sou7-zIRFQVUqvfCcJzD6nloYa3VV9FVNqtt2wZTbB5vendk1LYU0NK3kkUuJQYsjj5kLm9EGMWPVGJIKspmgbAj5mROtESDOmya4sq3uvmjAx3PtCS98vZ6L8J7o1sqasEIrqxx4BnE64KZYNBd8HBrst9F_Vz5A";
+    String token = ctx.get("authToken");
+
+
+
+    if (token == null) {
+      String errorMsg = "Token is required";
+      System.err.println("error: " + errorMsg);
+      handleError(ctx, new IllegalArgumentException(errorMsg));
+    }
 
     createSubscription(ctx, channelId, token)
       .onSuccess(response -> {

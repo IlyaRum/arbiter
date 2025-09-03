@@ -4,10 +4,12 @@ import arbiter.config.AppConfig;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.*;
+import io.vertx.core.http.WebSocket;
+import io.vertx.core.http.WebSocketClient;
+import io.vertx.core.http.WebSocketClientOptions;
+import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.client.WebClient;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -35,8 +37,6 @@ public class WebSocketService extends ABaseService {
 
   public Future<JsonObject> connectToWebSocketServer(RoutingContext context) {
     String token = context.get("authToken");
-
-    System.out.println("access_token: " + token);
 
     if (token == null) {
       String errorMsg = "Token is required";
@@ -99,47 +99,7 @@ public class WebSocketService extends ABaseService {
     return promise.future();
   }
 
-  public void getAndValidateToken(RoutingContext context) {
-    // Специальные настройки для обхода SSL
-    HttpClientOptions options = new HttpClientOptions()
-      .setSsl(true)
-      .setTrustAll(true) //отключает проверку сертификатов
-      .setVerifyHost(false); //Отключает проверку hostname
 
-    WebClient insecureClient = WebClient.wrap(context.vertx().createHttpClient(options));
-
-    // Вызываем эндпоинт для получения токена
-    insecureClient.postAbs(AppConfig.getAuthTokenUrl())
-      .putHeader("Authorization", "Basic " + AppConfig.getAuthBasicCredentials())
-      .putHeader("Content-Type", "application/json")
-      .send()
-      .onSuccess(response -> {
-        if (response.statusCode() == 200) {
-          try {
-            JsonObject tokenResponse = response.bodyAsJsonObject();
-            String token = tokenResponse.getString("access_token"); // предполагаемое поле с токеном
-
-            if (token != null && !token.isEmpty()) {
-              context.put("authToken", token);
-              context.next();
-            } else {
-              sendError(context, 401, "Token not found in response");
-              System.err.println("Token not found in response");
-            }
-          } catch (Exception e) {
-            sendError(context, 500, "Invalid token response format");
-            System.err.println("Invalid token response format");
-          }
-        } else {
-          sendError(context, response.statusCode(), "Token request to " + AppConfig.getAuthTokenUrl() + " failed");
-          System.err.println("Token request to " + AppConfig.getAuthTokenUrl() + " failed");
-        }
-      })
-      .onFailure(err -> {
-        sendError(context, 500, "Token service unavailable: " + err.getMessage());
-        System.err.println("Token service unavailable: " + err.getMessage());
-      });
-  }
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";

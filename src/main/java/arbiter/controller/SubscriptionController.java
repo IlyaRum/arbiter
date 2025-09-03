@@ -18,11 +18,16 @@ public class SubscriptionController extends ABaseController {
   @Override
   public void registerRoutes(Router router) {
     router.post(AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID)
+      .handler(this::getAndValidateToken)
       .handler(this::handleCreateSubscription);
   }
 
   private void handleCreateSubscription(RoutingContext routingContext) {
     subscriptionService.handleCreateSubscription(routingContext);
+  }
+
+  private void getAndValidateToken(RoutingContext context) {
+    subscriptionService.getAndValidateToken(context);
   }
 
 
