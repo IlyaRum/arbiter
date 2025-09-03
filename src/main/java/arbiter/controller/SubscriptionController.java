@@ -17,7 +17,7 @@ public class SubscriptionController extends ABaseController {
 
   @Override
   public void registerRoutes(Router router) {
-    router.post(AppConfig.MEASUREMENT_PREFIX + "/subscriptions/:channelId")
+    router.post(AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID)
       .handler(this::handleCreateSubscription);
   }
 

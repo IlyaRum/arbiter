@@ -13,20 +13,13 @@ public class AppConfig {
   public static final String MEASUREMENT_VERSION = "2.1";
   public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
   public static final String MEASUREMENT_PREFIX = "/api/public/measurement-values/v" + MEASUREMENT_VERSION;
-  public static final String WS_PATH = "/channels/open";
+  public static final String CHANNELS_OPEN = "/channels/open";
+  public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/add-subscription/:channelId";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
 
   private static String authBasicCredentials;
   private static String authTokenUrl;
   private static String subscriptionsAddUrl;
-
-  public static JsonObject getConfig() {
-    return new JsonObject()
-      .put("http.port", HTTP_PORT)
-      .put("api.prefix", CORE_PREFIX)
-      .put("ws.path", WS_PATH)
-      .put("cloudevents.protocol", CLOUDEVENTS_PROTOCOL);
-  }
 
   public static void loadConfig() {
     // Чтение конфигурации из файла или системных свойств

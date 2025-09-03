@@ -29,13 +29,7 @@ public class SubscriptionService extends ABaseService {
     String token = /*ctx.get("authToken")*/ "LfoTeu5U1qelbjAvzFEehCba6FkZzfUyL2sXO_NBAs8JkHQa8LzN_1hxs8tlO7Jv03_5qXtYw9SGMXHkzshDMfYsY-AS0RdvQ1mEpmZ0CSW8GarRzBN2XW5XEKhJ48MGqOSeqwokBzOoz98VYyna2Cj3J423xQAqFExPWrYAs_ODkGwCuCow7Sou7-zIRFQVUqvfCcJzD6nloYa3VV9FVNqtt2wZTbB5vendk1LYU0NK3kkUuJQYsjj5kLm9EGMWPVGJIKspmgbAj5mROtESDOmya4sq3uvmjAx3PtCS98vZ6L8J7o1sqasEIrqxx4BnE64KZYNBd8HBrst9F_Vz5A";
 
     createSubscription(ctx, channelId, token)
-      .onSuccess(subscriptionId -> {
-        JsonObject response = new JsonObject()
-          .put("subscriptionId", subscriptionId)
-          .put("channelId", channelId)
-          .put("status", "created");
-
-        System.out.println(response.encodePrettily());
+      .onSuccess(response -> {
 
         ctx.response()
           .setStatusCode(201)
@@ -44,9 +38,8 @@ public class SubscriptionService extends ABaseService {
       })
       .onFailure(error -> {
         JsonObject errorResponse = new JsonObject()
-          .put("error", "Failed to create subscription")
-          .put("message", error.getMessage())
-          .put("channelId", channelId);
+          .put("error", "Failed to add subscription")
+          .put("message", error.getMessage());
 
         System.err.println(errorResponse.encodePrettily());
 
@@ -57,7 +50,7 @@ public class SubscriptionService extends ABaseService {
       });
   }
 
-  private Future<String> createSubscription(RoutingContext ctx, String channelId, String token) {
+  private Future<JsonObject> createSubscription(RoutingContext ctx, String channelId, String token) {
     String url = String.format(AppConfig.getSubscriptionsAddUrl(), channelId);
 
     System.out.println(url);
@@ -74,12 +67,10 @@ public class SubscriptionService extends ABaseService {
         if (response.statusCode() == 201) {
           JsonObject responseBody = response.bodyAsJsonObject();
           System.out.println(responseBody.encodePrettily());
-          JsonObject valueObject = responseBody.getJsonObject("value");
-          String subscriptionId = valueObject.getString("subscriptionId");
-          return Future.succeededFuture(subscriptionId);
+          return Future.succeededFuture(responseBody);
         } else {
-          sendError(ctx, response.statusCode(), "Add subscriptions to " + url + " failed");
-          return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), response.bodyAsString()));
+          //sendError(ctx, response.statusCode(), "Add subscriptions to " + url + " failed");
+          return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });
   }
