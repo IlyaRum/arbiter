@@ -67,6 +67,7 @@ public class WebSocketService extends ABaseService {
           webSocket.exceptionHandler(error -> {
             promise.fail("WebSocket ошибка: " + error.getMessage());
             webSocket.close((short)1011, "Server error");
+            System.err.println("WebSocket ошибка: " + error.getMessage());
           });
 
           promise.complete();
@@ -79,6 +80,7 @@ public class WebSocketService extends ABaseService {
         String fullUri = buildUriFromOptions(options);
         System.err.println("Ошибка подключения к " + fullUri + ": " + error.getMessage());
         promise.fail("Ошибка подключения: " + error.getMessage());
+        handleError(context, error);
       });
 
     return promise.future();
@@ -109,16 +111,20 @@ public class WebSocketService extends ABaseService {
               context.next();
             } else {
               sendError(context, 401, "Token not found in response");
+              System.err.println("Token not found in response");
             }
           } catch (Exception e) {
             sendError(context, 500, "Invalid token response format");
+            System.err.println("Invalid token response format");
           }
         } else {
           sendError(context, response.statusCode(), "Token request failed: " + response.bodyAsString());
+          System.err.println("Token request failed: " + response.bodyAsString());
         }
       })
       .onFailure(err -> {
         sendError(context, 500, "Token service unavailable: " + err.getMessage());
+        System.err.println("Token service unavailable: " + err.getMessage());
       });
   }
   private String buildUriFromOptions(WebSocketConnectOptions options) {
