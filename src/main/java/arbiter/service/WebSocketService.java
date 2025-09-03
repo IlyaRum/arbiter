@@ -33,7 +33,19 @@ public class WebSocketService extends ABaseService {
     );
   }
 
-  public Future<JsonObject> connectToWebSocketServer(RoutingContext context, String token) {
+  public Future<JsonObject> connectToWebSocketServer(RoutingContext context) {
+    String token = context.get("authToken");
+
+    System.out.println("access_token: " + token);
+
+    if (token == null) {
+      String errorMsg = "Token is required";
+      System.err.println("error: " + errorMsg);
+      handleError(context, new IllegalArgumentException(errorMsg));
+      return Future.failedFuture(errorMsg);
+    }
+
+
     Promise<JsonObject> promise = Promise.promise();
 
     WebSocketConnectOptions options = new WebSocketConnectOptions()
@@ -56,31 +68,32 @@ public class WebSocketService extends ABaseService {
 
             } catch (Exception e) {
               System.out.println("Не удалось распарсить JSON: " + e.getMessage());
+              promise.fail(e);
             }
           });
 
           webSocket.closeHandler(v -> {
             System.out.println("WebSocket connection closed");
+            if (!promise.future().isComplete()) {
+              promise.fail("WebSocket connection closed unexpectedly");
+            }
           });
 
           // Обработка ошибок
           webSocket.exceptionHandler(error -> {
-            promise.fail("WebSocket ошибка: " + error.getMessage());
-            webSocket.close((short)1011, "Server error");
             System.err.println("WebSocket ошибка: " + error.getMessage());
+            if (!promise.future().isComplete()) {
+              promise.fail("WebSocket ошибка: " + error.getMessage());
+            }
+            webSocket.close((short) 1011, "Server error");
           });
 
-          promise.complete();
+          //promise.complete();
+        } else {
+          String fullUri = buildUriFromOptions(options);
+          System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          promise.fail("Ошибка подключения: " + res.cause().getMessage());
         }
-      })
-      .onSuccess(webSocket -> {
-        System.out.println("WebSocket соединение установлено успешно!");
-      })
-      .onFailure(error -> {
-        String fullUri = buildUriFromOptions(options);
-        System.err.println("Ошибка подключения к " + fullUri + ": " + error.getMessage());
-        promise.fail("Ошибка подключения: " + error.getMessage());
-        handleError(context, error);
       });
 
     return promise.future();
@@ -118,8 +131,8 @@ public class WebSocketService extends ABaseService {
             System.err.println("Invalid token response format");
           }
         } else {
-          sendError(context, response.statusCode(), "Token request failed: " + response.bodyAsString());
-          System.err.println("Token request failed: " + response.bodyAsString());
+          sendError(context, response.statusCode(), "Token request to " + AppConfig.getAuthTokenUrl() + " failed");
+          System.err.println("Token request to " + AppConfig.getAuthTokenUrl() + " failed");
         }
       })
       .onFailure(err -> {
@@ -127,6 +140,7 @@ public class WebSocketService extends ABaseService {
         System.err.println("Token service unavailable: " + err.getMessage());
       });
   }
+
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";
     String host = options.getHost();
