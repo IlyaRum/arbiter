@@ -28,6 +28,13 @@ public abstract class ABaseService {
       .end(io.vertx.core.json.JsonObject.mapFrom(result).encode());
   }
 
+  public void handleSuccess(RoutingContext ctx, String message) {
+    ctx.response()
+      .setStatusCode(200)
+      .putHeader("Content-Type", "application/json")
+      .end(message);
+  }
+
   public void handleError(RoutingContext ctx, Throwable throwable) {
     ctx.response()
       .setStatusCode(500)
