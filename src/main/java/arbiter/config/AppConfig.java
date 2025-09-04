@@ -41,7 +41,7 @@ public class AppConfig {
       authTokenUrl = props.getProperty("auth.token.url");
       subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
 
-      if (authBasicCredentials == null) {
+      if (authBasicCredentials == null || authTokenUrl == null || subscriptionsAddUrl == null) {
         throw new RuntimeException("Missing required properties in config file");
       }
 

@@ -1,6 +1,10 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import io.cloudevents.CloudEvent;
+import io.cloudevents.core.format.EventFormat;
+import io.cloudevents.core.provider.EventFormatProvider;
+import io.cloudevents.jackson.JsonFormat;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
@@ -11,6 +15,7 @@ import io.vertx.core.http.WebSocketConnectOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -62,12 +67,16 @@ public class WebSocketService extends ABaseService {
           webSocket.textMessageHandler(message -> {
 
             try {
-              JsonObject receivedJson = new JsonObject(message);
-              System.out.println(receivedJson.encodePrettily());
+              EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
+              CloudEvent event = format.deserialize(message.getBytes());
+
+              processCloudEvent(event);
+
               handleSuccess(context, message);
 
             } catch (Exception e) {
-              System.out.println("Не удалось распарсить JSON: " + e.getMessage());
+              System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
+              System.err.println("Полученное сообщение: " + message);
               promise.fail(e);
             }
           });
@@ -99,8 +108,6 @@ public class WebSocketService extends ABaseService {
     return promise.future();
   }
 
-
-
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";
     String host = options.getHost();
@@ -115,21 +122,18 @@ public class WebSocketService extends ABaseService {
     }
   }
 
-
   // Обработка CloudEvent сообщения
-  private static void processCloudEvent(JsonObject cloudEvent) {
-    String id = cloudEvent.getString("id");
-    String source = cloudEvent.getString("source");
-    String type = cloudEvent.getString("type");
-    String specVersion = cloudEvent.getString("specversion");
-    JsonObject data = cloudEvent.getJsonObject("data");
+  private static void processCloudEvent(CloudEvent cloudEvent) {
+    System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===");
+    System.out.println("specversion: " + cloudEvent.getSpecVersion());
+    System.out.println("source: " + cloudEvent.getSource());
+    System.out.println("type: " + cloudEvent.getType());
+    System.out.println("id: " + cloudEvent.getId());
+    System.out.println("time: " + cloudEvent.getTime());
+    System.out.println("subject: " + cloudEvent.getSubject());
 
-    System.out.println("Обработка CloudEvent:");
-    System.out.println("ID: " + id);
-    System.out.println("Source: " + source);
-    System.out.println("Type: " + type);
-    System.out.println("Spec Version: " + specVersion);
-    if (data != null) {
+    if (cloudEvent.getData() != null) {
+      String data = new String(cloudEvent.getData().toBytes(), StandardCharsets.UTF_8);
       System.out.println("Data: " + data);
     }
   }
