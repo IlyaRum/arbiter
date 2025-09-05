@@ -101,6 +101,7 @@ public class WebSocketService extends ABaseService {
         } else {
           String fullUri = buildUriFromOptions(options);
           System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          handleError(context, new IllegalArgumentException("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage()));
           promise.fail("Ошибка подключения: " + res.cause().getMessage());
         }
       });
