@@ -36,10 +36,17 @@ public abstract class ABaseService {
 //  }
 
   public void handleSuccess(RoutingContext ctx, int statusCode, String message) {
-    ctx.response()
-      .setStatusCode(statusCode)
-      .putHeader("Content-Type", "application/json")
-      .end(message);
+    try {
+      //решение ошибки "Response head already sent"
+      if (!ctx.response().ended()) {
+        ctx.response()
+          .setStatusCode(statusCode)
+          .putHeader("Content-Type", "application/json")
+          .end(message);
+      }
+    } catch (IllegalStateException e) {
+      System.out.println("Ответ уже отправлен, игнорируем повторную отправку");
+    }
   }
 
   public void handleError(RoutingContext ctx, Throwable throwable) {
