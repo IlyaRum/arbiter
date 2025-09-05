@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import io.cloudevents.CloudEvent;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
@@ -9,6 +10,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -118,5 +120,25 @@ public abstract class ABaseService {
       }
     }
     return uids;
+  }
+
+  static void processCloudEvent(CloudEvent cloudEvent) {
+    System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===" + cloudEvent);
+    System.out.println("specversion: " + cloudEvent.getSpecVersion());
+    System.out.println("source: " + cloudEvent.getSource());
+    System.out.println("type: " + cloudEvent.getType());
+    System.out.println("id: " + cloudEvent.getId());
+    System.out.println("time: " + cloudEvent.getTime());
+    String subject = cloudEvent.getSubject();
+
+    if (subject != null) {
+      System.out.println("subject: " + subject);
+    }
+
+    if (cloudEvent.getData() != null) {
+      String data = new String(cloudEvent.getData().toBytes(), StandardCharsets.UTF_8);
+      System.out.println("Data: " + data);
+    }
+    System.out.println();
   }
 }

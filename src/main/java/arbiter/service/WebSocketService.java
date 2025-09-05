@@ -123,27 +123,6 @@ public class WebSocketService extends ABaseService {
     }
   }
 
-  // Обработка CloudEvent сообщения
-  private static void processCloudEvent(CloudEvent cloudEvent) {
-    System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===");
-    System.out.println("specversion: " + cloudEvent.getSpecVersion());
-    System.out.println("source: " + cloudEvent.getSource());
-    System.out.println("type: " + cloudEvent.getType());
-    System.out.println("id: " + cloudEvent.getId());
-    System.out.println("time: " + cloudEvent.getTime());
-    String subject = cloudEvent.getSubject();
-
-    if (subject != null) {
-      System.out.println("subject: " + subject);
-    }
-
-    if (cloudEvent.getData() != null) {
-      String data = new String(cloudEvent.getData().toBytes(), StandardCharsets.UTF_8);
-      System.out.println("Data: " + data);
-    }
-    System.out.println();
-  }
-
   private static void sendTestCloudEvent(WebSocket webSocket) {
     JsonObject cloudEvent = new JsonObject()
       .put("specversion", "1.0")
