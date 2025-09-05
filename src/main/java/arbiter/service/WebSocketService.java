@@ -131,12 +131,17 @@ public class WebSocketService extends ABaseService {
     System.out.println("type: " + cloudEvent.getType());
     System.out.println("id: " + cloudEvent.getId());
     System.out.println("time: " + cloudEvent.getTime());
-    System.out.println("subject: " + cloudEvent.getSubject());
+    String subject = cloudEvent.getSubject();
+
+    if (subject != null) {
+      System.out.println("subject: " + subject);
+    }
 
     if (cloudEvent.getData() != null) {
       String data = new String(cloudEvent.getData().toBytes(), StandardCharsets.UTF_8);
       System.out.println("Data: " + data);
     }
+    System.out.println();
   }
 
   private static void sendTestCloudEvent(WebSocket webSocket) {

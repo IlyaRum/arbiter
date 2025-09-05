@@ -111,11 +111,15 @@ public class SubscriptionService extends ABaseService {
         })
         .onFailure(error -> {
           JsonObject errorResponse = new JsonObject()
-            .put("error", "Failed to add subscription")
+            .put("error", "Failed to update subscription")
             .put("message", error.getMessage());
 
           System.err.println(errorResponse.encodePrettily());
-          sendError(ctx, 500, "Failed to update subscription: " + errorResponse.encodePrettily());
+
+          ctx.response()
+                  .setStatusCode(500)
+                  .putHeader("Content-Type", "application/json")
+                  .end(errorResponse.encode());
         });
 
     } catch (Exception e) {
@@ -153,9 +157,10 @@ public class SubscriptionService extends ABaseService {
       .compose(response -> {
         if (response.statusCode() == 204) {
           JsonObject responseBody = response.bodyAsJsonObject();
-          System.out.println(responseBody.encodePrettily());
+          System.out.println("responseBody: " + responseBody.encodePrettily());
           return Future.succeededFuture(responseBody);
         } else {
+          System.err.println("responseBody PATCH statusCode: " + response.statusCode());
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });

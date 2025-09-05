@@ -86,7 +86,6 @@ public abstract class ABaseService {
             String token = tokenResponse.getString("access_token"); // предполагаемое поле с токеном
 
             if (token != null && !token.isEmpty()) {
-              System.out.println("access_token: " + token);
               context.put("authToken", token);
               context.next();
             } else {
