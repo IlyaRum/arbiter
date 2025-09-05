@@ -156,9 +156,7 @@ public class SubscriptionService extends ABaseService {
       .sendJsonObject(requestBody)
       .compose(response -> {
         if (response.statusCode() == 204) {
-          JsonObject responseBody = response.bodyAsJsonObject();
-          System.out.println("responseBody: " + responseBody.encodePrettily());
-          return Future.succeededFuture(responseBody);
+          return Future.succeededFuture(new JsonObject());
         } else {
           System.err.println("responseBody PATCH statusCode: " + response.statusCode());
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
