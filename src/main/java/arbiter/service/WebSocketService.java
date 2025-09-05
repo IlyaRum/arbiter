@@ -72,19 +72,19 @@ public class WebSocketService extends ABaseService {
 
               processCloudEvent(event);
 
-              handleSuccess(context, message);
+              handleSuccess(context, 200, message);
 
             } catch (Exception e) {
               System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
               System.err.println("Полученное сообщение: " + message);
-              promise.fail(e);
+              promise.tryFail(e);
             }
           });
 
           webSocket.closeHandler(v -> {
             System.out.println("WebSocket connection closed");
             if (!promise.future().isComplete()) {
-              promise.fail("WebSocket connection closed unexpectedly");
+              promise.tryFail("WebSocket connection closed unexpectedly");
             }
           });
 
@@ -92,7 +92,7 @@ public class WebSocketService extends ABaseService {
           webSocket.exceptionHandler(error -> {
             System.err.println("WebSocket ошибка: " + error.getMessage());
             if (!promise.future().isComplete()) {
-              promise.fail("WebSocket ошибка: " + error.getMessage());
+              promise.tryFail("WebSocket ошибка: " + error.getMessage());
             }
             webSocket.close((short) 1011, "Server error");
           });
@@ -102,7 +102,7 @@ public class WebSocketService extends ABaseService {
           String fullUri = buildUriFromOptions(options);
           System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
           handleError(context, new IllegalArgumentException("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage()));
-          promise.fail("Ошибка подключения: " + res.cause().getMessage());
+          promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
         }
       });
 

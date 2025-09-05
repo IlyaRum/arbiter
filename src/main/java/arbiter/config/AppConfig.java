@@ -14,12 +14,14 @@ public class AppConfig {
   public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
   public static final String MEASUREMENT_PREFIX = "/api/public/measurement-values/v" + MEASUREMENT_VERSION;
   public static final String CHANNELS_OPEN = "/channels/open";
-  public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/add-subscription/:channelId";
+  public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/channels/:channelId/add-subscription";
+  public static final String CHANGE_SUBSCRIPTION = "/channels/:channelId/change-subscription/:subscriptionId";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
 
   private static String authBasicCredentials;
   private static String authTokenUrl;
   private static String subscriptionsAddUrl;
+  private static String subscriptionsChangeUrl;
 
   public static void loadConfig() {
     // Чтение конфигурации из файла или системных свойств
@@ -40,6 +42,7 @@ public class AppConfig {
       authBasicCredentials = props.getProperty("auth.basic.credentials");
       authTokenUrl = props.getProperty("auth.token.url");
       subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
+      subscriptionsChangeUrl = props.getProperty("subscriptions.change.url");
 
       if (authBasicCredentials == null || authTokenUrl == null || subscriptionsAddUrl == null) {
         throw new RuntimeException("Missing required properties in config file");
@@ -60,5 +63,9 @@ public class AppConfig {
 
   public static String getSubscriptionsAddUrl() {
     return subscriptionsAddUrl;
+  }
+
+  public static String getSubscriptionsChangeUrl() {
+    return subscriptionsChangeUrl;
   }
 }

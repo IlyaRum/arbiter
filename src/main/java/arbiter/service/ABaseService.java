@@ -4,9 +4,13 @@ import arbiter.config.AppConfig;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class ABaseService {
 
@@ -24,16 +28,16 @@ public abstract class ABaseService {
     return Future.succeededFuture(result);
   }
 
-  public void handleSuccess(RoutingContext ctx, Object result) {
-    ctx.response()
-      .setStatusCode(200)
-      .putHeader("Content-Type", "application/json")
-      .end(io.vertx.core.json.JsonObject.mapFrom(result).encode());
-  }
+//  public void handleSuccess(RoutingContext ctx, int statusCode, Object result) {
+//    ctx.response()
+//      .setStatusCode(statusCode)
+//      .putHeader("Content-Type", "application/json")
+//      .end(io.vertx.core.json.JsonObject.mapFrom(result).encode());
+//  }
 
-  public void handleSuccess(RoutingContext ctx, String message) {
+  public void handleSuccess(RoutingContext ctx, int statusCode, String message) {
     ctx.response()
-      .setStatusCode(200)
+      .setStatusCode(statusCode)
       .putHeader("Content-Type", "application/json")
       .end(message);
   }
@@ -95,5 +99,18 @@ public abstract class ABaseService {
         sendError(context, 500, "Token service unavailable: " + err.getMessage());
         System.err.println("Token service unavailable: " + err.getMessage());
       });
+  }
+
+  public List<String> extractUidsFromJsonArray(JsonArray jsonArray) {
+    List<String> uids = new ArrayList<>();
+    if (jsonArray != null) {
+      for (int i = 0; i < jsonArray.size(); i++) {
+        String uid = jsonArray.getString(i);
+        if (uid != null && !uid.isEmpty()) {
+          uids.add(uid);
+        }
+      }
+    }
+    return uids;
   }
 }
