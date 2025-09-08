@@ -122,7 +122,7 @@ public abstract class ABaseService {
     return uids;
   }
 
-  static void processCloudEvent(CloudEvent cloudEvent) {
+  static void logCloudEvent(CloudEvent cloudEvent) {
     System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===");
     System.out.println("specversion: " + cloudEvent.getSpecVersion());
     System.out.println("source: " + cloudEvent.getSource());
