@@ -123,7 +123,7 @@ public abstract class ABaseService {
   }
 
   static void processCloudEvent(CloudEvent cloudEvent) {
-    System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===" + cloudEvent);
+    System.out.println("\n=== ПОЛУЧЕНО CLOUDEVENT ===");
     System.out.println("specversion: " + cloudEvent.getSpecVersion());
     System.out.println("source: " + cloudEvent.getSource());
     System.out.println("type: " + cloudEvent.getType());

@@ -32,6 +32,9 @@ public class SubscriptionController extends ABaseController {
     router.patch(AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION)
       .handler(this::getAndValidateToken)
       .handler(this::handleChangeSubscription);
+    router.delete(AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION)
+      .handler(this::getAndValidateToken)
+      .handler(this::handleDeleteSubscription);
   }
 
   private void handleCreateSubscription(RoutingContext routingContext) {
@@ -41,8 +44,12 @@ public class SubscriptionController extends ABaseController {
   private void getAndValidateToken(RoutingContext context) {
     subscriptionService.getAndValidateToken(context);
   }
+
   private void handleChangeSubscription(RoutingContext routingContext) {
     subscriptionService.handleChangeSubscription(routingContext);
   }
 
+  private void handleDeleteSubscription(RoutingContext routingContext) {
+    subscriptionService.handleDeleteSubscription(routingContext);
+  }
 }

@@ -9,6 +9,7 @@ import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 
+import javax.net.ssl.SSLHandshakeException;
 import java.util.List;
 
 public class SubscriptionService extends ABaseService {
@@ -117,9 +118,9 @@ public class SubscriptionService extends ABaseService {
           System.err.println(errorResponse.encodePrettily());
 
           ctx.response()
-                  .setStatusCode(500)
-                  .putHeader("Content-Type", "application/json")
-                  .end(errorResponse.encode());
+            .setStatusCode(500)
+            .putHeader("Content-Type", "application/json")
+            .end(errorResponse.encode());
         });
 
     } catch (Exception e) {
@@ -162,5 +163,63 @@ public class SubscriptionService extends ABaseService {
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });
+  }
+
+  public void handleDeleteSubscription(RoutingContext ctx) {
+    String channelId = ctx.pathParam("channelId");
+    String subscriptionId = ctx.pathParam("subscriptionId");
+    String token = ctx.get("authToken");
+
+    if (channelId == null || channelId.isEmpty() ||
+      subscriptionId == null || subscriptionId.isEmpty()) {
+      sendBadRequest(ctx, "Channel ID is required");
+      return;
+    }
+
+    deleteSubscription(channelId, subscriptionId, token)
+      .onSuccess(voidResult -> {
+        ctx.response()
+          .setStatusCode(204)
+          .end();
+        System.out.println("Subscription deleted successfully for channel: " + channelId);
+      })
+      .onFailure(error -> {
+        JsonObject errorResponse = new JsonObject()
+          .put("error", "Failed to delete subscription")
+          .put("message", error.getMessage());
+
+        System.err.println(errorResponse.encodePrettily());
+
+        ctx.response()
+          .setStatusCode(500)
+          .putHeader("Content-Type", "application/json")
+          .end(errorResponse.encode());
+      });
+  }
+
+  public Future<Void> deleteSubscription(String channelId, String subscriptionId, String token) {
+
+    String url = String.format(AppConfig.getSubscriptionsDeleteUrl(), channelId, subscriptionId);
+
+    return webClient.deleteAbs(url)
+      .putHeader("Content-Type", "application/json")
+      .putHeader("Authorization", "Bearer " + token)
+      .send()
+      .compose(response -> {
+        if (response.statusCode() == 204) {
+          return Future.succeededFuture();
+        } else {
+          System.err.println("responseBody DELETE statusCode: " + response.statusCode());
+          return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
+        }
+      });
+  }
+
+  private void sendBadRequest(RoutingContext ctx, String message) {
+    ctx.response()
+      .setStatusCode(400)
+      .end(new JsonObject()
+        .put("error", message)
+        .encode());
   }
 }
