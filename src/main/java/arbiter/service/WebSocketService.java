@@ -69,7 +69,7 @@ public class WebSocketService extends ABaseService {
           webSocket.textMessageHandler(handleTextMessage(context, promise, webSocket));
 
           webSocket.closeHandler(v -> {
-            System.out.println("WebSocket connection closed");
+            logAsync("WebSocket connection closed");
             if (!promise.future().isComplete()) {
               promise.tryFail("WebSocket connection closed unexpectedly");
             }
@@ -93,6 +93,17 @@ public class WebSocketService extends ABaseService {
       });
 
     return promise.future();
+  }
+
+  //для решения WARNING: Thread vert.x-eventloop-thread-1 has been blocked for 769173 ms, time limit is 2000 ms
+  private void logAsync(String message) {
+    vertx.executeBlocking(() -> {
+        System.out.println(message);
+        return null;
+      }, false)
+      .onFailure(err -> {
+        System.err.println("Logging failed: " + err.getMessage());
+      });
   }
 
   private static Handler<Throwable> closeWebSocket(Promise<JsonObject> promise, WebSocket webSocket) {
@@ -152,12 +163,12 @@ public class WebSocketService extends ABaseService {
 
   private void handleChannelOpened(CloudEvent event) {
     currentChannelId = event.getSubject();
-    System.out.println("websocket currentChannelId: " + currentChannelId);
+    logAsync("websocket currentChannelId: " + currentChannelId);
   }
 
   private void handleMeasurementData(CloudEvent event) {
     CloudEventData cloudEventData = event.getData();
-    System.out.println("Data: " + cloudEventData);
+    logAsync("Data: " + cloudEventData);
 
     assert cloudEventData != null;
     String jsonData = cloudEventData.toString();
@@ -167,7 +178,7 @@ public class WebSocketService extends ABaseService {
     JsonObject data = new JsonObject(jsonStr);
     JsonObject firstDataItem = data.getJsonArray("data").getJsonObject(0);
     double value = firstDataItem.getDouble("value");
-    System.out.println("Input value: " + value);
+    logAsync("Input value: " + value);
   }
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
