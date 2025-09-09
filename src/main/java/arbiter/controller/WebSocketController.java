@@ -17,7 +17,7 @@ public class WebSocketController extends ABaseController {
 
   @Override
   public void registerRoutes(Router router) {
-    router.get(AppConfig.CORE_PREFIX + "/channels/open")
+    router.get(AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN)
       .handler(this::getAndValidateToken)
       .handler(this::connectToWebSocket);
   }
