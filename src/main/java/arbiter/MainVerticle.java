@@ -3,6 +3,7 @@ package arbiter;
 import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.router.MainRouter;
+import data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
@@ -19,6 +20,8 @@ public class MainVerticle extends AbstractVerticle {
   public void start(Promise<Void> startPromise) {
 
     AppConfig.loadConfig();
+
+    UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
 
     dependencyInjector = new DependencyInjector(vertx);
 
@@ -41,6 +44,7 @@ public class MainVerticle extends AbstractVerticle {
         System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
         System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
         System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);
+        System.out.println("Из " + AppConfig.ARBITER_CONFIG_FILE + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
         startPromise.complete();
       })
       .onFailure(failure -> {

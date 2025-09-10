@@ -16,6 +16,7 @@ public class AppConfig {
   public static final String DELETE_SUBSCRIPTION = "/channels/:channelId/delete-subscription/:subscriptionId";
   public static final String CHANGE_SUBSCRIPTION = "/channels/:channelId/change-subscription/:subscriptionId";
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
+  public static final String ARBITER_CONFIG_FILE = "arbiter_server.json";
 
   private static String authBasicCredentials;
   private static String authTokenUrl;
