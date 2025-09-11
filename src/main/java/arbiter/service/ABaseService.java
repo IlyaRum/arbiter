@@ -2,7 +2,9 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import io.cloudevents.CloudEvent;
+import io.vertx.core.AsyncResult;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonArray;
@@ -13,6 +15,7 @@ import io.vertx.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public abstract class ABaseService {
 
@@ -61,6 +64,7 @@ public abstract class ABaseService {
       .end("{\"error\": \"" + message + "\"}");
   }
 
+  @Deprecated
   public void getAndValidateToken(RoutingContext context) {
     // Специальные настройки для обхода SSL
     HttpClientOptions options = new HttpClientOptions()
@@ -101,6 +105,50 @@ public abstract class ABaseService {
         sendError(context, 500, "Token service unavailable: " + err.getMessage());
         System.err.println("Token service unavailable: " + err.getMessage());
       });
+  }
+
+  public CompletableFuture<String> getAndValidateToken() {
+    CompletableFuture<String> future = new CompletableFuture<>();
+
+    HttpClientOptions options = new HttpClientOptions()
+      .setSsl(true)
+      .setTrustAll(true)
+      .setVerifyHost(false);
+
+    // Используем существующий или создаем новый Vertx instance
+    Vertx vertx = Vertx.vertx();
+    WebClient insecureClient = WebClient.wrap(vertx.createHttpClient(options));
+
+    insecureClient.postAbs(AppConfig.getAuthTokenUrl())
+      .putHeader("Authorization", "Basic " + AppConfig.getAuthBasicCredentials())
+      .putHeader("Content-Type", "application/json")
+      .send()
+      .onSuccess(response -> {
+        try {
+          if (response.statusCode() == 200) {
+            JsonObject tokenResponse = response.bodyAsJsonObject();
+            String token = tokenResponse.getString("access_token");
+
+            if (token != null && !token.isEmpty()) {
+              future.complete(token);
+            } else {
+              future.completeExceptionally(new RuntimeException("Token not found in response"));
+            }
+          } else {
+            future.completeExceptionally(new RuntimeException("HTTP " + response.statusCode() + ": " + response.statusMessage()));
+          }
+        } catch (Exception e) {
+          future.completeExceptionally(new RuntimeException("Failed to parse token response", e));
+        } finally {
+          vertx.close();
+        }
+      })
+      .onFailure(err -> {
+        future.completeExceptionally(new RuntimeException("Token service unavailable", err));
+        vertx.close();
+      });
+
+    return future;
   }
 
   public List<String> extractUidsFromJsonArray(JsonArray jsonArray) {

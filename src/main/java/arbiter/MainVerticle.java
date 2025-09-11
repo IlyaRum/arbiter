@@ -3,6 +3,7 @@ package arbiter;
 import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.router.MainRouter;
+import arbiter.service.WebSocketService;
 import data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
@@ -25,19 +26,37 @@ public class MainVerticle extends AbstractVerticle {
 
     dependencyInjector = new DependencyInjector(vertx);
 
-    MainRouter mainRouter = new MainRouter(
-      vertx,
-      dependencyInjector.getWebSocketController(),
-      dependencyInjector.getMonitoringController(),
-      dependencyInjector.getSubscriptionController()
-    );
+    WebSocketService webSocketService = new WebSocketService(vertx);
 
-    Router router = mainRouter.createRouter();
+    webSocketService.getAndValidateToken()
+      .thenCompose(token -> {
+        // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
+        return webSocketService.connectToWebSocketServer(token).toCompletionStage();
+      })
+      .thenAccept(result -> {
+        System.out.println("WebSocket connected successfully: " + result);
+      })
+      .exceptionally(error -> {
+        System.err.println("Failed to connect to WebSocket: " + error.getMessage());
+        return null;
+      });
 
+
+
+
+//    MainRouter mainRouter = new MainRouter(
+//      vertx,
+//      dependencyInjector.getWebSocketController(),
+//      dependencyInjector.getMonitoringController(),
+//      dependencyInjector.getSubscriptionController()
+//    );
+//
+//    Router router = mainRouter.createRouter();
+    Router router = Router.router(vertx);
     // Запускаем сервер
     httpServer  = vertx.createHttpServer();
-    httpServer.requestHandler(router)
-      .listen(AppConfig.HTTP_PORT)
+    httpServer.requestHandler(router);
+    httpServer.listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
         System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);

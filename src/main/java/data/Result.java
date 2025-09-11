@@ -20,7 +20,6 @@ public class Result {
     this.time = Instant.now();
   }
 
-  // Геттеры и сеттеры
   public boolean writable() {
     return id != null && id.length() == 36;
   }

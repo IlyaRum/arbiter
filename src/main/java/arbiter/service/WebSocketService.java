@@ -42,6 +42,7 @@ public class WebSocketService extends ABaseService {
     );
   }
 
+  @Deprecated
   public Future<JsonObject> connectToWebSocketServer(RoutingContext context) {
     String token = context.get("authToken");
 
@@ -95,6 +96,44 @@ public class WebSocketService extends ABaseService {
     return promise.future();
   }
 
+  public Future<JsonObject> connectToWebSocketServer(String token) {
+    if (token == null || token.isEmpty()) {
+      String errorMsg = "Token is required";
+      System.err.println("error: " + errorMsg);
+      return Future.failedFuture(errorMsg);
+    }
+
+    Promise<JsonObject> promise = Promise.promise();
+
+    WebSocketConnectOptions options = new WebSocketConnectOptions()
+      .setAbsoluteURI("wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open")
+      .addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL)
+      .setPort(443)
+      .addHeader("authorization", "Bearer " + token);
+
+    webSocketClient
+      .connect(options)
+      .onComplete(res -> {
+        if (res.succeeded()) {
+          WebSocket webSocket = res.result();
+          webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
+
+          webSocket.closeHandler(v -> {
+            logAsync("WebSocket connection closed");
+            if (!promise.future().isComplete()) {
+              promise.tryFail("WebSocket connection closed unexpectedly");
+            }
+          });
+
+          // Остальная логика подключения...
+        } else {
+          promise.fail(res.cause());
+        }
+      });
+
+    return promise.future();
+  }
+
   //для решения WARNING: Thread vert.x-eventloop-thread-1 has been blocked for 769173 ms, time limit is 2000 ms
   private void logAsync(String message) {
     vertx.executeBlocking(() -> {
@@ -113,6 +152,18 @@ public class WebSocketService extends ABaseService {
         promise.tryFail("WebSocket ошибка: " + error.getMessage());
       }
       webSocket.close((short) 1011, "Server error");
+    };
+  }
+
+  private Handler<String> handleTextMessage(Promise<JsonObject> promise, WebSocket webSocket) {
+    return message -> {
+      try {
+        JsonObject json = new JsonObject(message);
+        // Обработка сообщения
+        promise.tryComplete(json); // или другая логика завершения
+      } catch (Exception e) {
+        promise.tryFail(e);
+      }
     };
   }
 
@@ -151,7 +202,18 @@ public class WebSocketService extends ABaseService {
             break;
         }
 
-        handleSuccess(context, 200, message);
+
+        try {
+          //решение ошибки "Response head already sent"
+          if (!context.response().ended()) {
+            context.response()
+              .setStatusCode(200)
+              .putHeader("Content-Type", "application/json")
+              .end(message);
+          }
+        } catch (IllegalStateException e) {
+          System.out.println("Ответ уже отправлен, игнорируем повторную отправку");
+        }
 
       } catch (Exception e) {
         System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
