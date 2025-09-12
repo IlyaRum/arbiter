@@ -67,7 +67,7 @@ public class WebSocketService extends ABaseService {
       .onComplete(res -> {
         if (res.succeeded()) {
           WebSocket webSocket = res.result();
-          webSocket.textMessageHandler(handleTextMessage(context, promise, webSocket));
+          webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
 
           webSocket.closeHandler(v -> {
             logAsync("WebSocket connection closed");
@@ -84,6 +84,7 @@ public class WebSocketService extends ABaseService {
           // Обработка ошибок
           webSocket.exceptionHandler(closeWebSocket(promise, webSocket));
 
+
           //promise.complete();
         } else {
           String fullUri = buildUriFromOptions(options);
@@ -97,6 +98,8 @@ public class WebSocketService extends ABaseService {
   }
 
   public Future<JsonObject> connectToWebSocketServer(String token) {
+    System.out.println("connectToWebSocketServer: token " + token );
+
     if (token == null || token.isEmpty()) {
       String errorMsg = "Token is required";
       System.err.println("error: " + errorMsg);
@@ -123,11 +126,28 @@ public class WebSocketService extends ABaseService {
             if (!promise.future().isComplete()) {
               promise.tryFail("WebSocket connection closed unexpectedly");
             }
+            // Здесь можно добавить логику переподключения
           });
 
-          // Остальная логика подключения...
+//          webSocket.pongHandler(pong -> {
+//            pongReceived = true;
+//            System.out.println("xxx PONG xxx");
+//          });
+
+          // Обработка ошибок
+          webSocket.exceptionHandler(closeWebSocket(promise, webSocket));
+
+          // Таймаут на установление соединения и получение первого сообщения
+          vertx.setTimer(30000, timerId -> {
+            if (!promise.future().isComplete()) {
+              promise.tryFail("WebSocket connection timeout - no opening message received");
+            }
+          });
+          //promise.complete();
         } else {
-          promise.fail(res.cause());
+          String fullUri = buildUriFromOptions(options);
+          System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
         }
       });
 
@@ -155,31 +175,35 @@ public class WebSocketService extends ABaseService {
     };
   }
 
-  private Handler<String> handleTextMessage(Promise<JsonObject> promise, WebSocket webSocket) {
-    return message -> {
-      try {
-        JsonObject json = new JsonObject(message);
-        // Обработка сообщения
-        promise.tryComplete(json); // или другая логика завершения
-      } catch (Exception e) {
-        promise.tryFail(e);
-      }
-    };
+
+  private static final EventFormat JSON_FORMAT =
+    EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
+  // Конвертация CloudEvent в строку JSON
+  public static String cloudEventToString(CloudEvent event) {
+    byte[] bytes = JSON_FORMAT.serialize(event);
+    return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
   }
 
-  private Handler<String> handleTextMessage(RoutingContext context, Promise<JsonObject> promise, WebSocket webSocket) {
+  private Handler<String> handleTextMessage(Promise<JsonObject> promise, WebSocket webSocket) {
     return message -> {
 
       try {
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes());
 
-        //logCloudEvent(event);
+        logCloudEvent(event);
 
         String eventType = event.getType();
         switch (eventType) {
           case "ru.monitel.ck11.channel.opened.v2":
             handleChannelOpened(event);
+
+            // Завершаем promise только при получении сообщения об открытии
+            if (!promise.future().isComplete()) {
+              String data = cloudEventToString(event);
+              JsonObject jsonData = new JsonObject(data);
+              promise.tryComplete(jsonData);
+            }
             break;
 
           case "ru.monitel.ck11.measurement-values.data.v2":
@@ -201,20 +225,6 @@ public class WebSocketService extends ABaseService {
             }
             break;
         }
-
-
-        try {
-          //решение ошибки "Response head already sent"
-          if (!context.response().ended()) {
-            context.response()
-              .setStatusCode(200)
-              .putHeader("Content-Type", "application/json")
-              .end(message);
-          }
-        } catch (IllegalStateException e) {
-          System.out.println("Ответ уже отправлен, игнорируем повторную отправку");
-        }
-
       } catch (Exception e) {
         System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
         System.err.println("Полученное сообщение: " + message);
@@ -225,7 +235,7 @@ public class WebSocketService extends ABaseService {
 
   private void handleChannelOpened(CloudEvent event) {
     currentChannelId = event.getSubject();
-    logAsync("websocket currentChannelId: " + currentChannelId);
+    logAsync("currentChannelId: " + currentChannelId);
   }
 
   private void handleMeasurementData(CloudEvent event) {

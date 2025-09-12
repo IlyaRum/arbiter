@@ -28,6 +28,7 @@ public class SubscriptionService extends ABaseService {
     this.webClient = WebClient.wrap(vertx.createHttpClient(options));
   }
 
+  @Deprecated
   public void handleCreateSubscription(RoutingContext ctx) {
     String channelId = ctx.pathParam("channelId");
     String token = ctx.get("authToken");
@@ -38,7 +39,7 @@ public class SubscriptionService extends ABaseService {
       handleError(ctx, new IllegalArgumentException(errorMsg));
     }
 
-    createSubscription(ctx, channelId, token)
+    createSubscription(channelId, token)
       .onSuccess(response -> {
 
         ctx.response()
@@ -60,7 +61,7 @@ public class SubscriptionService extends ABaseService {
       });
   }
 
-  private Future<JsonObject> createSubscription(RoutingContext ctx, String channelId, String token) {
+  public Future<JsonObject> createSubscription(String channelId, String token) {
     String url = String.format(AppConfig.getSubscriptionsAddUrl(), channelId);
 
     System.out.println(url);
@@ -85,6 +86,7 @@ public class SubscriptionService extends ABaseService {
       });
   }
 
+  @Deprecated
   public void handleChangeSubscription(RoutingContext ctx) {
     try {
       String channelId = ctx.pathParam("channelId");

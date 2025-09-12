@@ -3,12 +3,22 @@ package arbiter;
 import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.router.MainRouter;
+import arbiter.service.SubscriptionService;
 import arbiter.service.WebSocketService;
+import data.DataFromCK11;
 import data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 //mvn exec:java
 //java -jar .\target\arbiter-1.0.0-SNAPSHOT-main.jar
@@ -23,23 +33,142 @@ public class MainVerticle extends AbstractVerticle {
     AppConfig.loadConfig();
 
     UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
-
+    DataFromCK11 dataFromCK11 = new DataFromCK11();
     dependencyInjector = new DependencyInjector(vertx);
 
     WebSocketService webSocketService = new WebSocketService(vertx);
+    SubscriptionService subscriptionService = new SubscriptionService(vertx);
 
-    webSocketService.getAndValidateToken()
-      .thenCompose(token -> {
-        // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
-        return webSocketService.connectToWebSocketServer(token).toCompletionStage();
-      })
-      .thenAccept(result -> {
-        System.out.println("WebSocket connected successfully: " + result);
-      })
-      .exceptionally(error -> {
-        System.err.println("Failed to connect to WebSocket: " + error.getMessage());
-        return null;
+    CompletableFuture<String> tokenFuture = webSocketService.getAndValidateToken();
+
+    Function<String, CompletionStage<JsonObject>> stringCompletionStageFunction = token -> {
+      // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
+      Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
+
+      jsonObjectFuture.onComplete(ar -> {
+        if (ar.succeeded()) {
+          JsonObject result = ar.result();
+
+          // Работаем с result
+          System.out.println("Получен объект jsonObjectFuture : " + result);
+        } else {
+          // Обработка ошибки
+          System.out.println("Ошибка: " + ar.cause().getMessage());
+        }
       });
+
+
+      return jsonObjectFuture.toCompletionStage();
+    };
+
+    CompletableFuture<JsonObject> resultFuture = tokenFuture
+      .thenCompose(stringCompletionStageFunction)
+      .handle((result, error) -> {
+        if (error != null) {
+          System.err.println("Failed to connect to WebSocket: " + error.getMessage());
+          throw new CompletionException(error);
+        } else {
+          System.out.println("WebSocket connected successfully: " + result);
+          return result;
+        }
+      });
+
+
+//    try {
+//      JsonObject jsonObject = resultFuture.get(); // блокирует поток
+//      System.out.println("Получен jsonObject: " + jsonObject);
+//    } catch (InterruptedException | ExecutionException e) {
+//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
+//    }
+
+    //Или Асинхронная обработка
+//    resultFuture.thenApply(jsonObject -> {
+//      System.out.println("Получен jsonObject: " + jsonObject);
+//      return jsonObject; // или выполните другие операции
+//    });
+
+    CompletableFuture<JsonObject> subscriptionFuture = resultFuture.thenCompose(jsonObject -> {
+      System.out.println("Получен jsonObject: " + jsonObject);
+
+      // Извлекаем значения из JSON
+      String channelId = jsonObject.getString("subject");
+      String token = jsonObject.getString("token");
+
+      // Вызываем метод сервиса
+      return subscriptionService.createSubscription(channelId, token).toCompletionStage().toCompletableFuture();
+    });
+
+    // Обработка результата создания подписки
+    subscriptionFuture.handle((subscriptionResult, subscriptionError) -> {
+      if (subscriptionError != null) {
+        System.err.println("Failed to create subscription: " + subscriptionError.getMessage());
+        throw new CompletionException(subscriptionError);
+      } else {
+        System.out.println("Subscription created successfully: " + subscriptionResult);
+
+        // WebSocket соединение остается открытым для приема сообщений
+        System.out.println("WebSocket connection remains open for incoming messages");
+        return subscriptionResult;
+      }
+    });
+
+//    CompletableFuture<JsonObject> jsonObjectCreateSubscription = tokenFuture
+//      .thenCompose(token -> subscriptionService.createSubscription("channelId", token).toCompletionStage())
+//      .handle((result, error) -> {
+//        if (error != null) {
+//          System.err.println("Failed createSubscription: " + error.getMessage());
+//          throw new CompletionException(error);
+//        } else {
+//          System.out.println("CreateSubscription connected successfully: " + result);
+//          return result;
+//        }
+//      });
+
+//    try {
+//      JsonObject changeSubscription = jsonObjectCreateSubscription.get(); // блокирует поток
+//      System.out.println("Получен jsonObjectCreateSubscription: " + changeSubscription);
+//    } catch (InterruptedException | ExecutionException e) {
+//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
+//    }
+
+//    jsonObjectCreateSubscription.thenApply(jsonObject -> {
+//      System.out.println("Получен jsonObjectCreateSubscription: " + jsonObject);
+//      return jsonObject; // или выполните другие операции
+//    });
+
+//    CompletableFuture<JsonObject> jsonObjectChangeSubscription = tokenFuture
+//      .thenCompose(jsonResult -> tokenFuture.thenCompose(token -> subscriptionService.changeSubscription("channelId", "subscriptionId", data.getUIDs(), null, token)
+//        .toCompletionStage()))
+//      .handle((result, error) -> {
+//        if (error != null) {
+//          System.err.println("Failed changeSubscription: " + error.getMessage());
+//          throw new CompletionException(error);
+//        } else {
+//          System.out.println("ChangeSubscription connected successfully: " + result);
+//          return result;
+//        }
+//      });
+
+//    try {
+//      JsonObject changeSubscription = jsonObjectChangeSubscription.get(); // блокирует поток
+//      System.out.println("Получен jsonObjectChangeSubscription: " + changeSubscription);
+//    } catch (InterruptedException | ExecutionException e) {
+//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
+//    }
+
+//    jsonObjectChangeSubscription.thenApply(jsonObject -> {
+//      System.out.println("Получен jsonObjectChangeSubscription: " + jsonObject);
+//      return jsonObject; // или выполните другие операции
+//    });
+//
+//    jsonObjectChangeSubscription
+//      .thenAccept(result -> {
+//        System.out.println("WebSocket connected successfully: " + result);
+//      })
+//      .exceptionally(error -> {
+//        System.err.println("Failed to connect to WebSocket: " + error.getMessage());
+//        return null;
+//      });
 
 
 
@@ -50,7 +179,7 @@ public class MainVerticle extends AbstractVerticle {
 //      dependencyInjector.getMonitoringController(),
 //      dependencyInjector.getSubscriptionController()
 //    );
-//
+
 //    Router router = mainRouter.createRouter();
     Router router = Router.router(vertx);
     // Запускаем сервер
