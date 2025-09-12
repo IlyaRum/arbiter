@@ -2,6 +2,7 @@ package arbiter.controller;
 
 import arbiter.config.AppConfig;
 import arbiter.service.SubscriptionService;
+import arbiter.service.TokenService;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -10,10 +11,12 @@ import io.vertx.ext.web.handler.BodyHandler;
 public class SubscriptionController extends ABaseController {
 
   SubscriptionService subscriptionService;
+  TokenService tokenService;
 
-  public SubscriptionController(Vertx vertx, SubscriptionService subscriptionService) {
+  public SubscriptionController(Vertx vertx, SubscriptionService subscriptionService, TokenService tokenService) {
     super(vertx);
     this.subscriptionService = subscriptionService;
+    this.tokenService = tokenService;
   }
 
   @Override
@@ -42,7 +45,7 @@ public class SubscriptionController extends ABaseController {
   }
 
   private void getAndValidateToken(RoutingContext context) {
-    subscriptionService.getAndValidateToken(context);
+    tokenService.getTokenForContext(context);
   }
 
   private void handleChangeSubscription(RoutingContext routingContext) {

@@ -3,8 +3,6 @@ package arbiter;
 import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.router.MainRouter;
-import arbiter.service.SubscriptionService;
-import arbiter.service.WebSocketService;
 import data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -36,10 +34,7 @@ public class MainVerticle extends AbstractVerticle {
     UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
     dependencyInjector = new DependencyInjector(vertx);
 
-    WebSocketService webSocketService = new WebSocketService(vertx);
-    SubscriptionService subscriptionService = new SubscriptionService(vertx);
-
-    CompletableFuture<String> tokenFuture = webSocketService.getAndValidateToken();
+    CompletableFuture<String> tokenFuture = dependencyInjector.getTokenService().getTokenAsync();
 
     // Сохраняем token в переменную, доступную для обоих thenCompose
     CompletableFuture<String> tokenHolder = tokenFuture
@@ -50,7 +45,8 @@ public class MainVerticle extends AbstractVerticle {
 
     CompletableFuture<JsonObject> openChannelFuture = tokenFuture
       .thenCompose(token -> {
-        Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
+        Future<JsonObject> jsonObjectFuture = dependencyInjector.getWebSocketService()
+          .connectToWebSocketServer(token);
 
         jsonObjectFuture.onComplete(ar -> {
           if (ar.succeeded()) {
@@ -85,7 +81,7 @@ public class MainVerticle extends AbstractVerticle {
 
     CompletableFuture<JsonObject> createSubscription = channelIdFuture
       .thenCompose(channelId ->
-        tokenHolder.thenCompose(token -> subscriptionService.createSubscription(channelId, token)
+        tokenHolder.thenCompose(token -> dependencyInjector.getSubscriptionService().createSubscription(channelId, token)
           .toCompletionStage()
           .toCompletableFuture())
       );
@@ -113,7 +109,7 @@ public class MainVerticle extends AbstractVerticle {
             logger.info("subscriptionId: " + subscriptionId);
 
             return channelIdFuture.thenCompose(channelId ->
-              subscriptionService
+              dependencyInjector.getSubscriptionService()
                 .changeSubscription(channelId, subscriptionId, data.getUIDs(), null, token)
                 .toCompletionStage()
                 .toCompletableFuture());
@@ -135,21 +131,19 @@ public class MainVerticle extends AbstractVerticle {
 
     MainRouter mainRouter = new MainRouter(
       vertx,
-      //dependencyInjector.getWebSocketController(),
+      dependencyInjector.getWebSocketController(),
       dependencyInjector.getMonitoringController(),
       dependencyInjector.getSubscriptionController()
     );
 
     Router router = mainRouter.createRouter();
-//    Router router = Router.router(vertx);
-    // Запускаем сервер
     httpServer  = vertx.createHttpServer();
     httpServer.requestHandler(router);
     httpServer.listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
         logger.info("HTTP server started on port " + AppConfig.HTTP_PORT);
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
-        //System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
+        System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
         System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
         System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
         System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);

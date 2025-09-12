@@ -1,19 +1,22 @@
 package arbiter.di;
 
+import arbiter.config.AppConfig;
 import arbiter.controller.MonitoringController;
 import arbiter.controller.SubscriptionController;
-//import arbiter.controller.WebSocketController;
+import arbiter.controller.WebSocketController;
 import arbiter.service.SubscriptionService;
+import arbiter.service.TokenService;
 import arbiter.service.WebSocketService;
 import io.vertx.core.Vertx;
 
 public class DependencyInjector {
   private final Vertx vertx;
   private MonitoringController monitoringController;
-  //private WebSocketController webSocketController;
+  private WebSocketController webSocketController;
   private WebSocketService webSocketService;
   private SubscriptionController subscriptionController;
   private SubscriptionService subscriptionService;
+  private TokenService tokenService;
 
 
   public DependencyInjector(Vertx vertx) {
@@ -25,12 +28,13 @@ public class DependencyInjector {
   private void initializeServices() {
     webSocketService = new WebSocketService(vertx);
     subscriptionService = new SubscriptionService(vertx);
+    tokenService = new TokenService(vertx, AppConfig.getAuthTokenUrl(), AppConfig.getAuthBasicCredentials());
   }
 
   private void initializeControllers() {
     monitoringController = new MonitoringController(vertx);
-    //webSocketController = new WebSocketController(vertx, webSocketService);
-    subscriptionController = new SubscriptionController(vertx, subscriptionService);
+    webSocketController = new WebSocketController(vertx, webSocketService, tokenService);
+    subscriptionController = new SubscriptionController(vertx, subscriptionService, tokenService);
 
   }
 
@@ -40,7 +44,15 @@ public class DependencyInjector {
 
   public WebSocketService getWebSocketService() { return webSocketService; }
 
-  //public WebSocketController getWebSocketController() { return webSocketController; }
+  public WebSocketController getWebSocketController() { return webSocketController; }
 
   public SubscriptionController getSubscriptionController() { return subscriptionController; }
+
+  public TokenService getTokenService() {
+    return tokenService;
+  }
+
+  public SubscriptionService getSubscriptionService() {
+    return subscriptionService;
+  }
 }
