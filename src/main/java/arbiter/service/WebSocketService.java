@@ -1,5 +1,6 @@
 package arbiter.service;
 
+import arbiter.MainVerticle;
 import arbiter.config.AppConfig;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
@@ -14,6 +15,8 @@ import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.internal.logging.Logger;
+import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -31,7 +34,7 @@ public class WebSocketService extends ABaseService {
   private Instant dataReceived;
 
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
-
+  private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
   public WebSocketService(Vertx vertx) {
     super(vertx);

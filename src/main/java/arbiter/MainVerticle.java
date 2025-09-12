@@ -10,6 +10,8 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.internal.logging.Logger;
+import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
 
@@ -23,6 +25,8 @@ public class MainVerticle extends AbstractVerticle {
   private HttpServer httpServer;
   private DependencyInjector dependencyInjector;
 
+  private static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
+
   private static String apply(JsonObject jsonObject) {
     String channelId = jsonObject.getString("subject");
     System.out.println("Получен jsonObject для канала: " + jsonObject);
@@ -31,7 +35,7 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void start(Promise<Void> startPromise) {
-
+    logger.info("Starting Vert.x application...");
     AppConfig.loadConfig();
 
     UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
@@ -43,7 +47,11 @@ public class MainVerticle extends AbstractVerticle {
     CompletableFuture<String> tokenFuture = webSocketService.getAndValidateToken();
 
     // Сохраняем token в переменную, доступную для обоих thenCompose
-    CompletableFuture<String> tokenHolder = tokenFuture.thenApply(token -> token);
+    CompletableFuture<String> tokenHolder = tokenFuture
+      .thenApply(token -> {
+        logger.info("token: " + token);
+        return token;
+      });
 
     CompletableFuture<JsonObject> openChannelFuture = tokenFuture
       .thenCompose(token -> {
@@ -76,6 +84,7 @@ public class MainVerticle extends AbstractVerticle {
       .thenApply(jsonObject -> {
         String channelId = jsonObject.getString("subject");
         System.out.println("Получен jsonObject для канала: " + jsonObject);
+        logger.info("channelId: " + channelId);
         return channelId;
       });
 
@@ -106,6 +115,7 @@ public class MainVerticle extends AbstractVerticle {
             System.out.println("Получен jsonObject для createSubscription: " + jsonObject);
             JsonObject valueObject = jsonObject.getJsonObject("value");
             String subscriptionId = valueObject.getString("subscriptionId");
+            logger.info("subscriptionId: " + subscriptionId);
 
             return channelIdFuture.thenCompose(channelId ->
               subscriptionService
@@ -142,6 +152,7 @@ public class MainVerticle extends AbstractVerticle {
     httpServer.requestHandler(router);
     httpServer.listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
+        logger.info("HTTP server started on port " + AppConfig.HTTP_PORT);
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
         //System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
         //System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
@@ -151,7 +162,7 @@ public class MainVerticle extends AbstractVerticle {
         startPromise.complete();
       })
       .onFailure(failure -> {
-        System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
+        logger.error("HTTP server started on port " + AppConfig.HTTP_PORT);
         startPromise.fail(failure);
         });
   }

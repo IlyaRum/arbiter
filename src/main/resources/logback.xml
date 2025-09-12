@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <!-- Имя файла лога -->
+  <property name="LOG_FILE" value="logs/arbiter-api.log"/>
+
+  <!-- Паттерн вывода -->
+  <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+  <!-- Аппендер для консоли -->
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Аппендер для файла -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_FILE}</file>
+    <encoder>
+      <pattern>${LOG_PATTERN}</pattern>
+    </encoder>
+    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+      <!-- Ежедневная ротация логов -->
+      <fileNamePattern>logs/vertx-app.%d{yyyy-MM-dd}.log</fileNamePattern>
+      <!-- Хранение логов за 30 дней -->
+      <maxHistory>30</maxHistory>
+    </rollingPolicy>
+  </appender>
+
+  <!-- Уровень логирования DEBUG/INFO/ERROR-->
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+    <appender-ref ref="FILE"/>
+  </root>
+
+  <!-- Дополнительные настройки для Vert.x -->
+  <logger name="io.vertx" level="INFO"/>
+</configuration>

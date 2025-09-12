@@ -75,6 +75,12 @@
       <artifactId>cloudevents-json-jackson</artifactId>
       <version>${cloudEvents.version}</version>
     </dependency>
+    <!-- Logback (реализация SLF4J) -->
+    <dependency>
+      <groupId>ch.qos.logback</groupId>
+      <artifactId>logback-classic</artifactId>
+      <version>1.4.11</version>
+    </dependency>
 
     <dependency>
       <groupId>io.vertx</groupId>
