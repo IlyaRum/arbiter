@@ -14,6 +14,7 @@ import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketClientOptions;
 import io.vertx.core.http.WebSocketConnectOptions;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
@@ -158,6 +159,7 @@ public class WebSocketService extends ABaseService {
   private void logAsync(String message) {
     vertx.executeBlocking(() -> {
         System.out.println(message);
+        System.out.println("----");
         return null;
       }, false)
       .onFailure(err -> {
@@ -191,7 +193,7 @@ public class WebSocketService extends ABaseService {
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes());
 
-        logCloudEvent(event);
+        //logCloudEvent(event);
 
         String eventType = event.getType();
         switch (eventType) {
@@ -240,17 +242,30 @@ public class WebSocketService extends ABaseService {
 
   private void handleMeasurementData(CloudEvent event) {
     CloudEventData cloudEventData = event.getData();
-    logAsync("Data: " + cloudEventData);
+    //logAsync("Data: " + cloudEventData);
 
     assert cloudEventData != null;
     String jsonData = cloudEventData.toString();
     String jsonStr = jsonData
       .replace("JsonCloudEventData{node=", "")
       .replace("}}", "}");
+
     JsonObject data = new JsonObject(jsonStr);
-    JsonObject firstDataItem = data.getJsonArray("data").getJsonObject(0);
-    double value = firstDataItem.getDouble("value");
-    logAsync("Input value: " + value);
+    JsonArray dataArray = data.getJsonArray("data");
+
+    StringBuilder result = new StringBuilder();
+    for (int i = 0; i < dataArray.size(); i++) {
+      JsonObject item = dataArray.getJsonObject(i);
+      String uid = item.getString("uid");
+      double value = item.getDouble("value");
+
+      if (i > 0) {
+        result.append("; ");
+      }
+      result.append(String.format("%s = %f", uid, value));
+    }
+
+    logAsync("Result: " + result);
   }
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
