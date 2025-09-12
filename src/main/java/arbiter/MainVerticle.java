@@ -73,20 +73,23 @@ public class MainVerticle extends AbstractVerticle {
       });
 
 
-    CompletableFuture<JsonObject> subscriptionFuture = resultFuture
-      .thenCompose(jsonObject ->
-        tokenHolder.thenCompose(token -> {
-          System.out.println("Получен jsonObject для канала: " + jsonObject);
-          String channelId = jsonObject.getString("subject");
+    CompletableFuture<String> channelIdFuture = resultFuture
+      .thenApply(jsonObject -> {
+        String channelId = jsonObject.getString("subject");
+        System.out.println("Получен jsonObject для канала: " + jsonObject);
+        return channelId;
+      });
 
-          return subscriptionService.createSubscription(channelId, token)
-            .toCompletionStage()
-            .toCompletableFuture();
-        })
+
+    CompletableFuture<JsonObject> createSubscription = channelIdFuture
+      .thenCompose(channelId ->
+        tokenHolder.thenCompose(token -> subscriptionService.createSubscription(channelId, token)
+          .toCompletionStage()
+          .toCompletableFuture())
       );
 
     // Обработка результата создания подписки
-    subscriptionFuture.handle((subscriptionResult, subscriptionError) -> {
+    createSubscription.handle((subscriptionResult, subscriptionError) -> {
       if (subscriptionError != null) {
         System.err.println("Failed to create subscription: " + subscriptionError.getMessage());
         throw new CompletionException(subscriptionError);
@@ -99,18 +102,21 @@ public class MainVerticle extends AbstractVerticle {
       }
     });
 
-    CompletableFuture<JsonObject> changeSubscription = subscriptionFuture
+
+    CompletableFuture<JsonObject> changeSubscription = createSubscription
       .thenCompose(jsonObject ->
         tokenHolder.thenCompose(token -> {
-            System.out.println("Получен jsonObject для subscriptionFuture: " + jsonObject);
-            String channelId = jsonObject.getString("subject");
-          JsonObject valueObject = jsonObject.getJsonObject("value");
-          String subscriptionId = valueObject.getString("subscriptionId");
+            System.out.println("Получен jsonObject для createSubscription: " + jsonObject);
+            JsonObject valueObject = jsonObject.getJsonObject("value");
+            String subscriptionId = valueObject.getString("subscriptionId");
 
-            return subscriptionService.changeSubscription(channelId, subscriptionId, data.getUIDs(), null, token)
-              .toCompletionStage().toCompletableFuture();
+            return channelIdFuture.thenCompose(channelId ->
+              subscriptionService
+                .changeSubscription(channelId, subscriptionId, data.getUIDs(), null, token)
+                .toCompletionStage()
+                .toCompletableFuture());
           }
-      ));
+        ));
 
     changeSubscription.handle((result, error) -> {
         if (error != null) {
