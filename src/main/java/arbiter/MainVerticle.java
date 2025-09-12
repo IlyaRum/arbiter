@@ -5,7 +5,6 @@ import arbiter.di.DependencyInjector;
 import arbiter.router.MainRouter;
 import arbiter.service.SubscriptionService;
 import arbiter.service.WebSocketService;
-import data.DataFromCK11;
 import data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -16,9 +15,6 @@ import io.vertx.ext.web.Router;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
 
 //mvn exec:java
 //java -jar .\target\arbiter-1.0.0-SNAPSHOT-main.jar
@@ -27,13 +23,18 @@ public class MainVerticle extends AbstractVerticle {
   private HttpServer httpServer;
   private DependencyInjector dependencyInjector;
 
+  private static String apply(JsonObject jsonObject) {
+    String channelId = jsonObject.getString("subject");
+    System.out.println("Получен jsonObject для канала: " + jsonObject);
+    return channelId;
+  }
+
   @Override
   public void start(Promise<Void> startPromise) {
 
     AppConfig.loadConfig();
 
     UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
-    DataFromCK11 dataFromCK11 = new DataFromCK11();
     dependencyInjector = new DependencyInjector(vertx);
 
     WebSocketService webSocketService = new WebSocketService(vertx);
@@ -44,9 +45,8 @@ public class MainVerticle extends AbstractVerticle {
     // Сохраняем token в переменную, доступную для обоих thenCompose
     CompletableFuture<String> tokenHolder = tokenFuture.thenApply(token -> token);
 
-    CompletableFuture<JsonObject> resultFuture = tokenFuture
+    CompletableFuture<JsonObject> openChannelFuture = tokenFuture
       .thenCompose(token -> {
-        // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
         Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
 
         jsonObjectFuture.onComplete(ar -> {
@@ -72,14 +72,12 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
 
-
-    CompletableFuture<String> channelIdFuture = resultFuture
+    CompletableFuture<String> channelIdFuture = openChannelFuture
       .thenApply(jsonObject -> {
         String channelId = jsonObject.getString("subject");
         System.out.println("Получен jsonObject для канала: " + jsonObject);
         return channelId;
       });
-
 
     CompletableFuture<JsonObject> createSubscription = channelIdFuture
       .thenCompose(channelId ->
@@ -101,7 +99,6 @@ public class MainVerticle extends AbstractVerticle {
         return subscriptionResult;
       }
     });
-
 
     CompletableFuture<JsonObject> changeSubscription = createSubscription
       .thenCompose(jsonObject ->
@@ -131,48 +128,24 @@ public class MainVerticle extends AbstractVerticle {
         }
       });
 
-//    try {
-//      JsonObject changeSubscription = changeSubscription.get(); // блокирует поток
-//      System.out.println("Получен changeSubscription: " + changeSubscription);
-//    } catch (InterruptedException | ExecutionException e) {
-//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
-//    }
+    MainRouter mainRouter = new MainRouter(
+      vertx,
+      //dependencyInjector.getWebSocketController(),
+      dependencyInjector.getMonitoringController(),
+      dependencyInjector.getSubscriptionController()
+    );
 
-//    changeSubscription.thenApply(jsonObject -> {
-//      System.out.println("Получен changeSubscription: " + jsonObject);
-//      return jsonObject; // или выполните другие операции
-//    });
-//
-//    changeSubscription
-//      .thenAccept(result -> {
-//        System.out.println("WebSocket connected successfully: " + result);
-//      })
-//      .exceptionally(error -> {
-//        System.err.println("Failed to connect to WebSocket: " + error.getMessage());
-//        return null;
-//      });
-
-
-
-
-//    MainRouter mainRouter = new MainRouter(
-//      vertx,
-//      dependencyInjector.getWebSocketController(),
-//      dependencyInjector.getMonitoringController(),
-//      dependencyInjector.getSubscriptionController()
-//    );
-
-//    Router router = mainRouter.createRouter();
-    Router router = Router.router(vertx);
+    Router router = mainRouter.createRouter();
+//    Router router = Router.router(vertx);
     // Запускаем сервер
     httpServer  = vertx.createHttpServer();
     httpServer.requestHandler(router);
     httpServer.listen(AppConfig.HTTP_PORT)
       .onSuccess(server -> {
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
-        System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
-        System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
-        System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
+        //System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
+        //System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
+        //System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
         System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);
         System.out.println("Из " + AppConfig.ARBITER_CONFIG_FILE + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
         startPromise.complete();

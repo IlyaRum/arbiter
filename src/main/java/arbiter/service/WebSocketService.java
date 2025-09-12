@@ -30,6 +30,8 @@ public class WebSocketService extends ABaseService {
   private boolean pongReceived = false;
   private Instant dataReceived;
 
+  private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
+
 
   public WebSocketService(Vertx vertx) {
     super(vertx);
@@ -177,18 +179,8 @@ public class WebSocketService extends ABaseService {
     };
   }
 
-
-  private static final EventFormat JSON_FORMAT =
-    EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
-  // Конвертация CloudEvent в строку JSON
-  public static String cloudEventToString(CloudEvent event) {
-    byte[] bytes = JSON_FORMAT.serialize(event);
-    return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-  }
-
   private Handler<String> handleTextMessage(Promise<JsonObject> promise, WebSocket webSocket) {
     return message -> {
-
       try {
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes());
@@ -280,6 +272,12 @@ public class WebSocketService extends ABaseService {
     } else {
       return protocol + "://" + host + ":" + port + path;
     }
+  }
+
+  // Конвертация CloudEvent в строку JSON
+  public static String cloudEventToString(CloudEvent event) {
+    byte[] bytes = JSON_FORMAT.serialize(event);
+    return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
   }
 
 }
