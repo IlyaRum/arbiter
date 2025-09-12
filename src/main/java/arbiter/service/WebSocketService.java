@@ -1,6 +1,5 @@
 package arbiter.service;
 
-import arbiter.MainVerticle;
 import arbiter.config.AppConfig;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
@@ -48,67 +47,15 @@ public class WebSocketService extends ABaseService {
     );
   }
 
-  @Deprecated
-  public Future<JsonObject> connectToWebSocketServer(RoutingContext context) {
-    String token = context.get("authToken");
-
-    if (token == null) {
-      String errorMsg = "Token is required";
-      logger.error("error: " + errorMsg);
-      handleError(context, new IllegalArgumentException(errorMsg));
-      return Future.failedFuture(errorMsg);
-    }
-
-
-    Promise<JsonObject> promise = Promise.promise();
-
-    WebSocketConnectOptions options = new WebSocketConnectOptions()
-      .setAbsoluteURI("wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open")
-      .addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL)
-      .setPort(443)
-      .addHeader("authorization", "Bearer " + token);
-
-    webSocketClient
-      .connect(options)
-      .onComplete(res -> {
-        if (res.succeeded()) {
-          WebSocket webSocket = res.result();
-          webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
-
-          webSocket.closeHandler(v -> {
-            logAsync("WebSocket connection closed");
-            if (!promise.future().isComplete()) {
-              promise.tryFail("WebSocket connection closed unexpectedly");
-            }
-          });
-
-//          webSocket.pongHandler(pong -> {
-//            pongReceived = true;
-//            System.out.println("xxx PONG xxx");
-//          });
-
-          // Обработка ошибок
-          webSocket.exceptionHandler(closeWebSocket(promise, webSocket));
-
-
-          //promise.complete();
-        } else {
-          String fullUri = buildUriFromOptions(options);
-          logger.error("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
-          handleError(context, new IllegalArgumentException("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage()));
-          promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
-        }
-      });
-
-    return promise.future();
-  }
-
-  public Future<JsonObject> connectToWebSocketServer(String token) {
+  private Future<JsonObject> connectToWebSocketServer(String token, RoutingContext context) {
     System.out.println("connectToWebSocketServer: token " + token );
 
     if (token == null || token.isEmpty()) {
       String errorMsg = "Token is required";
       logger.error("error: " + errorMsg);
+      if (context != null) {
+        handleError(context, new IllegalArgumentException(errorMsg));
+      }
       return Future.failedFuture(errorMsg);
     }
 
@@ -152,12 +99,25 @@ public class WebSocketService extends ABaseService {
           //promise.complete();
         } else {
           String fullUri = buildUriFromOptions(options);
-          logger.error("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          String errorMsg = "Ошибка подключения к " + fullUri + ": " + res.cause().getMessage();
+          logger.error(errorMsg);
+          if (context != null) {
+            handleError(context, new IllegalArgumentException(errorMsg));
+          }
           promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
         }
       });
 
     return promise.future();
+  }
+
+  public void connectToWebSocketServer(RoutingContext context) {
+    String token = context.get("authToken");
+    connectToWebSocketServer(token, context);
+  }
+
+  public Future<JsonObject> connectToWebSocketServer(String token) {
+    return connectToWebSocketServer(token, null);
   }
 
   //для решения WARNING: Thread vert.x-eventloop-thread-1 has been blocked for 769173 ms, time limit is 2000 ms
