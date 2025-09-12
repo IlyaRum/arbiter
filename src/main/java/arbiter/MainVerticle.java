@@ -73,29 +73,17 @@ public class MainVerticle extends AbstractVerticle {
       });
 
 
-//    try {
-//      JsonObject jsonObject = resultFuture.get(); // блокирует поток
-//      System.out.println("Получен jsonObject: " + jsonObject);
-//    } catch (InterruptedException | ExecutionException e) {
-//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
-//    }
+    CompletableFuture<JsonObject> subscriptionFuture = resultFuture
+      .thenCompose(jsonObject ->
+        tokenHolder.thenCompose(token -> {
+          System.out.println("Получен jsonObject для канала: " + jsonObject);
+          String channelId = jsonObject.getString("subject");
 
-    //Или Асинхронная обработка
-//    resultFuture.thenApply(jsonObject -> {
-//      System.out.println("Получен jsonObject: " + jsonObject);
-//      return jsonObject; // или выполните другие операции
-//    });
-
-    CompletableFuture<JsonObject> subscriptionFuture = resultFuture.thenCompose(jsonObject ->
-      tokenHolder.thenCompose(token -> {
-        System.out.println("Получен jsonObject: " + jsonObject);
-        String channelId = jsonObject.getString("subject");
-
-        return subscriptionService.createSubscription(channelId, token)
-          .toCompletionStage()
-          .toCompletableFuture();
-      })
-    );
+          return subscriptionService.createSubscription(channelId, token)
+            .toCompletionStage()
+            .toCompletableFuture();
+        })
+      );
 
     // Обработка результата создания подписки
     subscriptionFuture.handle((subscriptionResult, subscriptionError) -> {
@@ -111,56 +99,45 @@ public class MainVerticle extends AbstractVerticle {
       }
     });
 
-//    CompletableFuture<JsonObject> jsonObjectCreateSubscription = tokenFuture
-//      .thenCompose(token -> subscriptionService.createSubscription("channelId", token).toCompletionStage())
-//      .handle((result, error) -> {
-//        if (error != null) {
-//          System.err.println("Failed createSubscription: " + error.getMessage());
-//          throw new CompletionException(error);
-//        } else {
-//          System.out.println("CreateSubscription connected successfully: " + result);
-//          return result;
-//        }
-//      });
+    CompletableFuture<JsonObject> changeSubscription = subscriptionFuture
+      .thenCompose(jsonObject ->
+        tokenHolder.thenCompose(token -> {
+            System.out.println("Получен jsonObject для subscriptionFuture: " + jsonObject);
+            String channelId = jsonObject.getString("subject");
+          JsonObject valueObject = jsonObject.getJsonObject("value");
+          String subscriptionId = valueObject.getString("subscriptionId");
+
+            return subscriptionService.changeSubscription(channelId, subscriptionId, data.getUIDs(), null, token)
+              .toCompletionStage().toCompletableFuture();
+          }
+      ));
+
+    changeSubscription.handle((result, error) -> {
+        if (error != null) {
+          System.err.println("Failed to create changeSubscription: " + error.getMessage());
+          throw new CompletionException(error);
+        } else {
+          System.out.println("ChangeSubscription connected successfully: " + result);
+
+          // WebSocket соединение остается открытым для приема сообщений
+          System.out.println("WebSocket connection remains open for incoming messages");
+          return result;
+        }
+      });
 
 //    try {
-//      JsonObject changeSubscription = jsonObjectCreateSubscription.get(); // блокирует поток
-//      System.out.println("Получен jsonObjectCreateSubscription: " + changeSubscription);
+//      JsonObject changeSubscription = changeSubscription.get(); // блокирует поток
+//      System.out.println("Получен changeSubscription: " + changeSubscription);
 //    } catch (InterruptedException | ExecutionException e) {
 //      System.err.println("Ошибка при получении JSON: " + e.getMessage());
 //    }
 
-//    jsonObjectCreateSubscription.thenApply(jsonObject -> {
-//      System.out.println("Получен jsonObjectCreateSubscription: " + jsonObject);
-//      return jsonObject; // или выполните другие операции
-//    });
-
-//    CompletableFuture<JsonObject> jsonObjectChangeSubscription = tokenFuture
-//      .thenCompose(jsonResult -> tokenFuture.thenCompose(token -> subscriptionService.changeSubscription("channelId", "subscriptionId", data.getUIDs(), null, token)
-//        .toCompletionStage()))
-//      .handle((result, error) -> {
-//        if (error != null) {
-//          System.err.println("Failed changeSubscription: " + error.getMessage());
-//          throw new CompletionException(error);
-//        } else {
-//          System.out.println("ChangeSubscription connected successfully: " + result);
-//          return result;
-//        }
-//      });
-
-//    try {
-//      JsonObject changeSubscription = jsonObjectChangeSubscription.get(); // блокирует поток
-//      System.out.println("Получен jsonObjectChangeSubscription: " + changeSubscription);
-//    } catch (InterruptedException | ExecutionException e) {
-//      System.err.println("Ошибка при получении JSON: " + e.getMessage());
-//    }
-
-//    jsonObjectChangeSubscription.thenApply(jsonObject -> {
-//      System.out.println("Получен jsonObjectChangeSubscription: " + jsonObject);
+//    changeSubscription.thenApply(jsonObject -> {
+//      System.out.println("Получен changeSubscription: " + jsonObject);
 //      return jsonObject; // или выполните другие операции
 //    });
 //
-//    jsonObjectChangeSubscription
+//    changeSubscription
 //      .thenAccept(result -> {
 //        System.out.println("WebSocket connected successfully: " + result);
 //      })
