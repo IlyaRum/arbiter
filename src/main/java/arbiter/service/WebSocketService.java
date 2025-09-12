@@ -54,7 +54,7 @@ public class WebSocketService extends ABaseService {
 
     if (token == null) {
       String errorMsg = "Token is required";
-      System.err.println("error: " + errorMsg);
+      logger.error("error: " + errorMsg);
       handleError(context, new IllegalArgumentException(errorMsg));
       return Future.failedFuture(errorMsg);
     }
@@ -94,7 +94,7 @@ public class WebSocketService extends ABaseService {
           //promise.complete();
         } else {
           String fullUri = buildUriFromOptions(options);
-          System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          logger.error("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
           handleError(context, new IllegalArgumentException("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage()));
           promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
         }
@@ -108,7 +108,7 @@ public class WebSocketService extends ABaseService {
 
     if (token == null || token.isEmpty()) {
       String errorMsg = "Token is required";
-      System.err.println("error: " + errorMsg);
+      logger.error("error: " + errorMsg);
       return Future.failedFuture(errorMsg);
     }
 
@@ -128,7 +128,7 @@ public class WebSocketService extends ABaseService {
           webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
 
           webSocket.closeHandler(v -> {
-            logAsync("WebSocket connection closed");
+            logger.info("WebSocket connection closed");
             if (!promise.future().isComplete()) {
               promise.tryFail("WebSocket connection closed unexpectedly");
             }
@@ -152,7 +152,7 @@ public class WebSocketService extends ABaseService {
           //promise.complete();
         } else {
           String fullUri = buildUriFromOptions(options);
-          System.err.println("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
+          logger.error("Ошибка подключения к " + fullUri + ": " + res.cause().getMessage());
           promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
         }
       });
@@ -174,7 +174,7 @@ public class WebSocketService extends ABaseService {
 
   private static Handler<Throwable> closeWebSocket(Promise<JsonObject> promise, WebSocket webSocket) {
     return error -> {
-      System.err.println("WebSocket ошибка: " + error.getMessage());
+      logger.error("WebSocket ошибка: " + error.getMessage());
       if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket ошибка: " + error.getMessage());
       }
@@ -208,11 +208,11 @@ public class WebSocketService extends ABaseService {
             break;
 
           case "ru.monitel.ck11.events.stream-started.v2":
-            System.out.println("подписка на события стартовала");
+            logger.info("подписка на события стартовала");
             break;
 
           case "ru.monitel.ck11.events.stream-broken.v2":
-            System.out.println("подписка на события остановлена");
+            logger.info("подписка на события остановлена");
             closeWebSocket(promise, webSocket);
             break;
 
@@ -223,8 +223,8 @@ public class WebSocketService extends ABaseService {
             break;
         }
       } catch (Exception e) {
-        System.err.println("Ошибка парсинга CloudEvent: " + e.getMessage());
-        System.err.println("Полученное сообщение: " + message);
+        logger.error("Ошибка парсинга CloudEvent: " + e.getMessage());
+        logger.info("Полученное сообщение: " + message);
         promise.tryFail(e);
       }
     };

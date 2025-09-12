@@ -3,18 +3,21 @@ package arbiter.service;
 import arbiter.config.AppConfig;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
+import io.vertx.core.internal.logging.Logger;
+import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 
-import javax.net.ssl.SSLHandshakeException;
 import java.util.List;
 
 public class SubscriptionService extends ABaseService {
 
   private final WebClient webClient;
+  private static final Logger logger = LoggerFactory.getLogger(SubscriptionService.class);
+
 
   public SubscriptionService(Vertx vertx) {
     super(vertx);
@@ -28,14 +31,13 @@ public class SubscriptionService extends ABaseService {
     this.webClient = WebClient.wrap(vertx.createHttpClient(options));
   }
 
-  @Deprecated
   public void handleCreateSubscription(RoutingContext ctx) {
     String channelId = ctx.pathParam("channelId");
     String token = ctx.get("authToken");
 
     if (token == null) {
       String errorMsg = "Token is required";
-      System.err.println("error: " + errorMsg);
+      logger.error("error: " + errorMsg);
       handleError(ctx, new IllegalArgumentException(errorMsg));
     }
 
@@ -52,7 +54,7 @@ public class SubscriptionService extends ABaseService {
           .put("error", "Failed to add subscription")
           .put("message", error.getMessage());
 
-        System.err.println(errorResponse.encodePrettily());
+        logger.error(errorResponse.encodePrettily());
 
         ctx.response()
           .setStatusCode(500)
@@ -64,7 +66,7 @@ public class SubscriptionService extends ABaseService {
   public Future<JsonObject> createSubscription(String channelId, String token) {
     String url = String.format(AppConfig.getSubscriptionsAddUrl(), channelId);
 
-    System.out.println(url);
+    logger.debug(url);
 
     JsonObject json = new JsonObject()
       .put("subscriptionType", "actual")
@@ -80,13 +82,11 @@ public class SubscriptionService extends ABaseService {
           System.out.println(responseBody.encodePrettily());
           return Future.succeededFuture(responseBody);
         } else {
-          //sendError(ctx, response.statusCode(), "Add subscriptions to " + url + " failed");
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });
   }
 
-  @Deprecated
   public void handleChangeSubscription(RoutingContext ctx) {
     try {
       String channelId = ctx.pathParam("channelId");
@@ -134,6 +134,8 @@ public class SubscriptionService extends ABaseService {
 
     String url = String.format(AppConfig.getSubscriptionsChangeUrl(), channelId, subscriptionId);
 
+    logger.debug(url);
+
     JsonObject requestBody = new JsonObject();
     JsonArray addArray = new JsonArray();
     JsonArray removeArray = new JsonArray();
@@ -161,7 +163,7 @@ public class SubscriptionService extends ABaseService {
         if (response.statusCode() == 204) {
           return Future.succeededFuture(new JsonObject());
         } else {
-          System.err.println("responseBody PATCH statusCode: " + response.statusCode());
+          logger.error("responseBody PATCH statusCode: " + response.statusCode());
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });
@@ -190,7 +192,7 @@ public class SubscriptionService extends ABaseService {
           .put("error", "Failed to delete subscription")
           .put("message", error.getMessage());
 
-        System.err.println(errorResponse.encodePrettily());
+        logger.error(errorResponse.encodePrettily());
 
         ctx.response()
           .setStatusCode(500)
@@ -203,6 +205,8 @@ public class SubscriptionService extends ABaseService {
 
     String url = String.format(AppConfig.getSubscriptionsDeleteUrl(), channelId, subscriptionId);
 
+    logger.debug(url);
+
     return webClient.deleteAbs(url)
       .putHeader("Content-Type", "application/json")
       .putHeader("Authorization", "Bearer " + token)
@@ -211,7 +215,7 @@ public class SubscriptionService extends ABaseService {
         if (response.statusCode() == 204) {
           return Future.succeededFuture();
         } else {
-          System.err.println("responseBody DELETE statusCode: " + response.statusCode());
+          logger.error("responseBody DELETE statusCode: " + response.statusCode());
           return Future.failedFuture(String.format("HTTP %d: %s", response.statusCode(), url));
         }
       });

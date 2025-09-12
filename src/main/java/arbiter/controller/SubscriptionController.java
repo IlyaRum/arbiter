@@ -26,28 +26,28 @@ public class SubscriptionController extends ABaseController {
       System.out.println("Body: " + ctx.body().asString());
       ctx.next();
     });
-//    router.post(AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID)
-//      .handler(this::getAndValidateToken)
-//      .handler(this::handleCreateSubscription);
-//    router.patch(AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION)
-//      .handler(this::getAndValidateToken)
-//      .handler(this::handleChangeSubscription);
+    router.post(AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID)
+      .handler(this::getAndValidateToken)
+      .handler(this::handleCreateSubscription);
+    router.patch(AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION)
+      .handler(this::getAndValidateToken)
+      .handler(this::handleChangeSubscription);
     router.delete(AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION)
       .handler(this::getAndValidateToken)
       .handler(this::handleDeleteSubscription);
   }
 
-//  private void handleCreateSubscription(RoutingContext routingContext) {
-//    subscriptionService.handleCreateSubscription(routingContext);
-//  }
+  private void handleCreateSubscription(RoutingContext routingContext) {
+    subscriptionService.handleCreateSubscription(routingContext);
+  }
 
   private void getAndValidateToken(RoutingContext context) {
     subscriptionService.getAndValidateToken(context);
   }
 
-//  private void handleChangeSubscription(RoutingContext routingContext) {
-//    subscriptionService.handleChangeSubscription(routingContext);
-//  }
+  private void handleChangeSubscription(RoutingContext routingContext) {
+    subscriptionService.handleChangeSubscription(routingContext);
+  }
 
   private void handleDeleteSubscription(RoutingContext routingContext) {
     subscriptionService.handleDeleteSubscription(routingContext);

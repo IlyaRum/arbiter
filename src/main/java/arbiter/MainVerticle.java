@@ -27,14 +27,9 @@ public class MainVerticle extends AbstractVerticle {
 
   private static final Logger logger = LoggerFactory.getLogger(MainVerticle.class);
 
-  private static String apply(JsonObject jsonObject) {
-    String channelId = jsonObject.getString("subject");
-    System.out.println("Получен jsonObject для канала: " + jsonObject);
-    return channelId;
-  }
-
   @Override
   public void start(Promise<Void> startPromise) {
+    logger.info("------------------------------");
     logger.info("Starting Vert.x application...");
     AppConfig.loadConfig();
 
@@ -155,8 +150,8 @@ public class MainVerticle extends AbstractVerticle {
         logger.info("HTTP server started on port " + AppConfig.HTTP_PORT);
         System.out.println("HTTP server started on port " + AppConfig.HTTP_PORT);
         //System.out.println("WebSocket available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CHANNELS_OPEN);
-        //System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
-        //System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
+        System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
+        System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
         System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);
         System.out.println("Из " + AppConfig.ARBITER_CONFIG_FILE + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
         startPromise.complete();
