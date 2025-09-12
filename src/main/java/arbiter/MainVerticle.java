@@ -41,28 +41,27 @@ public class MainVerticle extends AbstractVerticle {
 
     CompletableFuture<String> tokenFuture = webSocketService.getAndValidateToken();
 
-    Function<String, CompletionStage<JsonObject>> stringCompletionStageFunction = token -> {
-      // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
-      Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
-
-      jsonObjectFuture.onComplete(ar -> {
-        if (ar.succeeded()) {
-          JsonObject result = ar.result();
-
-          // Работаем с result
-          System.out.println("Получен объект jsonObjectFuture : " + result);
-        } else {
-          // Обработка ошибки
-          System.out.println("Ошибка: " + ar.cause().getMessage());
-        }
-      });
-
-
-      return jsonObjectFuture.toCompletionStage();
-    };
+    // Сохраняем token в переменную, доступную для обоих thenCompose
+    CompletableFuture<String> tokenHolder = tokenFuture.thenApply(token -> token);
 
     CompletableFuture<JsonObject> resultFuture = tokenFuture
-      .thenCompose(stringCompletionStageFunction)
+      .thenCompose(token -> {
+        // Используем Future.toCompletionStage() для преобразования Future в CompletableFuture
+        Future<JsonObject> jsonObjectFuture = webSocketService.connectToWebSocketServer(token);
+
+        jsonObjectFuture.onComplete(ar -> {
+          if (ar.succeeded()) {
+            JsonObject result = ar.result();
+
+            // Работаем с result
+            System.out.println("Получен объект jsonObjectFuture : " + result);
+          } else {
+            // Обработка ошибки
+            System.out.println("Ошибка: " + ar.cause().getMessage());
+          }
+        });
+        return jsonObjectFuture.toCompletionStage();
+      })
       .handle((result, error) -> {
         if (error != null) {
           System.err.println("Failed to connect to WebSocket: " + error.getMessage());
@@ -87,16 +86,16 @@ public class MainVerticle extends AbstractVerticle {
 //      return jsonObject; // или выполните другие операции
 //    });
 
-    CompletableFuture<JsonObject> subscriptionFuture = resultFuture.thenCompose(jsonObject -> {
-      System.out.println("Получен jsonObject: " + jsonObject);
+    CompletableFuture<JsonObject> subscriptionFuture = resultFuture.thenCompose(jsonObject ->
+      tokenHolder.thenCompose(token -> {
+        System.out.println("Получен jsonObject: " + jsonObject);
+        String channelId = jsonObject.getString("subject");
 
-      // Извлекаем значения из JSON
-      String channelId = jsonObject.getString("subject");
-      String token = jsonObject.getString("token");
-
-      // Вызываем метод сервиса
-      return subscriptionService.createSubscription(channelId, token).toCompletionStage().toCompletableFuture();
-    });
+        return subscriptionService.createSubscription(channelId, token)
+          .toCompletionStage()
+          .toCompletableFuture();
+      })
+    );
 
     // Обработка результата создания подписки
     subscriptionFuture.handle((subscriptionResult, subscriptionError) -> {
