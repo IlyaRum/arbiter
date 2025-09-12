@@ -185,3 +185,4 @@ nbdist/
 !.vscode/extensions.json
 
 src/main/resources/config.properties
+/src/main/resources/arbiter_server.json
