@@ -20,8 +20,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
-import java.time.Instant;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -37,7 +35,6 @@ public class WebSocketService extends ABaseService {
   private boolean pongReceived = false;
   private String currentToken;
   private long reconnectTimerId = -1;
-
 
 
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
@@ -56,7 +53,7 @@ public class WebSocketService extends ABaseService {
   }
 
   private Future<JsonObject> connectToWebSocketServer(String token, RoutingContext context) {
-    System.out.println("connectToWebSocketServer: token " + token );
+    System.out.println("connectToWebSocketServer: token " + token);
 
     if (token == null || token.isEmpty()) {
       String errorMsg = "Token is required";
@@ -88,15 +85,8 @@ public class WebSocketService extends ABaseService {
               promise.tryFail("WebSocket connection timeout - no opening message received");
             }
           });
-          //promise.complete();
         } else {
-          String fullUri = buildUriFromOptions(options);
-          String errorMsg = "Ошибка подключения к " + fullUri + ": " + res.cause().getMessage();
-          logger.error(errorMsg);
-          if (context != null) {
-            handleError(context, new IllegalArgumentException(errorMsg));
-          }
-          promise.tryFail("Ошибка подключения: " + res.cause().getMessage());
+          handleConnectionError(res.cause(), promise, context, options);
         }
       });
 
@@ -405,4 +395,19 @@ public class WebSocketService extends ABaseService {
     return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
   }
 
+  private void handleConnectionError(Throwable cause, Promise<JsonObject> promise,
+                                     RoutingContext context, WebSocketConnectOptions options) {
+    String fullUri = buildUriFromOptions(options);
+    String errorMsg = "Ошибка подключения к " + fullUri + ": " + cause.getMessage();
+    logger.error(errorMsg);
+
+    if (context != null) {
+      handleError(context, new IllegalArgumentException(errorMsg));
+    }
+
+    promise.tryFail("Ошибка подключения: " + cause.getMessage());
+
+    // Запускаем переподключение при ошибке соединения
+    scheduleReconnect();
+  }
 }
