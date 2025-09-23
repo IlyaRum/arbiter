@@ -22,15 +22,23 @@ import io.vertx.ext.web.RoutingContext;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class WebSocketService extends ABaseService {
   private final WebSocketClient webSocketClient;
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
-  private CompletableFuture<JsonObject> connectionResponseFuture;
+  private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
+  private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
+  private final AtomicInteger maxReconnectAttempts = new AtomicInteger(100);
+  private final AtomicInteger reconnectDelayMs = new AtomicInteger(10000);
   private String currentChannelId;
   private boolean pongReceived = false;
-  private Instant dataReceived;
+  private String currentToken;
+  private long reconnectTimerId = -1;
+
+
 
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
@@ -59,36 +67,20 @@ public class WebSocketService extends ABaseService {
       return Future.failedFuture(errorMsg);
     }
 
+    reconnectAttempts.set(0);
+    currentToken = token;
+
     Promise<JsonObject> promise = Promise.promise();
 
-    WebSocketConnectOptions options = new WebSocketConnectOptions()
-      .setAbsoluteURI("wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open")
-      .addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL)
-      .setPort(443)
-      .addHeader("authorization", "Bearer " + token);
+    WebSocketConnectOptions options = createWebSocketConnectOptions(token);
 
     webSocketClient
       .connect(options)
       .onComplete(res -> {
         if (res.succeeded()) {
           WebSocket webSocket = res.result();
-          webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
-
-          webSocket.closeHandler(v -> {
-            logger.info("WebSocket connection closed");
-            if (!promise.future().isComplete()) {
-              promise.tryFail("WebSocket connection closed unexpectedly");
-            }
-            // Здесь можно добавить логику переподключения
-          });
-
-//          webSocket.pongHandler(pong -> {
-//            pongReceived = true;
-//            System.out.println("xxx PONG xxx");
-//          });
-
-          // Обработка ошибок
-          webSocket.exceptionHandler(closeWebSocket(promise, webSocket));
+          currentWebSocket.set(webSocket);
+          setupWebSocketHandlers(webSocket, promise);
 
           // Таймаут на установление соединения и получение первого сообщения
           vertx.setTimer(30000, timerId -> {
@@ -109,6 +101,176 @@ public class WebSocketService extends ABaseService {
       });
 
     return promise.future();
+  }
+
+  private void setupWebSocketHandlers(WebSocket webSocket, Promise<JsonObject> promise) {
+    webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
+
+    webSocket.closeHandler(v -> {
+      logger.info("WebSocket connection closed");
+      if (!promise.future().isComplete()) {
+        promise.tryFail("WebSocket connection closed unexpectedly");
+      }
+      // Здесь можно добавить логику переподключения
+      scheduleReconnect();
+    });
+
+    webSocket.pongHandler(pong -> {
+      pongReceived = true;
+      logger.debug("PONG received");
+    });
+
+    // Обработка ошибок
+    webSocket.exceptionHandler(error -> {
+      logger.error("WebSocket ошибка: " + error.getMessage());
+      if (!promise.future().isComplete()) {
+        promise.tryFail("WebSocket ошибка: " + error.getMessage());
+      }
+      // Запускаем переподключение при ошибке
+      scheduleReconnect();
+    });
+  }
+
+  private static WebSocketConnectOptions createWebSocketConnectOptions(String token) {
+    WebSocketConnectOptions options = new WebSocketConnectOptions()
+      .setAbsoluteURI("wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open")
+      .addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL)
+      .setPort(443)
+      .addHeader("authorization", "Bearer " + token);
+    return options;
+  }
+
+  private void reconnect() {
+    if (isReconnecting.get() || reconnectAttempts.get() >= maxReconnectAttempts.get()) {
+      logger.warn(String.format("Reconnection stopped: attempts=%d, max=%d, reconnecting=%s",
+        reconnectAttempts.get(), maxReconnectAttempts.get(), isReconnecting.get()));
+      return;
+    }
+
+    if (currentToken == null) {
+      logger.error("Cannot reconnect: no token available");
+      return;
+    }
+
+    isReconnecting.set(true);
+    int attempt = reconnectAttempts.incrementAndGet();
+
+    logger.info(String.format("))) попытка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
+
+    WebSocketConnectOptions options = createWebSocketConnectOptions(currentToken);
+
+    webSocketClient
+      .connect(options)
+      .onComplete(res -> {
+        isReconnecting.set(false);
+
+        if (res.succeeded()) {
+          WebSocket webSocket = res.result();
+          currentWebSocket.set(webSocket);
+          reconnectAttempts.set(0); // Сбрасываем счетчик при успешном подключении
+
+          logger.info("))) успешное переподключение к ОИК");
+
+          // Настраиваем обработчики для нового соединения
+          setupWebSocketHandlers(webSocket, Promise.promise());
+
+        } else {
+          logger.error(String.format("((( ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
+
+          // Планируем следующую попытку переподключения
+          if (attempt < maxReconnectAttempts.get()) {
+            scheduleReconnect();
+          } else {
+            logger.error(String.format("Достигнуто максимальное количество попыток переподключения: %d", maxReconnectAttempts.get()));
+            // Здесь можно уведомить о критической ошибке
+          }
+        }
+      });
+  }
+
+  /**
+   * Планирование переподключения с задержкой
+   */
+  private void scheduleReconnect() {
+    if (reconnectTimerId != -1) {
+      vertx.cancelTimer(reconnectTimerId);
+    }
+
+    if (reconnectAttempts.get() >= maxReconnectAttempts.get()) {
+      logger.error("Превышено максимальное количество попыток переподключения");
+      return;
+    }
+
+    int delay = reconnectDelayMs.get();
+    logger.info(String.format("Планируем переподключение через %d мс", delay));
+
+    reconnectTimerId = vertx.setTimer(delay, timerId -> {
+      reconnectTimerId = -1;
+      reconnect();
+    });
+  }
+
+  /**
+   * Принудительное переподключение
+   */
+  public void forceReconnect() {
+    logger.info("Принудительное переподключение");
+    reconnectAttempts.set(0);
+
+    WebSocket existingWebSocket = currentWebSocket.get();
+    if (existingWebSocket != null) {
+      existingWebSocket.close((short) 1000, "Force reconnect");
+    } else {
+      reconnect();
+    }
+  }
+
+  /**
+   * Остановка всех попыток переподключения
+   */
+  public void stopReconnecting() {
+    if (reconnectTimerId != -1) {
+      vertx.cancelTimer(reconnectTimerId);
+      reconnectTimerId = -1;
+    }
+    isReconnecting.set(false);
+    logger.info("Переподключение остановлено");
+  }
+
+  /**
+   * Установка максимального количества попыток переподключения
+   */
+  public void setMaxReconnectAttempts(int maxAttempts) {
+    this.maxReconnectAttempts.set(maxAttempts);
+    logger.info(String.format("Установлено максимальное количество попыток переподключения: %d", maxAttempts));
+  }
+
+  /**
+   * Установка задержки между попытками переподключения
+   */
+  public void setReconnectDelay(int delayMs) {
+    this.reconnectDelayMs.set(delayMs);
+    logger.info(String.format("Установлена задержка переподключения: %d мс", delayMs));
+  }
+
+  /**
+   * Проверка состояния соединения
+   */
+  public boolean isConnected() {
+    WebSocket webSocket = currentWebSocket.get();
+    return webSocket != null && !webSocket.isClosed();
+  }
+
+  /**
+   * Получение статистики переподключений
+   */
+  public JsonObject getReconnectionStats() {
+    return new JsonObject()
+      .put("reconnectAttempts", reconnectAttempts.get())
+      .put("maxReconnectAttempts", maxReconnectAttempts.get())
+      .put("isReconnecting", isReconnecting.get())
+      .put("isConnected", isConnected())
+      .put("reconnectDelayMs", reconnectDelayMs.get());
   }
 
   public void connectToWebSocketServer(RoutingContext context) {
