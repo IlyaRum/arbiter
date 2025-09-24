@@ -68,6 +68,7 @@ public class MonitoringController extends ABaseController{
   }
 
   public void getReconnectionStats(RoutingContext context) {
-    dependencyInjector.getWebSocketService().getReconnectionStats(context);
+    //TODO[IER] переделать вызов
+    //dependencyInjector.getWebSocketService().getReconnectionStats(context);
   }
 }

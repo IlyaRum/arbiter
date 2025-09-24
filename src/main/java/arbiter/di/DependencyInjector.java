@@ -55,4 +55,8 @@ public class DependencyInjector {
   public SubscriptionService getSubscriptionService() {
     return subscriptionService;
   }
+
+  public Vertx getVertx() {
+    return vertx;
+  }
 }

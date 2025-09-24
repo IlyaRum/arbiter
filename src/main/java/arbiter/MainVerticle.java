@@ -37,6 +37,7 @@ public class MainVerticle extends AbstractVerticle {
           this.dependencyInjector = dependencyInjector;
           UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
           WebSocketManager webSocketManager = new WebSocketManager(dependencyInjector, logger);
+          webSocketManager.setupWebSocketHandlers();
           SubscriptionManager subscriptionManager = new SubscriptionManager(dependencyInjector, logger, data);
           return startHttpServer(startPromise)
             .thenCompose(ignore -> {

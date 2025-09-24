@@ -35,11 +35,13 @@ public class WebSocketController extends ABaseController {
   }
 
   public void forceReconnect(RoutingContext context) {
-    dependencyInjector.getWebSocketService().forceReconnect(context);
+    //TODO[IER] переделать вызов
+    //dependencyInjector.getWebSocketService().forceReconnect(context);
   }
 
   public void stopReconnecting(RoutingContext context) {
-    dependencyInjector.getWebSocketService().stopReconnecting(context);
+    //TODO[IER] переделать вызов
+    //dependencyInjector.getWebSocketService().stopReconnecting(context);
   }
 
 
