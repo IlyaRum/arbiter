@@ -1,5 +1,7 @@
 package arbiter.controller;
 
+import arbiter.config.AppConfig;
+import arbiter.di.DependencyInjector;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
@@ -7,17 +9,19 @@ import io.vertx.ext.web.RoutingContext;
 
 public class MonitoringController extends ABaseController{
 
-  public MonitoringController(Vertx vertx) {
+  private final DependencyInjector dependencyInjector;
+
+  public MonitoringController(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
+    this.dependencyInjector = dependencyInjector;
   }
 
   @Override
   public void registerRoutes(Router router) {
-    // Добавляем обработчик маршрута GET /
-    //curl -v http://localhost:8080
     router.get("/").handler(this::handleRootRequest);
     router.get("/metrics").handler(this::handleMetricsRequest);
     router.get("/info").handler(this::handleInfoRequest);
+    router.get(AppConfig.RECONNECTION_STATS).handler(this::getReconnectionStats);
   }
 
   private void handleRootRequest(RoutingContext ctx) {
@@ -61,5 +65,9 @@ public class MonitoringController extends ABaseController{
     ctx.response()
       .putHeader("content-type", "application/json")
       .end(info.encode());
+  }
+
+  public void getReconnectionStats(RoutingContext context) {
+    dependencyInjector.getWebSocketService().getReconnectionStats(context);
   }
 }

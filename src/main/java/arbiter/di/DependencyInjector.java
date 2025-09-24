@@ -32,7 +32,7 @@ public class DependencyInjector {
   }
 
   private void initializeControllers() {
-    monitoringController = new MonitoringController(vertx);
+    monitoringController = new MonitoringController(vertx, this);
     webSocketController = new WebSocketController(vertx, webSocketService, tokenService);
     subscriptionController = new SubscriptionController(vertx, subscriptionService, tokenService);
 

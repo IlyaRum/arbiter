@@ -203,7 +203,7 @@ public class WebSocketService extends ABaseService {
   /**
    * Принудительное переподключение
    */
-  public void forceReconnect() {
+  public void forceReconnect(RoutingContext context) {
     logger.info("Принудительное переподключение");
     reconnectAttempts.set(0);
 
@@ -218,7 +218,7 @@ public class WebSocketService extends ABaseService {
   /**
    * Остановка всех попыток переподключения
    */
-  public void stopReconnecting() {
+  public void stopReconnecting(RoutingContext context) {
     if (reconnectTimerId != -1) {
       vertx.cancelTimer(reconnectTimerId);
       reconnectTimerId = -1;
@@ -254,13 +254,17 @@ public class WebSocketService extends ABaseService {
   /**
    * Получение статистики переподключений
    */
-  public JsonObject getReconnectionStats() {
-    return new JsonObject()
+  public void getReconnectionStats(RoutingContext context) {
+    JsonObject stats = new JsonObject()
       .put("reconnectAttempts", reconnectAttempts.get())
       .put("maxReconnectAttempts", maxReconnectAttempts.get())
       .put("isReconnecting", isReconnecting.get())
       .put("isConnected", isConnected())
       .put("reconnectDelayMs", reconnectDelayMs.get());
+
+    context.response()
+      .putHeader("content-type", "application/json")
+      .end(stats.encode());
   }
 
   public void connectToWebSocketServer(RoutingContext context) {
