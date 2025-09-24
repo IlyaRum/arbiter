@@ -9,15 +9,21 @@ public class AppConfig {
   public static final int HTTP_PORT = 8080;
   public static final String CORE_VERSION = "2.1";
   public static final String MEASUREMENT_VERSION = "2.1";
+
+  public static final String INFO = "/info";
+  public static final String METRICS = "/metrics";
+  public static final String RECONNECTION_STATS = "/reconnection-stats";
+
   public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
   public static final String MEASUREMENT_PREFIX = "/api/public/measurement-values/v" + MEASUREMENT_VERSION;
+
   public static final String CHANNELS_OPEN = "/channels/open";
   public static final String FORCE_RECONNECT = "/force-reconnect";
   public static final String STOP_RECONNECTING = "/stop-reconnecting";
-  public static final String RECONNECTION_STATS = "/reconnection-stats";
   public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/channels/:channelId/add-subscription";
   public static final String DELETE_SUBSCRIPTION = "/channels/:channelId/delete-subscription/:subscriptionId";
   public static final String CHANGE_SUBSCRIPTION = "/channels/:channelId/change-subscription/:subscriptionId";
+
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
   public static final String ARBITER_CONFIG_FILE = "arbiter_server.json";
 

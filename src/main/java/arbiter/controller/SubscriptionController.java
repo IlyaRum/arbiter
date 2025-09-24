@@ -1,8 +1,7 @@
 package arbiter.controller;
 
 import arbiter.config.AppConfig;
-import arbiter.service.SubscriptionService;
-import arbiter.service.TokenService;
+import arbiter.di.DependencyInjector;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
@@ -10,13 +9,11 @@ import io.vertx.ext.web.handler.BodyHandler;
 
 public class SubscriptionController extends ABaseController {
 
-  SubscriptionService subscriptionService;
-  TokenService tokenService;
+  private final DependencyInjector dependencyInjector;
 
-  public SubscriptionController(Vertx vertx, SubscriptionService subscriptionService, TokenService tokenService) {
+  public SubscriptionController(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
-    this.subscriptionService = subscriptionService;
-    this.tokenService = tokenService;
+    this.dependencyInjector = dependencyInjector;
   }
 
   @Override
@@ -41,18 +38,18 @@ public class SubscriptionController extends ABaseController {
   }
 
   private void handleCreateSubscription(RoutingContext routingContext) {
-    subscriptionService.handleCreateSubscription(routingContext);
+    dependencyInjector.getSubscriptionService().handleCreateSubscription(routingContext);
   }
 
   private void getAndValidateToken(RoutingContext context) {
-    tokenService.getTokenForContext(context);
+    dependencyInjector.getTokenService().getTokenForContext(context);
   }
 
   private void handleChangeSubscription(RoutingContext routingContext) {
-    subscriptionService.handleChangeSubscription(routingContext);
+    dependencyInjector.getSubscriptionService().handleChangeSubscription(routingContext);
   }
 
   private void handleDeleteSubscription(RoutingContext routingContext) {
-    subscriptionService.handleDeleteSubscription(routingContext);
+    dependencyInjector.getSubscriptionService().handleDeleteSubscription(routingContext);
   }
 }

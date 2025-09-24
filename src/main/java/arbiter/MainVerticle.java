@@ -111,7 +111,9 @@ public class MainVerticle extends AbstractVerticle {
     System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);
     System.out.println("Force reconnect available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.FORCE_RECONNECT);
     System.out.println("Stop reconnecting available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.STOP_RECONNECTING);
-    System.out.println("Reconnection stats available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.RECONNECTION_STATS);
+    System.out.println("Reconnection stats available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.RECONNECTION_STATS);
+    System.out.println("Metrics available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.METRICS);
+    System.out.println("Info available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.INFO);
     System.out.println("Из " + AppConfig.ARBITER_CONFIG_FILE + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
   }
 

@@ -1,21 +1,18 @@
 package arbiter.controller;
 
 import arbiter.config.AppConfig;
-import arbiter.service.TokenService;
-import arbiter.service.WebSocketService;
+import arbiter.di.DependencyInjector;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 
 public class WebSocketController extends ABaseController {
 
-  private final WebSocketService webSocketService;
-  private final TokenService tokenService;
+  private final DependencyInjector dependencyInjector;
 
-  public WebSocketController(Vertx vertx, WebSocketService webSocketService, TokenService tokenService) {
+  public WebSocketController(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
-    this.webSocketService = webSocketService;
-    this.tokenService = tokenService;
+    this.dependencyInjector = dependencyInjector;
   }
 
   @Override
@@ -34,20 +31,20 @@ public class WebSocketController extends ABaseController {
   }
 
   public void connectToWebSocket(RoutingContext context) {
-    webSocketService.connectToWebSocketServer(context);
+    dependencyInjector.getWebSocketService().connectToWebSocketServer(context);
   }
 
   public void forceReconnect(RoutingContext context) {
-    webSocketService.forceReconnect(context);
+    dependencyInjector.getWebSocketService().forceReconnect(context);
   }
 
   public void stopReconnecting(RoutingContext context) {
-    webSocketService.stopReconnecting(context);
+    dependencyInjector.getWebSocketService().stopReconnecting(context);
   }
 
 
 
   private void getAndValidateToken(RoutingContext context) {
-    tokenService.getTokenForContext(context);
+    dependencyInjector.getTokenService().getTokenForContext(context);
   }
 }

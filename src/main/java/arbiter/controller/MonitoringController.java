@@ -19,8 +19,8 @@ public class MonitoringController extends ABaseController{
   @Override
   public void registerRoutes(Router router) {
     router.get("/").handler(this::handleRootRequest);
-    router.get("/metrics").handler(this::handleMetricsRequest);
-    router.get("/info").handler(this::handleInfoRequest);
+    router.get(AppConfig.METRICS).handler(this::handleMetricsRequest);
+    router.get(AppConfig.INFO).handler(this::handleInfoRequest);
     router.get(AppConfig.RECONNECTION_STATS).handler(this::getReconnectionStats);
   }
 
