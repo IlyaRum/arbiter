@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.ntc.arbiter</groupId>
@@ -11,15 +11,18 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
 
-    <maven-compiler-plugin.version>3.8.1</maven-compiler-plugin.version>
-    <maven-shade-plugin.version>3.2.4</maven-shade-plugin.version>
-    <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
-    <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
+    <maven-compiler-plugin.version>3.11.0</maven-compiler-plugin.version>
+    <maven-shade-plugin.version>3.4.1</maven-shade-plugin.version>
+    <maven-surefire-plugin.version>3.0.0</maven-surefire-plugin.version>
+    <exec-maven-plugin.version>3.1.0</exec-maven-plugin.version>
 
     <vertx.version>5.0.3</vertx.version>
     <cloudEvents.version>4.0.1</cloudEvents.version>
-    <junit-jupiter.version>5.9.1</junit-jupiter.version>
+    <junit-jupiter.version>5.9.3</junit-jupiter.version>
+    <logback.version>1.4.11</logback.version>
 
     <main.verticle>arbiter.MainVerticle</main.verticle>
     <launcher.class>io.vertx.launcher.application.VertxApplication</launcher.class>
@@ -45,41 +48,31 @@
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-core</artifactId>
-      <version>${vertx.version}</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web-client</artifactId>
-      <version>${vertx.version}</version>
     </dependency>
     <dependency>
       <groupId>io.vertx</groupId>
       <artifactId>vertx-web</artifactId>
-      <version>${vertx.version}</version>
     </dependency>
 
-
-<!--    <dependency>-->
-<!--      <groupId>io.cloudevents</groupId>-->
-<!--      <artifactId>cloudevents-core</artifactId>-->
-<!--      <version>${cloudEvents.version}</version>-->
-<!--    </dependency>-->
     <dependency>
       <groupId>io.cloudevents</groupId>
       <artifactId>cloudevents-http-vertx</artifactId>
       <version>${cloudEvents.version}</version>
     </dependency>
-    <!-- JSON для работы с данными события -->
     <dependency>
       <groupId>io.cloudevents</groupId>
       <artifactId>cloudevents-json-jackson</artifactId>
       <version>${cloudEvents.version}</version>
     </dependency>
-    <!-- Logback (реализация SLF4J) -->
+
     <dependency>
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
-      <version>1.4.11</version>
+      <version>${logback.version}</version>
     </dependency>
 
     <dependency>
@@ -89,38 +82,26 @@
     </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <version>${junit-jupiter.version}</version>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
+      <artifactId>junit-jupiter</artifactId>
       <version>${junit-jupiter.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
 
   <build>
-<!--    <resources>-->
-<!--      <resource>-->
-<!--        <directory>src/main/resources</directory>-->
-<!--        <includes>-->
-<!--          <include>**/*.properties</include>-->
-<!--          <include>**/*.xml</include>-->
-<!--          <include>**/*.json</include>-->
-<!--        </includes>-->
-<!--      </resource>-->
-<!--    </resources>-->
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <version>${maven-compiler-plugin.version}</version>
         <configuration>
-          <release>11</release>
+          <release>17</release>
+          <encoding>${project.build.sourceEncoding}</encoding>
         </configuration>
       </plugin>
+
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-shade-plugin</artifactId>
         <version>${maven-shade-plugin.version}</version>
         <executions>
@@ -140,16 +121,18 @@
                 </transformer>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
-              <outputFile>${project.build.directory}/${project.artifactId}-${project.version}-main.jar
-              </outputFile>
+              <outputFile>${project.build.directory}/${project.artifactId}-${project.version}-main.jar</outputFile>
             </configuration>
           </execution>
         </executions>
       </plugin>
+
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
         <version>${maven-surefire-plugin.version}</version>
       </plugin>
+
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
@@ -157,12 +140,11 @@
         <configuration>
           <mainClass>${launcher.class}</mainClass>
           <arguments>
+            <argument>run</argument>
             <argument>${main.verticle}</argument>
           </arguments>
         </configuration>
       </plugin>
     </plugins>
   </build>
-
-
 </project>
