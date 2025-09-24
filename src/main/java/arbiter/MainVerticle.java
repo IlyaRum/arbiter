@@ -36,14 +36,15 @@ public class MainVerticle extends AbstractVerticle {
       initFuture.thenCompose(dependencyInjector -> {
           this.dependencyInjector = dependencyInjector;
           UnitCollection data = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
-          WebSocketManager webSocketManager = new WebSocketManager(dependencyInjector, logger);
-          webSocketManager.setupWebSocketHandlers();
-          SubscriptionManager subscriptionManager = new SubscriptionManager(dependencyInjector, logger, data);
+          WebSocketManager webSocketManager = dependencyInjector.getWebSocketManager();
+          //webSocketManager.setupWebSocketHandlers();
+          SubscriptionManager subscriptionManager = dependencyInjector.getSubscriptionManager();
+          subscriptionManager.setData(data);
           return startHttpServer(startPromise)
             .thenCompose(ignore -> {
               // После успешного запуска сервера инициализируем WebSocket
               logServerStartup(data);
-              return initializeWebSocketFlow(dependencyInjector, webSocketManager, subscriptionManager);
+              return initializeWebSocketFlow(dependencyInjector);
             });
         })
         .exceptionally(throwable -> {
@@ -56,20 +57,19 @@ public class MainVerticle extends AbstractVerticle {
     }
   }
 
-  private CompletionStage<Object> initializeWebSocketFlow(DependencyInjector dependencyInjector,
-                                                          WebSocketManager webSocketManager,
-                                                          SubscriptionManager subscriptionManager) {
+  private CompletionStage<Object> initializeWebSocketFlow(DependencyInjector dependencyInjector) {
     return dependencyInjector.getTokenService().getTokenAsync()
       .thenCompose(token -> {
         logger.info("Token obtained: " + token);
-        return webSocketManager.connect(token)
-          .thenCompose(channelId -> subscriptionManager.createSubscription(channelId, token))
+        return dependencyInjector.getWebSocketManager().connect(token)
+          .thenCompose(channelId -> dependencyInjector.getSubscriptionManager().createSubscription(channelId, token))
           .thenCompose(subscriptionResult -> {
             JsonObject valueObject = subscriptionResult.getJsonObject("value");
             String subscriptionId = valueObject.getString("subscriptionId");
-            logger.info("subscriptionId: " + subscriptionId);
-            return subscriptionManager.changeSubscription(webSocketManager.getChannelId(), subscriptionId, token
-            );
+            logger.info("[connect] subscriptionId: " + subscriptionId);
+            return dependencyInjector
+              .getSubscriptionManager()
+              .changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, token);
           });
       })
       .handle((result, error) -> {

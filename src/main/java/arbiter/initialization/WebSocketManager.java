@@ -3,6 +3,7 @@ package arbiter.initialization;
 import arbiter.di.DependencyInjector;
 import arbiter.service.WebSocketService;
 import io.vertx.core.internal.logging.Logger;
+import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
@@ -12,23 +13,23 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class WebSocketManager {
   private final DependencyInjector dependencyInjector;
-  private final Logger logger;
   private String channelId;
   private String currentToken;
   private long reconnectTimerId = -1;
 
+  private static final Logger logger = LoggerFactory.getLogger(WebSocketManager.class);
   private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
   private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
   private final AtomicInteger maxReconnectAttempts = new AtomicInteger(100);
   private final AtomicInteger reconnectDelayMs = new AtomicInteger(10000);
 
 
-  public WebSocketManager(DependencyInjector dependencyInjector, Logger logger) {
+  public WebSocketManager(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
-    this.logger = logger;
   }
 
   public CompletableFuture<String> connect(String token) {
+    this.currentToken = token;
     return dependencyInjector.getWebSocketService()
       .connectToWebSocketServer(token)
       .toCompletionStage()
@@ -44,7 +45,7 @@ public class WebSocketManager {
       });
   }
 
-  public CompletableFuture<String> reconnect() {
+  public CompletableFuture<JsonObject> reconnect() {
     if (isReconnecting.get() || reconnectAttempts.get() >= maxReconnectAttempts.get()) {
       logger.warn(String.format("Reconnection stopped: attempts=%d, max=%d, reconnecting=%s",
         reconnectAttempts.get(), maxReconnectAttempts.get(), isReconnecting.get()));
@@ -71,7 +72,15 @@ public class WebSocketManager {
         reconnectAttempts.set(0);
         logger.info("[reconnect] channelId: " + channelId);
         return channelId;
-      }).exceptionally(throwable -> {
+      })
+      .thenCompose(channelId -> dependencyInjector.getSubscriptionManager().createSubscription(channelId, currentToken))
+      .thenCompose(subscriptionResult -> {
+        JsonObject valueObject = subscriptionResult.getJsonObject("value");
+        String subscriptionId = valueObject.getString("subscriptionId");
+        logger.info("[reconnect] subscriptionId: " + subscriptionId);
+        return dependencyInjector.getSubscriptionManager().changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, currentToken);
+      })
+       .exceptionally(throwable -> {
         isReconnecting.set(false);
         logger.error(String.format("((( ошибка переподключения к ОИК %d из %d",
           attempt, maxReconnectAttempts.get()));
@@ -84,37 +93,6 @@ public class WebSocketManager {
         }
         throw new RuntimeException(throwable);
       });
-
-
-//    WebSocketConnectOptions options = createWebSocketConnectOptions(currentToken);
-//
-//    webSocketClient
-//      .connect(options)
-//      .onComplete(res -> {
-//        isReconnecting.set(false);
-//
-//        if (res.succeeded()) {
-//          WebSocket webSocket = res.result();
-//          currentWebSocket.set(webSocket);
-//          reconnectAttempts.set(0); // Сбрасываем счетчик при успешном подключении
-//
-//          logger.info("))) успешное переподключение к ОИК");
-//
-//          // Настраиваем обработчики для нового соединения
-//          setupWebSocketHandlers(webSocket, Promise.promise());
-//
-//        } else {
-//          logger.error(String.format("((( ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
-//
-//          // Планируем следующую попытку переподключения
-//          if (attempt < maxReconnectAttempts.get()) {
-//            scheduleReconnect();
-//          } else {
-//            logger.error(String.format("Достигнуто максимальное количество попыток переподключения: %d", maxReconnectAttempts.get()));
-//            // Здесь можно уведомить о критической ошибке
-//          }
-//        }
-//      });
   }
 
   /**
@@ -161,7 +139,7 @@ public class WebSocketManager {
   /**
    * Принудительное переподключение
    */
-  public CompletableFuture<String> forceReconnect(RoutingContext context) {
+  public CompletableFuture<JsonObject> forceReconnect(RoutingContext context) {
     logger.info("Принудительное переподключение");
     reconnectAttempts.set(0);
 

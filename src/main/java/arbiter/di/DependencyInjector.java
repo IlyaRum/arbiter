@@ -4,6 +4,8 @@ import arbiter.config.AppConfig;
 import arbiter.controller.MonitoringController;
 import arbiter.controller.SubscriptionController;
 import arbiter.controller.WebSocketController;
+import arbiter.initialization.SubscriptionManager;
+import arbiter.initialization.WebSocketManager;
 import arbiter.service.SubscriptionService;
 import arbiter.service.TokenService;
 import arbiter.service.WebSocketService;
@@ -11,6 +13,8 @@ import io.vertx.core.Vertx;
 
 public class DependencyInjector {
   private final Vertx vertx;
+  private WebSocketManager webSocketManager;
+  private SubscriptionManager subscriptionManager;
   private MonitoringController monitoringController;
   private WebSocketController webSocketController;
   private WebSocketService webSocketService;
@@ -21,8 +25,14 @@ public class DependencyInjector {
 
   public DependencyInjector(Vertx vertx) {
     this.vertx = vertx;
+    initializeManagers();
     initializeServices();
     initializeControllers();
+  }
+
+  private void initializeManagers(){
+    webSocketManager = new WebSocketManager(this);
+    subscriptionManager = new SubscriptionManager(this);
   }
 
   private void initializeServices() {
@@ -58,5 +68,13 @@ public class DependencyInjector {
 
   public Vertx getVertx() {
     return vertx;
+  }
+
+  public WebSocketManager getWebSocketManager() {
+    return webSocketManager;
+  }
+
+  public SubscriptionManager getSubscriptionManager() {
+    return subscriptionManager;
   }
 }

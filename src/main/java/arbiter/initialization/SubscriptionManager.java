@@ -9,13 +9,10 @@ import java.util.concurrent.CompletableFuture;
 
 public class SubscriptionManager {
   private final DependencyInjector dependencyInjector;
-  private final Logger logger;
-  private final UnitCollection data;
+  private UnitCollection data;
 
-  public SubscriptionManager(DependencyInjector dependencyInjector, Logger logger, UnitCollection data) {
+  public SubscriptionManager(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
-    this.logger = logger;
-    this.data = data;
   }
 
   public CompletableFuture<JsonObject> createSubscription(String channelId, String token) {
@@ -30,5 +27,9 @@ public class SubscriptionManager {
       .changeSubscription(channelId, subscriptionId, data.getUIDs(), null, token)
       .toCompletionStage()
       .toCompletableFuture();
+  }
+
+  public void setData(UnitCollection data) {
+    this.data = data;
   }
 }
