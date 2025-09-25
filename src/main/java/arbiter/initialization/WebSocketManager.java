@@ -82,8 +82,7 @@ public class WebSocketManager {
       })
        .exceptionally(throwable -> {
         isReconnecting.set(false);
-        logger.error(String.format("((( ошибка переподключения к ОИК %d из %d",
-          attempt, maxReconnectAttempts.get()));
+        logger.error(String.format("((( ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
 
         if (attempt < maxReconnectAttempts.get()) {
           scheduleReconnect();
@@ -93,25 +92,6 @@ public class WebSocketManager {
         }
         throw new RuntimeException(throwable);
       });
-  }
-
-  /**
-   * Установка обработчиков событий WebSocket
-   */
-  public void setupWebSocketHandlers() {
-    WebSocketService webSocketService = dependencyInjector.getWebSocketService();
-
-    // Устанавливаем обработчик закрытия соединения
-    webSocketService.setCloseHandler(() -> {
-      logger.info("WebSocket connection closed - scheduling reconnect");
-      scheduleReconnect();
-    });
-
-    // Устанавливаем обработчик ошибок
-    webSocketService.setExceptionHandler(throwable -> {
-      logger.error("WebSocket error - scheduling reconnect: " + throwable.getMessage());
-      scheduleReconnect();
-    });
   }
 
   /**
@@ -146,6 +126,11 @@ public class WebSocketManager {
     WebSocketService webSocketService = dependencyInjector.getWebSocketService();
     webSocketService.closeConnection(); // Закрываем текущее соединение
 
+    context.response()
+      .setStatusCode(200)
+      .putHeader("Content-Type", "application/json")
+      .end("Принудительное переподключение");
+
     return reconnect();
   }
 
@@ -159,6 +144,11 @@ public class WebSocketManager {
     }
     isReconnecting.set(false);
     logger.info("Переподключение остановлено");
+
+    context.response()
+      .setStatusCode(200)
+      .putHeader("Content-Type", "application/json")
+      .end("Переподключение остановлено");
   }
 
   /**
