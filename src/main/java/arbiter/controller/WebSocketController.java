@@ -27,7 +27,8 @@ public class WebSocketController extends ABaseController {
     router.get(AppConfig.CORE_PREFIX + AppConfig.STOP_RECONNECTING)
       .handler(this::stopReconnecting);
 
-
+    router.get(AppConfig.CORE_PREFIX + AppConfig.CLOSE_WEBSOCKET_CONNECT)
+      .handler(this::closeWebSocketManual);
   }
 
   public void connectToWebSocket(RoutingContext context) {
@@ -42,9 +43,11 @@ public class WebSocketController extends ABaseController {
     dependencyInjector.getWebSocketManager().stopReconnecting(context);
   }
 
-
-
   private void getAndValidateToken(RoutingContext context) {
     dependencyInjector.getTokenService().getTokenForContext(context);
+  }
+
+  private void closeWebSocketManual(RoutingContext context) {
+    dependencyInjector.getWebSocketService().closeWebSocketManual(context);
   }
 }

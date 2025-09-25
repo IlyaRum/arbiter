@@ -23,6 +23,7 @@ public class AppConfig {
   public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/channels/:channelId/add-subscription";
   public static final String DELETE_SUBSCRIPTION = "/channels/:channelId/delete-subscription/:subscriptionId";
   public static final String CHANGE_SUBSCRIPTION = "/channels/:channelId/change-subscription/:subscriptionId";
+  public static final String CLOSE_WEBSOCKET_CONNECT = "/close-websocket-connect";
 
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
   public static final String ARBITER_CONFIG_FILE = "arbiter_server.json";

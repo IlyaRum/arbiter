@@ -115,6 +115,7 @@ public class MainVerticle extends AbstractVerticle {
     System.out.println("Reconnection stats available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.RECONNECTION_STATS);
     System.out.println("Metrics available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.METRICS);
     System.out.println("Info available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.INFO);
+    System.out.println("Close websocket connect available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CLOSE_WEBSOCKET_CONNECT);
     System.out.println("Из " + AppConfig.ARBITER_CONFIG_FILE + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
   }
 

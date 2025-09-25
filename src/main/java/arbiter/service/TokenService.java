@@ -54,6 +54,7 @@ public class TokenService {
       });
 
     return future;
+//    return CompletableFuture.completedFuture("token");
   }
 
   public void getTokenForContext(RoutingContext context) {

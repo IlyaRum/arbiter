@@ -130,6 +130,15 @@ public class WebSocketService extends ABaseService {
   }
 
   /**
+   * Закрытие соединения вручную
+   */
+  public void closeWebSocketManual(RoutingContext context) {
+    this.closeConnection();
+    logger.info("Manual webSocket connection closed");
+    handleSuccess(context, 200, "Manual webSocket connection closed");
+  }
+
+  /**
    * Установка обработчика закрытия соединения
    */
   public void setCloseHandler(Runnable closeHandler) {
