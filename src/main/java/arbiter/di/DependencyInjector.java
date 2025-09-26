@@ -9,6 +9,7 @@ import arbiter.initialization.WebSocketManager;
 import arbiter.service.SubscriptionService;
 import arbiter.service.TokenService;
 import arbiter.service.WebSocketService;
+import data.UnitCollection;
 import io.vertx.core.Vertx;
 
 public class DependencyInjector {
@@ -21,6 +22,7 @@ public class DependencyInjector {
   private SubscriptionController subscriptionController;
   private SubscriptionService subscriptionService;
   private TokenService tokenService;
+  private UnitCollection unitCollection;
 
 
   public DependencyInjector(Vertx vertx) {
@@ -31,12 +33,13 @@ public class DependencyInjector {
   }
 
   private void initializeManagers(){
+    unitCollection = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
     webSocketManager = new WebSocketManager(this);
     subscriptionManager = new SubscriptionManager(this);
   }
 
   private void initializeServices() {
-    webSocketService = new WebSocketService(vertx);
+    webSocketService = new WebSocketService(vertx, this);
     subscriptionService = new SubscriptionService(vertx);
     tokenService = new TokenService(vertx, AppConfig.getAuthTokenUrl(), AppConfig.getAuthBasicCredentials());
   }
@@ -76,5 +79,9 @@ public class DependencyInjector {
 
   public SubscriptionManager getSubscriptionManager() {
     return subscriptionManager;
+  }
+
+  public UnitCollection getUnitCollection() {
+    return unitCollection;
   }
 }

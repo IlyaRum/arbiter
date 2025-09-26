@@ -9,8 +9,8 @@ public class Result {
   private Unit unit;
   private String name;
   private String id;
-  private double value;
-  private Instant time;
+  protected double value;
+  protected Instant time;
 
   public Result(Unit unit, String name, String id) {
     this.unit = unit;
@@ -28,7 +28,7 @@ public class Result {
     this.value = value;
     this.time = time;
     if (writable() && unit.getCollection().isWriteEnable()) {
-      unit.getCollection().addToWriteBuffer(new Measurement(id, ZonedDateTime.now(), value));
+      //unit.getCollection().addToWriteBuffer(new Measurement(id, ZonedDateTime.now(), value));
     }
   }
 

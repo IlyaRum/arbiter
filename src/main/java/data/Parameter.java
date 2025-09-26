@@ -1,6 +1,7 @@
 package data;
 
 import java.time.Instant;
+import java.util.Objects;
 
 public class Parameter extends Result {
   private boolean assigned;
@@ -39,5 +40,20 @@ public class Parameter extends Result {
 
   public boolean isAssigned() {
     return assigned;
+  }
+
+  // Для сравнения (аналог P.Value <> Data.Value или P.Time <> Data.Time)
+  public boolean isDataDifferent(double newValue, Instant newTime) {
+    return !assigned ||
+      Double.compare(value, newValue) != 0 ||
+      !Objects.equals(time, newTime);
+  }
+
+  // Аналог P.SetData(Data.Value, Data.Time, Data.QCode)
+  public void setData(double value, Instant time, int qCode) {
+    this.value = value;
+    this.time = time;
+    this.qCode = qCode;
+    this.assigned = true;
   }
 }

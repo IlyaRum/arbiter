@@ -1,6 +1,9 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import arbiter.di.DependencyInjector;
+import com.fasterxml.jackson.databind.JsonNode;
+import data.*;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
 import io.cloudevents.core.format.EventFormat;
@@ -19,16 +22,24 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import measurement.Measurement;
+import measurement.MeasurementList;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public class WebSocketService extends ABaseService {
   private final WebSocketClient webSocketClient;
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
+  private final Map<String, MemoryData> store = new HashMap<>();
   private String currentChannelId;
   private boolean pongReceived = false;
+  private final DependencyInjector dependencyInjector;
+
 
   //TODO[IER] Пересмотреть обработчики событий для внешнего управления
   private Runnable closeHandler; // Изменено с Consumer<Void> на Runnable
@@ -37,8 +48,9 @@ public class WebSocketService extends ABaseService {
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
-  public WebSocketService(Vertx vertx) {
+  public WebSocketService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
+    this.dependencyInjector = dependencyInjector;
     this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
         .setSsl(false)
         .setTrustAll(true)
@@ -256,10 +268,12 @@ public class WebSocketService extends ABaseService {
 
     JsonObject data = new JsonObject(jsonStr);
     JsonArray dataArray = data.getJsonArray("data");
-
+    MeasurementList measurementList = new MeasurementList();
     StringBuilder result = new StringBuilder();
     for (int i = 0; i < dataArray.size(); i++) {
       JsonObject item = dataArray.getJsonObject(i);
+      JsonNode jsonNode = item.mapTo(JsonNode.class);
+      measurementList.add(jsonNode);
       String uid = item.getString("uid");
       double value = item.getDouble("value");
 
@@ -268,9 +282,13 @@ public class WebSocketService extends ABaseService {
       }
       result.append(String.format("%s = %f", uid, value));
     }
+
+    dependencyInjector.getUnitCollection().onDataReceived(measurementList);
     //TODO[IER]
     //logAsync("Result: " + result);
   }
+
+
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";

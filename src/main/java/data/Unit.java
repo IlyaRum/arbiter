@@ -75,6 +75,11 @@ public class Unit {
     return collection;
   }
 
+  // Аналог Items[j].Parameters.Data[k]
+  public Iterable<Parameter> getAllParameters() {
+    return parameters.values();
+  }
+
   public String getName() {
     return name;
   }
