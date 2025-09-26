@@ -20,6 +20,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -203,41 +204,32 @@ public class WebSocketService extends ABaseService {
     return message -> {
       try {
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
-        CloudEvent event = format.deserialize(message.getBytes());
+        CloudEvent event = format.deserialize(message.getBytes(StandardCharsets.UTF_8));
 
-        //logCloudEvent(event);
+        logCloudEvent(event);
 
         String eventType = event.getType();
-        switch (eventType) {
-          case "ru.monitel.ck11.channel.opened.v2":
-            handleChannelOpened(event);
-
-            // Завершаем promise только при получении сообщения об открытии
-            if (!promise.future().isComplete()) {
-              String data = cloudEventToString(event);
-              JsonObject jsonData = new JsonObject(data);
-              promise.tryComplete(jsonData);
-            }
-            break;
-
-          case "ru.monitel.ck11.measurement-values.data.v2":
-            handleMeasurementData(event);
-            break;
-
-          case "ru.monitel.ck11.events.stream-started.v2":
-            logger.info("подписка на события стартовала");
-            break;
-
-          case "ru.monitel.ck11.events.stream-broken.v2":
-            logger.info("подписка на события остановлена");
-            closeWebSocket(promise, webSocket);
-            break;
-
-          default:
-            if (eventType != null && eventType.startsWith("ru.monitel.ck11.rt-events.")) {
-              System.out.println(eventType);
-            }
-            break;
+        logger.debug("eventType: " + eventType);
+        if (eventType.equals("ru.monitel.ck11.channel.opened.v2")) {
+          handleChannelOpened(event);
+          // Завершаем promise только при получении сообщения об открытии
+          if (!promise.future().isComplete()) {
+            String data = cloudEventToString(event);
+            JsonObject jsonData = new JsonObject(data);
+            promise.tryComplete(jsonData);
+          }
+        } else if (eventType.equals("ru.monitel.ck11.measurement-values.data.v2")) {
+          handleMeasurementData(event);
+          //TODO[IER] здесь нужно будет сохранить в объект полученные данные
+        } else if (eventType.startsWith("ru.monitel.ck11.rt-events.")) {
+          CloudEventData cloudEventData = event.getData();
+          logger.info("cloudEventData: " + cloudEventData);
+          //TODO[IER] здесь нужно реализовать полученные данные из эвента
+        } else if (eventType.equals("ru.monitel.ck11.events.stream-started.v2")) {
+          logger.info("подписка на события стартовала");
+        } else if (eventType.equals("ru.monitel.ck11.events.stream-broken.v2")) {
+          logger.info("подписка на события остановлена");
+          //close();
         }
       } catch (Exception e) {
         logger.error("Ошибка парсинга CloudEvent: " + e.getMessage());
@@ -249,7 +241,7 @@ public class WebSocketService extends ABaseService {
 
   private void handleChannelOpened(CloudEvent event) {
     currentChannelId = event.getSubject();
-    logAsync("currentChannelId: " + currentChannelId);
+    logAsync("Channel Id: " + currentChannelId);
   }
 
   private void handleMeasurementData(CloudEvent event) {
@@ -276,8 +268,8 @@ public class WebSocketService extends ABaseService {
       }
       result.append(String.format("%s = %f", uid, value));
     }
-
-    logAsync("Result: " + result);
+    //TODO[IER]
+    //logAsync("Result: " + result);
   }
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
