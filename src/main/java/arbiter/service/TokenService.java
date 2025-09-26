@@ -1,11 +1,13 @@
 package arbiter.service;
 
+import arbiter.config.AppConfig;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 
 public class TokenService {
@@ -25,6 +27,11 @@ public class TokenService {
   }
 
   public CompletableFuture<String> getTokenAsync() {
+
+    if (Objects.equals(AppConfig.getDevFlag(), "local")) {
+      return CompletableFuture.completedFuture("token");
+    }
+
     CompletableFuture<String> future = new CompletableFuture<>();
 
     insecureClient.postAbs(authTokenUrl)
@@ -54,7 +61,6 @@ public class TokenService {
       });
 
     return future;
-//    return CompletableFuture.completedFuture("token");
   }
 
   public void getTokenForContext(RoutingContext context) {

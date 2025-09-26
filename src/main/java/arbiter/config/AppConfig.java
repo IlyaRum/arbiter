@@ -33,6 +33,7 @@ public class AppConfig {
   private static String subscriptionsAddUrl;
   private static String subscriptionsChangeUrl;
   private static String subscriptionsDeleteUrl;
+  private static String devFlag;
 
   public static void loadConfig() {
     // Чтение конфигурации из файла или системных свойств
@@ -55,6 +56,7 @@ public class AppConfig {
       subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
       subscriptionsChangeUrl = props.getProperty("subscriptions.change.url");
       subscriptionsDeleteUrl = props.getProperty("subscriptions.delete.url");
+      devFlag =props.getProperty("dev.flag");
 
       if (authBasicCredentials == null ||
         authTokenUrl == null ||
@@ -87,5 +89,9 @@ public class AppConfig {
 
   public static String getSubscriptionsDeleteUrl() {
     return subscriptionsDeleteUrl;
+  }
+
+  public static String getDevFlag() {
+    return devFlag;
   }
 }
