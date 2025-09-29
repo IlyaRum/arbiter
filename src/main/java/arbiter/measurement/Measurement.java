@@ -4,6 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 
+
+/** пример данных
+* {"uid":"4ebe8a8e-764d-43a1-bd8d-a5c1e0fb350a",
+* "timeStamp":"2025-09-29T14:28:02.105Z",
+* "timeStamp2":"2025-09-29T14:28:02.101Z",
+* "qCode":1879048194,
+* "value":3425.2886352539062}
+**/
+
 public class Measurement {
   public enum MeasurementType {
     STRING, NUMBER

@@ -240,8 +240,7 @@ public class WebSocketService extends ABaseService {
           //TODO[IER] здесь нужно будет сохранить в объект полученные данные
         } else if (eventType.startsWith("ru.monitel.ck11.rt-events.")) {
           //события реального времени
-          CloudEventData cloudEventData = event.getData();
-          logger.info("[rt-events]CloudEventData: " + cloudEventData);
+          handleRTEvents(event);
           //TODO[IER] здесь нужно реализовать полученные данные из эвента
         } else if (eventType.equals("ru.monitel.ck11.events.stream-started.v2")) {
           logger.info("подписка на события стартовала");
@@ -257,15 +256,22 @@ public class WebSocketService extends ABaseService {
     };
   }
 
+  private void handleRTEvents(CloudEvent event) {
+    logAsync("[rt-events]event: " + event);
+    CloudEventData cloudEventData = event.getData();
+    logger.debug("[rt-events]CloudEventData: " + cloudEventData);
+  }
+
   private void handleChannelOpened(CloudEvent event) {
+    logAsync("[channel.opened]event: " + event);
     currentChannelId = event.getSubject();
-    logAsync("Channel Id: " + currentChannelId);
   }
 
   private void handleMeasurementData(CloudEvent event) {
+    logAsync("[data.v2]event: " + event);
+
     CloudEventData cloudEventData = event.getData();
     //logAsync("[data.v2]CloudEventData: " + cloudEventData);
-    logAsync("[data.v2]event: " + event);
 
     assert cloudEventData != null;
     String jsonData = cloudEventData.toString();

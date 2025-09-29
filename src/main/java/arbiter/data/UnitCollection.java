@@ -284,8 +284,7 @@ public class UnitCollection {
 
         //store.put(memoryData.getId(), memoryData);
 
-        // Здесь должна быть логика обработки параметров
-        // Аналогичная вашим Items[j].Parameters.Data[k]
+        // Items[j].Parameters.Data[k]
         processParameters(memoryData, result);
       }
 
