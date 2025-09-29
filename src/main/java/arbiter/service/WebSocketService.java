@@ -197,8 +197,9 @@ public class WebSocketService extends ABaseService {
   //для решения WARNING: Thread vert.x-eventloop-thread-1 has been blocked for 769173 ms, time limit is 2000 ms
   private void logAsync(String message) {
     vertx.executeBlocking(() -> {
-        System.out.println(message);
         System.out.println("----");
+        System.out.println(message);
+        System.out.println();
         return null;
       }, false)
       .onFailure(err -> {
