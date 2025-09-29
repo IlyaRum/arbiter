@@ -1,8 +1,7 @@
 package arbiter.initialization;
 
 import arbiter.di.DependencyInjector;
-import data.UnitCollection;
-import io.vertx.core.internal.logging.Logger;
+import arbiter.data.UnitCollection;
 import io.vertx.core.json.JsonObject;
 
 import java.util.concurrent.CompletableFuture;

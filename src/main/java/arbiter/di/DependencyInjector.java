@@ -9,7 +9,7 @@ import arbiter.initialization.WebSocketManager;
 import arbiter.service.SubscriptionService;
 import arbiter.service.TokenService;
 import arbiter.service.WebSocketService;
-import data.UnitCollection;
+import arbiter.data.UnitCollection;
 import io.vertx.core.Vertx;
 
 public class DependencyInjector {

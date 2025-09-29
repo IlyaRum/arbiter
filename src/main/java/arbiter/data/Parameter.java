@@ -1,4 +1,4 @@
-package data;
+package arbiter.data;
 
 import java.time.Instant;
 import java.util.Objects;

@@ -4,7 +4,7 @@ import arbiter.config.AppConfig;
 import arbiter.constants.CloudEventStrings;
 import arbiter.di.DependencyInjector;
 import com.fasterxml.jackson.databind.JsonNode;
-import data.*;
+import arbiter.data.*;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
 import io.cloudevents.core.format.EventFormat;
@@ -23,7 +23,7 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import measurement.MeasurementList;
+import arbiter.measurement.MeasurementList;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;

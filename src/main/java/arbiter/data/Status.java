@@ -1,4 +1,4 @@
-package data;
+package arbiter.data;
 
 enum Status {
   CONNECTED, DISCONNECTED, STOPPED

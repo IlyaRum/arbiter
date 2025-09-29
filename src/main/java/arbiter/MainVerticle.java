@@ -6,7 +6,7 @@ import arbiter.initialization.ApplicationInitializer;
 import arbiter.initialization.SubscriptionManager;
 import arbiter.initialization.WebSocketManager;
 import arbiter.router.MainRouter;
-import data.UnitCollection;
+import arbiter.data.UnitCollection;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.core.http.HttpServer;

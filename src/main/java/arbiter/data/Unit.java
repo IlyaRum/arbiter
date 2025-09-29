@@ -1,4 +1,4 @@
-package data;
+package arbiter.data;
 
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;

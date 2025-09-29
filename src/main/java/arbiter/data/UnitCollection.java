@@ -1,20 +1,18 @@
-package data;
+package arbiter.data;
 
-import arbiter.service.WebSocketService;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import measurement.Measurement;
-import measurement.MeasurementList;
+import arbiter.measurement.Measurement;
+import arbiter.measurement.MeasurementList;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 

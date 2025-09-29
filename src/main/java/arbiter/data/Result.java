@@ -1,9 +1,6 @@
-package data;
-
-import measurement.Measurement;
+package arbiter.data;
 
 import java.time.Instant;
-import java.time.ZonedDateTime;
 
 public class Result {
   private Unit unit;

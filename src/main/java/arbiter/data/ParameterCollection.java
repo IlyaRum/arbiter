@@ -1,4 +1,4 @@
-package data;
+package arbiter.data;
 
 import java.util.HashMap;
 import java.util.Map;
