@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import arbiter.constants.CloudEventStrings;
 import arbiter.di.DependencyInjector;
 import com.fasterxml.jackson.databind.JsonNode;
 import data.*;
@@ -22,13 +23,12 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import measurement.Measurement;
 import measurement.MeasurementList;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -75,32 +75,36 @@ public class WebSocketService extends ABaseService {
 
     Promise<JsonObject> promise = Promise.promise();
 
-    WebSocketConnectOptions options = createWebSocketConnectOptions(token);
+    if (Objects.equals(AppConfig.getDevFlag(), "local")) {
+      handleTextMessage(promise).handle(CloudEventStrings.MEASUREMENT_VALUES_DATA_V2);
+    }
+    else {
+      WebSocketConnectOptions options = createWebSocketConnectOptions(token);
 
-    webSocketClient
-      .connect(options)
-      .onComplete(res -> {
-        if (res.succeeded()) {
-          WebSocket webSocket = res.result();
-          currentWebSocket.set(webSocket);
-          setupWebSocketHandlers(webSocket, promise);
+      webSocketClient
+        .connect(options)
+        .onComplete(res -> {
+          if (res.succeeded()) {
+            WebSocket webSocket = res.result();
+            currentWebSocket.set(webSocket);
+            setupWebSocketHandlers(webSocket, promise);
 
-          // Таймаут на установление соединения и получение первого сообщения
-          vertx.setTimer(30000, timerId -> {
-            if (!promise.future().isComplete()) {
-              promise.tryFail("WebSocket connection timeout - no opening message received");
-            }
-          });
-        } else {
-          handleConnectionError(res.cause(), promise, context, options);
-        }
-      });
-
+            // Таймаут на установление соединения и получение первого сообщения
+            vertx.setTimer(30000, timerId -> {
+              if (!promise.future().isComplete()) {
+                promise.tryFail("WebSocket connection timeout - no opening message received");
+              }
+            });
+          } else {
+            handleConnectionError(res.cause(), promise, context, options);
+          }
+        });
+    }
     return promise.future();
   }
 
   private void setupWebSocketHandlers(WebSocket webSocket, Promise<JsonObject> promise) {
-    webSocket.textMessageHandler(handleTextMessage(promise, webSocket));
+    webSocket.textMessageHandler(handleTextMessage(promise));
 
     webSocket.closeHandler(v -> {
       logger.info("WebSocket connection closed");
@@ -212,16 +216,16 @@ public class WebSocketService extends ABaseService {
     };
   }
 
-  private Handler<String> handleTextMessage(Promise<JsonObject> promise, WebSocket webSocket) {
+  private Handler<String> handleTextMessage(Promise<JsonObject> promise) {
     return message -> {
       try {
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes(StandardCharsets.UTF_8));
 
-        logCloudEvent(event);
+        //logCloudEvent(event);
 
         String eventType = event.getType();
-        logger.debug("eventType: " + eventType);
+        //logger.debug("eventType: " + eventType);
         if (eventType.equals("ru.monitel.ck11.channel.opened.v2")) {
           handleChannelOpened(event);
           // Завершаем promise только при получении сообщения об открытии
@@ -231,11 +235,13 @@ public class WebSocketService extends ABaseService {
             promise.tryComplete(jsonData);
           }
         } else if (eventType.equals("ru.monitel.ck11.measurement-values.data.v2")) {
+          //тип для подписки на актуальные данные: ru.monitel.ck11.measurement-values.data.v2;
           handleMeasurementData(event);
           //TODO[IER] здесь нужно будет сохранить в объект полученные данные
         } else if (eventType.startsWith("ru.monitel.ck11.rt-events.")) {
+          //события реального времени
           CloudEventData cloudEventData = event.getData();
-          logger.info("cloudEventData: " + cloudEventData);
+          logger.info("[rt-events]CloudEventData: " + cloudEventData);
           //TODO[IER] здесь нужно реализовать полученные данные из эвента
         } else if (eventType.equals("ru.monitel.ck11.events.stream-started.v2")) {
           logger.info("подписка на события стартовала");
@@ -258,7 +264,8 @@ public class WebSocketService extends ABaseService {
 
   private void handleMeasurementData(CloudEvent event) {
     CloudEventData cloudEventData = event.getData();
-    //logAsync("Data: " + cloudEventData);
+    //logAsync("[data.v2]CloudEventData: " + cloudEventData);
+    logAsync("[data.v2]event: " + event);
 
     assert cloudEventData != null;
     String jsonData = cloudEventData.toString();
