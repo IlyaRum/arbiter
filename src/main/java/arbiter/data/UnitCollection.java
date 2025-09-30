@@ -34,6 +34,7 @@ public class UnitCollection {
   private boolean debug;
   private boolean checkEvent;
   private String eventUID;
+  private String writeEventUID;
 
   private WebSocketClient webSocketClient;
   private Vertx vertx;
@@ -78,6 +79,17 @@ public class UnitCollection {
         this.user = config.getJsonObject("ОИК").getString("пользователь", "");
         this.debug = yesNo(config.getJsonObject("ОИК"), "отладка");
         this.writeEnable = yesNo(config, "запись в ОИК");
+        this.eventUID = config.getString("изменение критерия МДП СМЗУ");
+        this.writeEventUID = config.getString("запись критерия МДП СМЗУ");
+
+        checkEvent = true;
+        if (eventUID.isEmpty()) {
+          checkEvent = false;
+        } else {
+          if (writeEventUID.isEmpty()) {
+            checkEvent = false;
+          }
+        }
 
         // Загрузка units
         JsonArray unitsArray = config.getJsonArray("сечение");
@@ -269,6 +281,13 @@ public class UnitCollection {
   public List<Unit> getUnits() { return units; }
   public boolean isWriteEnable() { return writeEnable; }
   public Status getStatus() { return status; }
+
+  /**
+   * Определяет, нужно ли отслеживать события изменения критерия МДП СМЗУ в системе.
+   */
+  public boolean isCheckEvent() {
+    return checkEvent;
+  }
 
 
   //тут получаем данные из СК-11 и сохраняем их
