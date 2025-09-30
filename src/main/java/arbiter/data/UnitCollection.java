@@ -353,8 +353,8 @@ public class UnitCollection {
             parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
             result.add(parameter);
           }
-          logger.debug(String.format("%s - %s = %f [%s] %s",
-            unit.getName(), parameter.getName(), memoryData.getValue(),
+          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
+            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
             Integer.toHexString(memoryData.getQCode()),
             memoryData.getTime().toString()));
           break;

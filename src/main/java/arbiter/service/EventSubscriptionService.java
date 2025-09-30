@@ -82,6 +82,8 @@ public class EventSubscriptionService extends ABaseService{
   private Future<Object> addEventSubscription(String channelId, List<String> types, String token) {
     String url = String.format(AppConfig.getEventSubscriptionsAddUrl(), channelId);
 
+    logger.debug(url);
+
     JsonArray eventTypes = new JsonArray();
     JsonObject requestBody = new JsonObject();
 

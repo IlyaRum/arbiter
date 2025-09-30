@@ -258,20 +258,21 @@ public class WebSocketService extends ABaseService {
   }
 
   private void handleRTEvents(CloudEvent event) {
-    logAsync("[rt-events]event: " + event);
+    logger.debug("[rt-events]event: " + event);
     CloudEventData cloudEventData = event.getData();
-    logger.debug("[rt-events]CloudEventData: " + cloudEventData);
+    logAsync("[rt-events]CloudEventData: " + cloudEventData);
   }
 
   private void handleChannelOpened(CloudEvent event) {
+    logger.debug("[channel.opened]event: " + event);
     logAsync("[channel.opened]event: " + event);
     currentChannelId = event.getSubject();
   }
 
   private void handleMeasurementData(CloudEvent event) {
-    logAsync("[data.v2]event: " + event);
-
+    logger.debug("[data.v2]event: " + event);
     CloudEventData cloudEventData = event.getData();
+    logAsync("[data.v2]cloudEventData: " + cloudEventData);
     //logAsync("[data.v2]CloudEventData: " + cloudEventData);
 
     assert cloudEventData != null;
