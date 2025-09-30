@@ -28,7 +28,7 @@ public class WebSocketManager {
     this.dependencyInjector = dependencyInjector;
   }
 
-  public CompletableFuture<String> connect(String token) {
+  public CompletableFuture<String> connectWebSocket(String token) {
     this.currentToken = token;
     return dependencyInjector.getWebSocketService()
       .connectToWebSocketServer(token)

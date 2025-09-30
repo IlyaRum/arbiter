@@ -44,7 +44,7 @@ public class MainVerticle extends AbstractVerticle {
             .thenCompose(ignore -> {
               // После успешного запуска сервера инициализируем WebSocket
               logServerStartup(data);
-              return initializeWebSocketFlow(dependencyInjector);
+              return connect(dependencyInjector);
             });
         })
         .exceptionally(throwable -> {
@@ -57,29 +57,43 @@ public class MainVerticle extends AbstractVerticle {
     }
   }
 
-  private CompletionStage<Object> initializeWebSocketFlow(DependencyInjector dependencyInjector) {
+  private CompletionStage<Object> connect(DependencyInjector dependencyInjector) {
     return dependencyInjector.getTokenService().getTokenAsync()
-      .thenCompose(token -> {
-        logger.info("Token obtained: " + token);
-        return dependencyInjector.getWebSocketManager().connect(token)
-          .thenCompose(channelId -> dependencyInjector.getSubscriptionManager().createSubscription(channelId, token))
-          .thenCompose(subscriptionResult -> {
-            JsonObject valueObject = subscriptionResult.getJsonObject("value");
-            String subscriptionId = valueObject.getString("subscriptionId");
-            logger.info("[connect] subscriptionId: " + subscriptionId);
-            return dependencyInjector
-              .getSubscriptionManager()
-              .changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, token);
-          });
-      })
-      .handle((result, error) -> {
-        if (error != null) {
-          logger.error("WebSocket initialization failed", error);
-          throw new CompletionException(error);
-        }
-        logger.info("WebSocket flow initialized successfully");
-        return null;
-      });
+      .thenCompose(token -> addDataSubscription(dependencyInjector, token))
+      .handle((result, error) -> handleInitializationResult(error));
+  }
+
+  private static CompletableFuture<JsonObject> addDataSubscription(DependencyInjector dependencyInjector, String token) {
+    logger.info("Token obtained: " + token);
+    return connectWebSocket(dependencyInjector, token)
+      .thenCompose(channelId -> createSubscription(dependencyInjector, token, channelId))
+      .thenCompose(subscriptionResult -> changeSubscription(dependencyInjector, token, subscriptionResult));
+  }
+
+  private static Object handleInitializationResult(Throwable error) {
+    if (error != null) {
+      logger.error("WebSocket initialization failed", error);
+      throw new CompletionException(error);
+    }
+    logger.info("WebSocket flow initialized successfully");
+    return null;
+  }
+
+  private static CompletableFuture<JsonObject> changeSubscription(DependencyInjector dependencyInjector, String token, JsonObject subscriptionResult) {
+    JsonObject valueObject = subscriptionResult.getJsonObject("value");
+    String subscriptionId = valueObject.getString("subscriptionId");
+    logger.info("[connect] subscriptionId: " + subscriptionId);
+    return dependencyInjector
+      .getSubscriptionManager()
+      .changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, token);
+  }
+
+  private static CompletableFuture<JsonObject> createSubscription(DependencyInjector dependencyInjector, String token, String channelId) {
+    return dependencyInjector.getSubscriptionManager().createSubscription(channelId, token);
+  }
+
+  private static CompletableFuture<String> connectWebSocket(DependencyInjector dependencyInjector, String token) {
+    return dependencyInjector.getWebSocketManager().connectWebSocket(token);
   }
 
 
