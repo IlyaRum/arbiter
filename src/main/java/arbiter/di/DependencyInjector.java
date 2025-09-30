@@ -1,11 +1,13 @@
 package arbiter.di;
 
 import arbiter.config.AppConfig;
+import arbiter.controller.EventSubscriptionController;
 import arbiter.controller.MonitoringController;
 import arbiter.controller.SubscriptionController;
 import arbiter.controller.WebSocketController;
 import arbiter.initialization.SubscriptionManager;
 import arbiter.initialization.WebSocketManager;
+import arbiter.service.EventSubscriptionService;
 import arbiter.service.SubscriptionService;
 import arbiter.service.TokenService;
 import arbiter.service.WebSocketService;
@@ -21,6 +23,8 @@ public class DependencyInjector {
   private WebSocketService webSocketService;
   private SubscriptionController subscriptionController;
   private SubscriptionService subscriptionService;
+  private EventSubscriptionController eventSubscriptionController;
+  private EventSubscriptionService eventSubscriptionService;
   private TokenService tokenService;
   private UnitCollection unitCollection;
 
@@ -41,6 +45,7 @@ public class DependencyInjector {
   private void initializeServices() {
     webSocketService = new WebSocketService(vertx, this);
     subscriptionService = new SubscriptionService(vertx);
+    eventSubscriptionService = new EventSubscriptionService(vertx, this);
     tokenService = new TokenService(vertx, AppConfig.getAuthTokenUrl(), AppConfig.getAuthBasicCredentials());
   }
 
@@ -48,7 +53,7 @@ public class DependencyInjector {
     monitoringController = new MonitoringController(vertx, this);
     webSocketController = new WebSocketController(vertx, this);
     subscriptionController = new SubscriptionController(vertx, this);
-
+    eventSubscriptionController = new EventSubscriptionController(vertx, this);
   }
 
   public MonitoringController getMonitoringController() {
@@ -83,5 +88,13 @@ public class DependencyInjector {
 
   public UnitCollection getUnitCollection() {
     return unitCollection;
+  }
+
+  public EventSubscriptionController getEventSubscriptionController() {
+    return eventSubscriptionController;
+  }
+
+  public EventSubscriptionService getEventSubscriptionService() {
+    return eventSubscriptionService;
   }
 }

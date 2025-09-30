@@ -282,6 +282,10 @@ public class UnitCollection {
   public boolean isWriteEnable() { return writeEnable; }
   public Status getStatus() { return status; }
 
+  public String getEventUID() {
+    return eventUID;
+  }
+
   /**
    * Определяет, нужно ли отслеживать события изменения критерия МДП СМЗУ в системе.
    */

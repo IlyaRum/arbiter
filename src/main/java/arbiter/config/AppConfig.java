@@ -23,6 +23,7 @@ public class AppConfig {
   public static final String ADD_SUBSCRIPTION_BY_CHANNELID = "/channels/:channelId/add-subscription";
   public static final String DELETE_SUBSCRIPTION = "/channels/:channelId/delete-subscription/:subscriptionId";
   public static final String CHANGE_SUBSCRIPTION = "/channels/:channelId/change-subscription/:subscriptionId";
+  public static final String ADD_EVENT_SUBSCRIPTION = "/channels/:channelId/event-types/add";
   public static final String CLOSE_WEBSOCKET_CONNECT = "/close-websocket-connect";
 
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
@@ -33,6 +34,7 @@ public class AppConfig {
   private static String subscriptionsAddUrl;
   private static String subscriptionsChangeUrl;
   private static String subscriptionsDeleteUrl;
+  private static String eventSubscriptionsAddUrl;
   private static String devFlag;
 
   public static void loadConfig() {
@@ -56,6 +58,7 @@ public class AppConfig {
       subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
       subscriptionsChangeUrl = props.getProperty("subscriptions.change.url");
       subscriptionsDeleteUrl = props.getProperty("subscriptions.delete.url");
+      eventSubscriptionsAddUrl = props.getProperty("event.subscriptions.add");
       devFlag =props.getProperty("dev.flag");
 
       if (authBasicCredentials == null ||
@@ -89,6 +92,10 @@ public class AppConfig {
 
   public static String getSubscriptionsDeleteUrl() {
     return subscriptionsDeleteUrl;
+  }
+
+  public static String getEventSubscriptionsAddUrl() {
+    return eventSubscriptionsAddUrl;
   }
 
   public static String getDevFlag() {

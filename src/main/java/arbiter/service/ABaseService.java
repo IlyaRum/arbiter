@@ -58,17 +58,17 @@ public abstract class ABaseService {
       .end("{\"error\": \"" + message + "\"}");
   }
 
-  public List<String> extractUidsFromJsonArray(JsonArray jsonArray) {
-    List<String> uids = new ArrayList<>();
+  public List<String> extractFromJsonArray(JsonArray jsonArray) {
+    List<String> arrays = new ArrayList<>();
     if (jsonArray != null) {
       for (int i = 0; i < jsonArray.size(); i++) {
-        String uid = jsonArray.getString(i);
-        if (uid != null && !uid.isEmpty()) {
-          uids.add(uid);
+        String array = jsonArray.getString(i);
+        if (array != null && !array.isEmpty()) {
+          arrays.add(array);
         }
       }
     }
-    return uids;
+    return arrays;
   }
 
   static void logCloudEvent(CloudEvent cloudEvent) {

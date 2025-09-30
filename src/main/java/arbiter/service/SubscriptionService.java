@@ -99,11 +99,11 @@ public class SubscriptionService extends ABaseService {
         return;
       }
 
-      List<String> addUids = extractUidsFromJsonArray(
+      List<String> addUids = extractFromJsonArray(
         requestBody.getJsonArray("measurementValueToAddUids")
       );
 
-      List<String> removeUids = extractUidsFromJsonArray(
+      List<String> removeUids = extractFromJsonArray(
         requestBody.getJsonArray("measurementValueToRemoveUids")
       );
 

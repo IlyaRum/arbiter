@@ -59,15 +59,29 @@ public class MainVerticle extends AbstractVerticle {
 
   private CompletionStage<Object> connect(DependencyInjector dependencyInjector) {
     return dependencyInjector.getTokenService().getTokenAsync()
-      .thenCompose(token -> addDataSubscription(dependencyInjector, token))
+      .thenCompose(token -> addDataSubscription(dependencyInjector, token)
+        .thenCompose(subscriptionResult -> {
+          if (dependencyInjector.getUnitCollection().isCheckEvent()) {
+            return addEventSubscription(dependencyInjector, token, subscriptionResult)
+              .thenApply(eventResult -> subscriptionResult);
+          } else {
+            return CompletableFuture.completedFuture(subscriptionResult);
+          }
+        }))
       .handle((result, error) -> handleInitializationResult(error));
   }
+
+  private static CompletionStage<Object> addEventSubscription(DependencyInjector dependencyInjector, String token, JsonObject subscriptionResult) {
+    return dependencyInjector.getEventSubscriptionService().addEventSubscription(dependencyInjector, token, subscriptionResult);
+  }
+
 
   private static CompletableFuture<JsonObject> addDataSubscription(DependencyInjector dependencyInjector, String token) {
     logger.info("Token obtained: " + token);
     return connectWebSocket(dependencyInjector, token)
-      .thenCompose(channelId -> createSubscription(dependencyInjector, token, channelId))
-      .thenCompose(subscriptionResult -> changeSubscription(dependencyInjector, token, subscriptionResult));
+      .thenCompose(channelId -> createSubscription(dependencyInjector, token, channelId)
+      .thenCompose(subscriptionResult -> changeSubscription(dependencyInjector, token, subscriptionResult))
+          .thenApply(finalResult -> new JsonObject().put("channelId", channelId)));
   }
 
   private static Object handleInitializationResult(Throwable error) {
@@ -102,7 +116,8 @@ public class MainVerticle extends AbstractVerticle {
       vertx,
       dependencyInjector.getWebSocketController(),
       dependencyInjector.getMonitoringController(),
-      dependencyInjector.getSubscriptionController()
+      dependencyInjector.getSubscriptionController(),
+      dependencyInjector.getEventSubscriptionController()
     );
 
     Router router = mainRouter.createRouter();
@@ -124,6 +139,7 @@ public class MainVerticle extends AbstractVerticle {
     System.out.println("Add subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.ADD_SUBSCRIPTION_BY_CHANNELID);
     System.out.println("Change subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.CHANGE_SUBSCRIPTION);
     System.out.println("Delete subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.MEASUREMENT_PREFIX + AppConfig.DELETE_SUBSCRIPTION);
+    System.out.println("Add event subscription available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.ADD_EVENT_SUBSCRIPTION);
     System.out.println("Force reconnect available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.FORCE_RECONNECT);
     System.out.println("Stop reconnecting available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.STOP_RECONNECTING);
     System.out.println("Reconnection stats available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.RECONNECTION_STATS);
