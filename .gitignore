@@ -15,8 +15,6 @@ local.properties
 .loadpath
 .recommenders
 
-*.log
-
 # External tool builders
 .externalToolBuilders/
 
@@ -185,6 +183,8 @@ nbdist/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+*.log
 
 src/main/resources/config.properties
 /src/main/resources/arbiter_server.json
