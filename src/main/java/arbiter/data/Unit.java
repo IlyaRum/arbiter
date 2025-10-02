@@ -5,6 +5,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.util.Map;
+import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Unit {
@@ -24,23 +25,19 @@ public class Unit {
   private UltimateTimer cycleTimer;
   // Другие таймеры...
 
-  @JsonIgnore
-  private UnitCollection collection;
-
-  public Unit(int index, JsonObject config, UnitCollection collection) {
+  public Unit(int index, JsonObject config) {
     this.index = index;
-    this.collection = collection;
     this.name = config.getString("наименование");
     this.group = config.getString("группа");
     this.direction = config.getInteger("направление");
-    this.active = collection.yesNo(config, "в работе");
-    this.mdpAndADP = collection.yesNo(config, "проверять и МДП и АДП");
+    this.active = yesNo(config, "в работе");
+    this.mdpAndADP = yesNo(config, "проверять и МДП и АДП");
 
     // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);
-      Parameter param = new Parameter(this,
+      Parameter param = new Parameter(
         paramObj.getString("имя"),
         paramObj.getString("id"));
       parameters.put(param.getName(), param);
@@ -51,7 +48,10 @@ public class Unit {
     this.errorSet = new ErrorSet(name);
   }
 
-
+  public boolean yesNo(JsonObject obj, String key) {
+    if (!obj.containsKey(key)) return false;
+    return "да".equalsIgnoreCase(obj.getString(key));
+  }
 
   public Parameter getParameter(String name) {
     return parameters.get(name);
@@ -74,10 +74,6 @@ public class Unit {
     return parameters;
   }
 
-  public UnitCollection getCollection() {
-    return collection;
-  }
-
   // Аналог Items[j].Parameters.Data[k]
   public Iterable<Parameter> getAllParameters() {
     return parameters.values();
@@ -89,5 +85,54 @@ public class Unit {
 
   public String getEventObject() {
     return eventObject;
+  }
+
+  public boolean isActive() {
+    return active;
+  }
+
+  public UltimateTimer getCycleTimer() {
+    return cycleTimer;
+  }
+
+  public int getDirection() {
+    return direction;
+  }
+
+  public ErrorSet getErrorSet() {
+    return errorSet;
+  }
+
+  public String getGroup() {
+    return group;
+  }
+
+  public int getIndex() {
+    return index;
+  }
+
+  public boolean isMdpAndADP() {
+    return mdpAndADP;
+  }
+
+  public Map<String, Result> getResults() {
+    return results;
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(", ", Unit.class.getSimpleName() + "[", "]")
+      .add("active=" + active)
+      .add("index=" + index)
+      .add("name='" + name + "'")
+      .add("group='" + group + "'")
+      .add("direction=" + direction)
+      .add("mdpAndADP=" + mdpAndADP)
+      .add("eventObject='" + eventObject + "'")
+      .add("parameters=" + parameters)
+      .add("results=" + results)
+      .add("errorSet=" + errorSet)
+      .add("cycleTimer=" + cycleTimer)
+      .toString();
   }
 }

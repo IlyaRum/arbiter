@@ -398,6 +398,8 @@ public class WebSocketService extends ABaseService {
   private void sendPostRequest(StoreData result) {
     WebClient client = WebClient.create(vertx);
 
+    logger.debug("Подготовка параметров перед отправкой в POST запрос: " + result);
+
     String jsonData = convertStoreDataToJson(result);
 
     logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
@@ -422,6 +424,7 @@ public class WebSocketService extends ABaseService {
       ObjectMapper mapper = new ObjectMapper();
       mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
       mapper.registerModule(new JavaTimeModule());
+      mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
       mapper.getFactory().setStreamWriteConstraints(
@@ -438,6 +441,7 @@ public class WebSocketService extends ABaseService {
       return mapper.writeValueAsString(cloudEvent);
 
     } catch (Exception e) {
+      logger.error(e.getMessage());
       return e.getMessage();
     }
   }

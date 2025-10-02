@@ -2,17 +2,14 @@ package arbiter.data;
 
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 public class UnitCollection {
   private String version;
@@ -25,7 +22,7 @@ public class UnitCollection {
 
   private List<Unit> units = new CopyOnWriteArrayList<>();
   private List<Measurement> writeBuffer = new CopyOnWriteArrayList<>();
-  private List<String> UIDs = new ArrayList<>(); //срез uid'ов, которые добавляем набора значений измерений в подписке
+  //private List<String> UIDs = new ArrayList<>(); //срез uid'ов, которые добавляем набора значений измерений в подписке
   private static final Logger logger = LoggerFactory.getLogger(UnitCollection.class);
 
   private boolean writeEnable;
@@ -34,23 +31,23 @@ public class UnitCollection {
   private String eventUID;
   private String writeEventUID;
 
-  private WebSocketClient webSocketClient;
+//  private WebSocketClient webSocketClient;
   private Vertx vertx;
 
-  private Consumer<List<Parameter>> processData;
-  private Consumer<Unit> processEvent;
+//  private Consumer<List<Parameter>> processData;
+//  private Consumer<Unit> processEvent;
 
-  public UnitCollection(Vertx vertx, String configFile, String versionInfo,
-                        String password, Consumer<List<Parameter>> processData,
-                        Consumer<Unit> processEvent) {
-    this.vertx = vertx;
-    this.version = versionInfo;
-    this.password = password;
-    this.processData = processData;
-    this.processEvent = processEvent;
-
-    loadConfig(configFile);
-  }
+//  public UnitCollection(Vertx vertx, String configFile, String versionInfo,
+//                        String password, Consumer<List<Parameter>> processData,
+//                        Consumer<Unit> processEvent) {
+//    this.vertx = vertx;
+//    this.version = versionInfo;
+//    this.password = password;
+//    this.processData = processData;
+//    this.processEvent = processEvent;
+//
+//    loadConfig(configFile);
+//  }
 
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.vertx = vertx;
@@ -92,7 +89,7 @@ public class UnitCollection {
         // Загрузка units
         JsonArray unitsArray = config.getJsonArray("сечение");
         for (int i = 0; i < unitsArray.size(); i++) {
-          this.unit = new Unit(i, unitsArray.getJsonObject(i), this);
+          this.unit = new Unit(i, unitsArray.getJsonObject(i));
           units.add(unit);
         }
 
@@ -104,13 +101,13 @@ public class UnitCollection {
       });
   }
 
-  public void addID(final String id) {
-    if (id != null && id.length() == 36) {
-      if (!UIDs.contains(id)) {
-        UIDs.add(id);
-      }
-    }
-  }
+//  public void addID(final String id) {
+//    if (id != null && id.length() == 36) {
+//      if (!UIDs.contains(id)) {
+//        UIDs.add(id);
+//      }
+//    }
+//  }
 
   public boolean yesNo(JsonObject obj, String key) {
     if (!obj.containsKey(key)) return false;
@@ -118,7 +115,10 @@ public class UnitCollection {
   }
 
   public List<String> getUIDs() {
-    return UIDs;
+    return units.stream()
+      .flatMap(unit -> unit.getParameters().values().stream())
+      .flatMap(parameter -> parameter.getUIDs().stream())
+      .collect(Collectors.toList());
   }
 
   //  public void connect() {
@@ -180,40 +180,40 @@ public class UnitCollection {
 //    });
 //  }
 
-  private void onDataReceived(JsonArray data) {
-    List<Parameter> updatedParams = new ArrayList<>();
-
-    for (int i = 0; i < data.size(); i++) {
-      JsonObject measurement = data.getJsonObject(i);
-      String id = measurement.getString("id").toLowerCase();
-      double value = measurement.getDouble("value");
-      Instant time = Instant.parse(measurement.getString("time"));
-      int qCode = measurement.getInteger("qCode", 0);
-
-      for (Unit unit : units) {
-        for (Parameter param : unit.getParameters().values()) {
-          if (param.getId().equalsIgnoreCase(id)) {
-            if (!param.isAssigned() ||
-              !param.getTime().equals(time) ||
-              param.getValue() != value) {
-
-              //param.setData(value, time, qCode);
-              updatedParams.add(param);
-
-              if (debug) {
-                //logger.debug("{} - {} = {} [{}] {}", unit.getName(), param.getName(), value, qCode, time);
-              }
-            }
-          }
-        }
-      }
-    }
-
-    if (!updatedParams.isEmpty()) {
-      //logger.info("Получено {} новых значений", updatedParams.size());
-      processData.accept(updatedParams);
-    }
-  }
+//  private void onDataReceived(JsonArray data) {
+//    List<Parameter> updatedParams = new ArrayList<>();
+//
+//    for (int i = 0; i < data.size(); i++) {
+//      JsonObject measurement = data.getJsonObject(i);
+//      String id = measurement.getString("id").toLowerCase();
+//      double value = measurement.getDouble("value");
+//      Instant time = Instant.parse(measurement.getString("time"));
+//      int qCode = measurement.getInteger("qCode", 0);
+//
+//      for (Unit unit : units) {
+//        for (Parameter param : unit.getParameters().values()) {
+//          if (param.getId().equalsIgnoreCase(id)) {
+//            if (!param.isAssigned() ||
+//              !param.getTime().equals(time) ||
+//              param.getValue() != value) {
+//
+//              //param.setData(value, time, qCode);
+//              updatedParams.add(param);
+//
+//              if (debug) {
+//                //logger.debug("{} - {} = {} [{}] {}", unit.getName(), param.getName(), value, qCode, time);
+//              }
+//            }
+//          }
+//        }
+//      }
+//    }
+//
+//    if (!updatedParams.isEmpty()) {
+//      //logger.info("Получено {} новых значений", updatedParams.size());
+//      processData.accept(updatedParams);
+//    }
+//  }
 
 //  private void onEventReceived(JsonObject event) {
 //    JsonObject data = event.getJsonObject("data");
@@ -271,14 +271,13 @@ public class UnitCollection {
 //      });
 //  }
 
-  public void addToWriteBuffer(Measurement measurement) {
-    writeBuffer.add(measurement);
-  }
+//  public void addToWriteBuffer(Measurement measurement) {
+//    writeBuffer.add(measurement);
+//  }
 
-  // Геттеры
   public List<Unit> getUnits() { return units; }
-  public boolean isWriteEnable() { return writeEnable; }
-  public Status getStatus() { return status; }
+//  public boolean isWriteEnable() { return writeEnable; }
+//  public Status getStatus() { return status; }
 
   public String getEventUID() {
     return eventUID;
