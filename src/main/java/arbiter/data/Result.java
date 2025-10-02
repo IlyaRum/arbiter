@@ -1,51 +1,58 @@
 package arbiter.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.Instant;
 
 public class Result {
-  private Unit unit;
-  private String name;
-  private String id;
-  protected double value;
-  protected Instant time;
+    @JsonIgnore
+    private Unit unit;
+    private String name;
+    private String id;
+    protected double value;
+    protected Instant time;
 
-  public Result(Unit unit, String name, String id) {
-    this.unit = unit;
-    this.name = name;
-    this.id = id != null ? id.toLowerCase() : null;
-    this.value = 0;
-    this.time = Instant.now();
-  }
-
-  public boolean writable() {
-    return id != null && id.length() == 36;
-  }
-
-  public void setValue(double value, Instant time) {
-    this.value = value;
-    this.time = time;
-    if (writable() && unit.getCollection().isWriteEnable()) {
-      //unit.getCollection().addToWriteBuffer(new Measurement(id, ZonedDateTime.now(), value));
+    public Result(Unit unit, String name, String id) {
+        this.unit = unit;
+        this.name = name;
+        this.id = id != null ? id.toLowerCase() : null;
+        this.value = 0;
+        this.time = Instant.now();
     }
-  }
 
-  public int getInt() {
-    return (int) Math.round(value);
-  }
+    public boolean writable() {
+        return id != null && id.length() == 36;
+    }
 
-  public String getId() {
-    return id;
-  }
+    public void setValue(double value, Instant time) {
+        this.value = value;
+        this.time = time;
+        if (writable() && unit.getCollection().isWriteEnable()) {
+            //unit.getCollection().addToWriteBuffer(new Measurement(id, ZonedDateTime.now(), value));
+        }
+    }
 
-  public Instant getTime() {
-    return time;
-  }
+    public int getInt() {
+        return (int) Math.round(value);
+    }
 
-  public String getName() {
-    return name;
-  }
+    public String getId() {
+        return id;
+    }
 
-  public double getValue() {
-    return value;
-  }
+    public Instant getTime() {
+        return time;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public double getValue() {
+        return value;
+    }
+
+    public Unit getUnit() {
+        return unit;
+    }
 }

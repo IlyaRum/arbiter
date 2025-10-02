@@ -1,5 +1,6 @@
 package arbiter.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
@@ -15,6 +16,7 @@ public class Unit {
   private boolean mdpAndADP;
   private String eventObject;
 
+  @JsonIgnore
   private Map<String, Parameter> parameters = new ConcurrentHashMap<>();
   private Map<String, Result> results = new ConcurrentHashMap<>();
 
@@ -22,6 +24,7 @@ public class Unit {
   private UltimateTimer cycleTimer;
   // Другие таймеры...
 
+  @JsonIgnore
   private UnitCollection collection;
 
   public Unit(int index, JsonObject config, UnitCollection collection) {

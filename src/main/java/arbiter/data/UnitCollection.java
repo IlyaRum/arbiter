@@ -1,18 +1,16 @@
 package arbiter.data;
 
+import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import arbiter.measurement.Measurement;
-import arbiter.measurement.MeasurementList;
 
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
@@ -294,74 +292,7 @@ public class UnitCollection {
   }
 
 
-  //тут получаем данные из СК-11 и сохраняем их
-  public void onDataReceived(MeasurementList list) {
-    StoreData result = new StoreData();
 
-    try {
-      for (int i = 0; i < list.size(); i++) {
-        Measurement measurement = list.get(i);
-        MemoryData memoryData = createMemoryData(measurement);
-
-        //store.put(memoryData.getId(), memoryData);
-
-        // Items[j].Parameters.Data[k]
-        processParameters(memoryData, result);
-      }
-
-      if (result.size() > 0) {
-        logger.info(String.format("### получено %d новых значений", result.size()));
-        //dataProcessor.accept(result);
-
-      }
-
-    } catch (Exception e) {
-      logger.error("Ошибка при обработке данных измерений", e);
-    }
-  }
-
-  private MemoryData createMemoryData(Measurement measurement) {
-    String id = measurement.getUid();
-    double value = measurement.getValue();
-    Instant time = measurement.getTimeStampAsInstant();
-    int qCode = measurement.getQCode();
-
-    return new MemoryData(id, value, time, qCode);
-  }
-
-  private void processParameters(MemoryData memoryData, StoreData result) {
-
-    // Проходим по всем юнитам
-    for (int j = 0; j < units.size(); j++) {
-      Unit unit = units.get(j);
-      Map<String, Parameter> parameters = unit.getParameters();
-
-      // Проходим по всем параметрам юнитам
-      // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
-      for (Parameter parameter : parameters.values()) {
-
-        // Сравниваем ID (case-insensitive)
-        // Аналог: if CompareText(P.Id, Data.Id) = 0 then
-        if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
-
-          // Проверяем, изменились ли данные
-          // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
-          if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
-
-            // Обновляем данные параметра
-            // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
-            parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
-            result.add(parameter);
-          }
-          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
-            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
-            Integer.toHexString(memoryData.getQCode()),
-            memoryData.getTime().toString()));
-          break;
-        }
-      }
-    }
-  }
 }
 
 

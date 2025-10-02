@@ -56,4 +56,24 @@ public class Parameter extends Result {
     this.qCode = qCode;
     this.assigned = true;
   }
+
+  public double getMax() {
+    return max;
+  }
+
+  public double getMin() {
+    return min;
+  }
+
+  public double getOldValue() {
+    return oldValue;
+  }
+
+  public int getQCode() {
+    return qCode;
+  }
+
+  public boolean isSelfTest() {
+    return selfTest;
+  }
 }

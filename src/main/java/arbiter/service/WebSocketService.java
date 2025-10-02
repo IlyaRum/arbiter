@@ -2,11 +2,21 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.constants.CloudEventStrings;
+import arbiter.data.MemoryData;
+import arbiter.data.Parameter;
+import arbiter.data.StoreData;
+import arbiter.data.Unit;
 import arbiter.di.DependencyInjector;
+import arbiter.measurement.Measurement;
+import arbiter.measurement.MeasurementList;
+import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
-import arbiter.data.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
+import io.cloudevents.core.builder.CloudEventBuilder;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.jackson.JsonFormat;
@@ -14,6 +24,7 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketClient;
 import io.vertx.core.http.WebSocketClientOptions;
@@ -23,12 +34,14 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import arbiter.measurement.MeasurementList;
+import io.vertx.ext.web.client.WebClient;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.time.Instant;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -44,6 +57,9 @@ public class WebSocketService extends ABaseService {
   //TODO[IER] Пересмотреть обработчики событий для внешнего управления
   private Runnable closeHandler; // Изменено с Consumer<Void> на Runnable
   private Consumer<Throwable> exceptionHandler;
+
+  private boolean firstTime = true;
+  private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
@@ -298,7 +314,7 @@ public class WebSocketService extends ABaseService {
       result.append(String.format("%s = %f", uid, value));
     }
 
-    dependencyInjector.getUnitCollection().onDataReceived(measurementList);
+    onDataReceived(measurementList);
     //TODO[IER]
     //logAsync("Result: " + result);
   }
@@ -336,5 +352,135 @@ public class WebSocketService extends ABaseService {
     }
 
     promise.tryFail("Ошибка подключения: " + cause.getMessage());
+  }
+
+  //тут получаем данные из СК-11 и сохраняем их
+  public void onDataReceived(MeasurementList list) {
+    StoreData result = new StoreData();
+
+    try {
+      for (int i = 0; i < list.size(); i++) {
+        Measurement measurement = list.get(i);
+        MemoryData memoryData = createMemoryData(measurement);
+
+        //store.put(memoryData.getId(), memoryData);
+
+        // Items[j].Parameters.Data[k]
+        processParameters(memoryData, result);
+      }
+
+      if (result.size() > 0) {
+        logger.info(String.format("### получено %d новых значений", result.size()));
+        //dataProcessor.accept(result);
+        if (firstTime) {
+          sendPostRequestAsync(result);
+          firstTime = false;
+        }
+      }
+
+    } catch (Exception e) {
+      logger.error("Ошибка при обработке данных измерений", e);
+    }
+  }
+
+  private void sendPostRequestAsync(StoreData result) {
+    executor.submit(() -> {
+      try {
+        sendPostRequest(result);
+      } catch (Exception e) {
+        logger.error("Ошибка при асинхронной отправке данных", e);
+      }
+    });
+  }
+
+  private void sendPostRequest(StoreData result) {
+    WebClient client = WebClient.create(vertx);
+
+    String jsonData = convertStoreDataToJson(result);
+
+    logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
+
+    client.postAbs("https://your-api-endpoint.com/data")
+      .putHeader("Content-Type", "application/json")
+      .sendBuffer(Buffer.buffer(jsonData))
+      .compose(response -> {
+        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+          logger.debug("Данные успешно отправлены. Ответ: " + response.bodyAsString());
+          return Future.succeededFuture();
+        } else {
+          return Future.failedFuture("HTTP error: " + response.statusCode() + " - " + response.bodyAsString());
+        }
+      })
+      .onSuccess(v -> logger.debug("POST запрос выполнен успешно"))
+      .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
+  }
+
+  private String convertStoreDataToJson(StoreData result) {
+    try {
+      ObjectMapper mapper = new ObjectMapper();
+      mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
+      mapper.registerModule(new JavaTimeModule());
+      mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+      mapper.getFactory().setStreamWriteConstraints(
+        StreamWriteConstraints.builder()
+          .maxNestingDepth(2000) // лимит вложенности //TODO[IER] возможно нужно вынести в проперти
+          .build());
+
+      CloudEvent cloudEvent = CloudEventBuilder.v1()
+        .withId(UUID.randomUUID().toString())
+        .withSource(URI.create("urn:store:data"))
+        .withType("StoreDataEvent")
+        .withData(mapper.writeValueAsBytes(result))
+        .build();
+      return mapper.writeValueAsString(cloudEvent);
+
+    } catch (Exception e) {
+      return e.getMessage();
+    }
+  }
+
+  private MemoryData createMemoryData(Measurement measurement) {
+    String id = measurement.getUid();
+    double value = measurement.getValue();
+    Instant time = measurement.getTimeStampAsInstant();
+    int qCode = measurement.getQCode();
+
+    return new MemoryData(id, value, time, qCode);
+  }
+
+  private void processParameters(MemoryData memoryData, StoreData result) {
+
+    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
+    // Проходим по всем юнитам
+    for (int j = 0; j < units.size(); j++) {
+      Unit unit = units.get(j);
+      Map<String, Parameter> parameters = unit.getParameters();
+
+      // Проходим по всем параметрам юнитам
+      // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
+      for (Parameter parameter : parameters.values()) {
+
+        // Сравниваем ID (case-insensitive)
+        // Аналог: if CompareText(P.Id, Data.Id) = 0 then
+        if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
+
+          // Проверяем, изменились ли данные
+          // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
+          if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+            // Обновляем данные параметра
+            // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
+            parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+            result.add(parameter);
+          }
+          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
+            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
+            Integer.toHexString(memoryData.getQCode()),
+            memoryData.getTime().toString()));
+          break;
+        }
+      }
+    }
   }
 }
