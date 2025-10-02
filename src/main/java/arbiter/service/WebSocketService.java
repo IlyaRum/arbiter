@@ -236,6 +236,8 @@ public class WebSocketService extends ABaseService {
   private Handler<String> handleTextMessage(Promise<JsonObject> promise) {
     return message -> {
       try {
+        logger.debug("Input message: " + message);
+
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes(StandardCharsets.UTF_8));
 
