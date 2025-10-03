@@ -15,15 +15,16 @@ public class Unit {
   private int direction;
   private boolean active;
   private boolean mdpAndADP;
-  private String eventObject;
+  //private String eventObject;
 
   @JsonIgnore
   private Map<String, Parameter> parameters = new ConcurrentHashMap<>();
+  @JsonIgnore
   private Map<String, Result> results = new ConcurrentHashMap<>();
-
+  @JsonIgnore
   private ErrorSet errorSet;
+  @JsonIgnore
   private UltimateTimer cycleTimer;
-  // Другие таймеры...
 
   public Unit(int index, JsonObject config) {
     this.index = index;
@@ -75,6 +76,7 @@ public class Unit {
   }
 
   // Аналог Items[j].Parameters.Data[k]
+  @JsonIgnore
   public Iterable<Parameter> getAllParameters() {
     return parameters.values();
   }
@@ -83,9 +85,9 @@ public class Unit {
     return name;
   }
 
-  public String getEventObject() {
-    return eventObject;
-  }
+//  public String getEventObject() {
+//    return eventObject;
+//  }
 
   public boolean isActive() {
     return active;
@@ -128,7 +130,7 @@ public class Unit {
       .add("group='" + group + "'")
       .add("direction=" + direction)
       .add("mdpAndADP=" + mdpAndADP)
-      .add("eventObject='" + eventObject + "'")
+      //.add("eventObject='" + eventObject + "'")
       .add("parameters=" + parameters)
       .add("results=" + results)
       .add("errorSet=" + errorSet)

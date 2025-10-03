@@ -2,10 +2,7 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.constants.CloudEventStrings;
-import arbiter.data.MemoryData;
-import arbiter.data.Parameter;
-import arbiter.data.StoreData;
-import arbiter.data.Unit;
+import arbiter.data.*;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.Measurement;
 import arbiter.measurement.MeasurementList;
@@ -458,16 +455,13 @@ public class WebSocketService extends ABaseService {
   private void processParameters(MemoryData memoryData, StoreData result) {
 
     List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
-    // Проходим по всем юнитам
-    for (int j = 0; j < units.size(); j++) {
-      Unit unit = units.get(j);
+    for (Unit unit : units) {
       Map<String, Parameter> parameters = unit.getParameters();
+      UnitData unitData = null;
 
-      // Проходим по всем параметрам юнитам
       // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
       for (Parameter parameter : parameters.values()) {
 
-        // Сравниваем ID (case-insensitive)
         // Аналог: if CompareText(P.Id, Data.Id) = 0 then
         if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
 
@@ -475,10 +469,19 @@ public class WebSocketService extends ABaseService {
           // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
           if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
 
-            // Обновляем данные параметра
             // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
             parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
-            result.add(parameter);
+
+            // Создаем или получаем UnitData для текущего юнита
+            if (unitData == null) {
+              unitData = result.getUnitData(unit);
+              if (unitData == null) {
+                unitData = new UnitData(unit);
+                result.addUnitData(unitData);
+              }
+            }
+
+            unitData.addParameter(parameter);
           }
           logger.debug(String.format("%s: %s/%s= %f [%s] %s",
             unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),

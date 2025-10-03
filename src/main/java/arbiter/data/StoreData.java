@@ -5,28 +5,38 @@ import java.util.List;
 import java.util.StringJoiner;
 
 public class StoreData {
-  private final List<Parameter> parameters;
+  private final List<UnitData> unitDataList;
 
   public StoreData() {
-    this.parameters = new ArrayList<>();
+    this.unitDataList = new ArrayList<>();
   }
 
-  public void add(Parameter parameter) {
-    parameters.add(parameter);
+  public void addUnitData(UnitData unitData) {
+    unitDataList.add(unitData);
+  }
+
+  public List<UnitData> getUnitDataList() {
+    return unitDataList;
   }
 
   public int size() {
-    return parameters.size();
+    return unitDataList.stream()
+      .mapToInt(unitData -> unitData.getParameters().size())
+      .sum();
   }
 
-  public List<Parameter> getParameters() {
-    return new ArrayList<>(parameters);
+  // Вспомогательный метод для поиска данных юнита
+  public UnitData getUnitData(Unit unit) {
+    return unitDataList.stream()
+      .filter(ud -> ud.getUnit().equals(unit))
+      .findFirst()
+      .orElse(null);
   }
 
   @Override
   public String toString() {
     return new StringJoiner(", ", StoreData.class.getSimpleName() + "[", "]")
-      .add("parameters=" + parameters)
+      .add("unitDataList=" + unitDataList)
       .toString();
   }
 }
