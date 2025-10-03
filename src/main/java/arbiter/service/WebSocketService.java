@@ -424,12 +424,6 @@ public class WebSocketService extends ABaseService {
       mapper.registerModule(new JavaTimeModule());
       mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       mapper.enable(SerializationFeature.INDENT_OUTPUT);
-//      mapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
-
-      mapper.getFactory().setStreamWriteConstraints(
-        StreamWriteConstraints.builder()
-          .maxNestingDepth(2000) // лимит вложенности //TODO[IER] возможно нужно вынести в проперти
-          .build());
 
       CloudEvent cloudEvent = CloudEventBuilder.v1()
         .withId(UUID.randomUUID().toString())
