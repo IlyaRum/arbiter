@@ -469,12 +469,10 @@ public class WebSocketService extends ABaseService {
             parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
 
             // Создаем или получаем UnitData для текущего юнита
+            unitData = result.getUnitData(unit);
             if (unitData == null) {
-              unitData = result.getUnitData(unit);
-              if (unitData == null) {
-                unitData = new UnitData(unit);
-                result.addUnitData(unitData);
-              }
+              unitData = new UnitData(unit);
+              result.addUnitData(unitData);
             }
 
             unitData.addParameter(parameter);
