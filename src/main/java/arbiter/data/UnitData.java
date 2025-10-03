@@ -33,8 +33,8 @@ public class UnitData {
   @Override
   public String toString() {
     return new StringJoiner(", ", UnitData.class.getSimpleName() + "[", "]")
-      .add("parameters=" + parameters)
       .add("unit=" + unit)
+      .add("parameters=" + parameters)
       .toString();
   }
 }

@@ -1,6 +1,7 @@
 package arbiter.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -8,18 +9,31 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
-public class Parameter extends Result {
+public class Parameter{
+  private String id;
+  private String name;
+  protected double value;
+  protected Instant time;
   private boolean assigned;
   private double oldValue;
   private int qCode;
-  private double min;
-  private double max;
-  private boolean selfTest;
+  private int min;
+  private int max;
+//  private boolean selfTest;
   private List<String> UIDs = new ArrayList<>();
 
   public Parameter(String name, String id) {
-    super(name, id);
+    this.name = name;
+    this.id = id != null ? id.toLowerCase() : null;
+    this.value = 0;
+    this.time = Instant.now();
     addID(id);
+  }
+
+  public Parameter(String name, String id, int min, int max) {
+    this(name, id);
+    this.min = min;
+    this.max = max;
   }
 
   public void addID(final String id) {
@@ -30,19 +44,19 @@ public class Parameter extends Result {
     }
   }
 
-  public boolean checkLimits() {
-    if (selfTest) {
-      return getValue() == 99999 || (getValue() >= min && getValue() <= max);
-    } else {
-      return (qCode & 0x00000004) == 0;
-    }
-  }
+//  public boolean checkLimits() {
+//    if (selfTest) {
+//      return getValue() == 99999 || (getValue() >= min && getValue() <= max);
+//    } else {
+//      return (qCode & 0x00000004) == 0;
+//    }
+//  }
 
-  @Override
   public void setValue(double value, Instant time) {
     this.assigned = true;
     this.oldValue = getValue();
-    super.setValue(value, time);
+    this.value = value;
+    this.time = time;
   }
 
   // Для сравнения (аналог P.Value <> Data.Value или P.Time <> Data.Time)
@@ -60,16 +74,39 @@ public class Parameter extends Result {
     this.qCode = qCode;
     this.assigned = true;
   }
-  public double getMax() {
+
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public int getMax() {
     return max;
   }
 
-  public double getMin() {
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public int getMin() {
     return min;
   }
 
   public int getQCode() {
     return qCode;
+  }
+
+  public String getId() {
+    return id;
+  }
+
+  public String getName() {
+    return name;
+  }
+
+//  public int getqCode() {
+//    return qCode;
+//  }
+
+  public Instant getTime() {
+    return time;
+  }
+
+  public double getValue() {
+    return value;
   }
 
   @JsonIgnore
@@ -87,10 +124,10 @@ public class Parameter extends Result {
     return oldValue;
   }
 
-  @JsonIgnore
-  public boolean isSelfTest() {
-    return selfTest;
-  }
+//  @JsonIgnore
+//  public boolean isSelfTest() {
+//    return selfTest;
+//  }
 
   @JsonIgnore
   public List<String> getUIDs() {
@@ -104,15 +141,13 @@ public class Parameter extends Result {
       .add("id=" + getId())
       .add("value=" + getValue())
       .add("time=" + getTime())
-      //.add("Unit="+ getUnit())
-      .add("assigned=" + assigned)
-      .add("max=" + max)
-      .add("min=" + min)
-      .add("oldValue=" + oldValue)
-      .add("qCode=" + qCode)
-      .add("selfTest=" + selfTest)
-      .add("time=" + time)
-      .add("value=" + value)
+      .add("max=" + getMax())
+      .add("min=" + getMin())
+      .add("qCode=" + getQCode())
+//      .add("Unit="+ getUnit())
+//      .add("assigned=" + assigned)
+//      .add("oldValue=" + oldValue)
+//      .add("selfTest=" + selfTest)
       .toString();
   }
 }

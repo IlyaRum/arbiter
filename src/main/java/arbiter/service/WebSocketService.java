@@ -6,6 +6,7 @@ import arbiter.data.*;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.Measurement;
 import arbiter.measurement.MeasurementList;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -423,6 +424,7 @@ public class WebSocketService extends ABaseService {
       mapper.registerModule(new JavaTimeModule());
       mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       mapper.enable(SerializationFeature.INDENT_OUTPUT);
+//      mapper.setDefaultPropertyInclusion(JsonInclude.Include.NON_NULL);
 
       mapper.getFactory().setStreamWriteConstraints(
         StreamWriteConstraints.builder()

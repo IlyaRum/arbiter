@@ -9,38 +9,50 @@ import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class Unit {
-  private int index;
+  //private int index;
   private String name;
   private String group;
   private int direction;
-  private boolean active;
+  private int deltaTm;
+  private boolean writeResultToScada;
   private boolean mdpAndADP;
   //private String eventObject;
 
   @JsonIgnore
   private Map<String, Parameter> parameters = new ConcurrentHashMap<>();
-  @JsonIgnore
-  private Map<String, Result> results = new ConcurrentHashMap<>();
+//  @JsonIgnore
+//  private Map<String, Result> results = new ConcurrentHashMap<>();
   @JsonIgnore
   private ErrorSet errorSet;
   @JsonIgnore
   private UltimateTimer cycleTimer;
 
   public Unit(int index, JsonObject config) {
-    this.index = index;
+//    this.index = index;
     this.name = config.getString("наименование");
     this.group = config.getString("группа");
     this.direction = config.getInteger("направление");
-    this.active = yesNo(config, "в работе");
+    this.writeResultToScada = yesNo(config, "в работе");
     this.mdpAndADP = yesNo(config, "проверять и МДП и АДП");
+    this.deltaTm = config.getInteger("Дельта ТИ");
 
     // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);
-      Parameter param = new Parameter(
-        paramObj.getString("имя"),
-        paramObj.getString("id"));
+      Parameter param = null;
+
+      if (paramObj.getInteger("min") != null || paramObj.getInteger("max") != null) {
+        param = new Parameter(
+          paramObj.getString("имя"),
+          paramObj.getString("id"),
+          paramObj.getInteger("min"),
+          paramObj.getInteger("max"));
+      } else {
+        param = new Parameter(
+          paramObj.getString("имя"),
+          paramObj.getString("id"));
+      }
       parameters.put(param.getName(), param);
     }
 
@@ -58,9 +70,9 @@ public class Unit {
     return parameters.get(name);
   }
 
-  public Result getResult(String name) {
-    return results.get(name);
-  }
+//  public Result getResult(String name) {
+//    return results.get(name);
+//  }
 
   public boolean checkCircuit() {
     // Реализация проверки схемы
@@ -89,8 +101,8 @@ public class Unit {
 //    return eventObject;
 //  }
 
-  public boolean isActive() {
-    return active;
+  public boolean isWriteResultToScada() {
+    return writeResultToScada;
   }
 
   public UltimateTimer getCycleTimer() {
@@ -109,32 +121,37 @@ public class Unit {
     return group;
   }
 
-  public int getIndex() {
-    return index;
-  }
+//  public int getIndex() {
+//    return index;
+//  }
 
   public boolean isMdpAndADP() {
     return mdpAndADP;
   }
 
-  public Map<String, Result> getResults() {
-    return results;
+//  public Map<String, Result> getResults() {
+//    return results;
+//  }
+
+  public int getDeltaTm() {
+    return deltaTm;
   }
 
   @Override
   public String toString() {
     return new StringJoiner(", ", Unit.class.getSimpleName() + "[", "]")
-      .add("active=" + active)
-      .add("index=" + index)
+//      .add("index=" + index)
       .add("name='" + name + "'")
       .add("group='" + group + "'")
       .add("direction=" + direction)
+      .add("writeResultToScada=" + writeResultToScada)
+      .add("deltaTm=" + deltaTm)
       .add("mdpAndADP=" + mdpAndADP)
-      //.add("eventObject='" + eventObject + "'")
-      .add("parameters=" + parameters)
-      .add("results=" + results)
-      .add("errorSet=" + errorSet)
-      .add("cycleTimer=" + cycleTimer)
+//      .add("parameters=" + parameters)
+//      .add("results=" + results)
+//      .add("eventObject='" + eventObject + "'")
+//      .add("errorSet=" + errorSet)
+//      .add("cycleTimer=" + cycleTimer)
       .toString();
   }
 }
