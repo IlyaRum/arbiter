@@ -5,9 +5,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.util.List;
-import java.util.Map;
 import java.util.StringJoiner;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -26,8 +24,8 @@ public class Unit {
   private List<Parameter> parameters = new CopyOnWriteArrayList<>();
 
   private List<Topology> topologies = new CopyOnWriteArrayList<>();
-  private Map<String, String> elements = new ConcurrentHashMap<>();
-  private Map<String, String> influencingFactors = new ConcurrentHashMap<>();
+  private List<Element> elements = new CopyOnWriteArrayList<>();
+  private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
 
   @JsonIgnore
   private ErrorSet errorSet;
@@ -49,7 +47,7 @@ public class Unit {
       InfluencingFactor influencingFactor = new InfluencingFactor(
         influencingFactorObj.getString("id"),
         influencingFactorObj.getString("имя"));
-      influencingFactors.put(influencingFactorObj.getString("имя"), influencingFactorObj.getString("id"));
+      influencingFactors.add(influencingFactor);
     }
 
     JsonArray topologyArray = config.getJsonArray("топология");
@@ -67,7 +65,7 @@ public class Unit {
       Element element = new Element(
         elementObj.getString("id"),
         elementObj.getString("имя"));
-      elements.put(elementObj.getString("имя"), elementObj.getString("id"));
+      elements.add(element);
     }
 
     // Инициализация параметров и результатов
@@ -138,11 +136,11 @@ public class Unit {
     return topologies;
   }
 
-  public Map<String, String> getElements() {
+  public List<Element> getElements() {
     return elements;
   }
 
-  public Map<String, String> getInfluencingFactors() {
+  public List<InfluencingFactor> getInfluencingFactors() {
     return influencingFactors;
   }
 

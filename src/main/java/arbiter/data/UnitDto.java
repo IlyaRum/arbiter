@@ -17,6 +17,8 @@ public class UnitDto {
   private final boolean writeResultToScada;
   private final boolean mdpAndADP;
   private final List<Topology> topologyList;
+  private final List<Element> elements;
+  private final List<InfluencingFactor> influencingFactors;
   @JsonSerialize(using = ParametersMapSerializer.class)
   private final List<Parameter> parameters;
 
@@ -30,6 +32,8 @@ public class UnitDto {
     this.mdpAndADP = unit.isMdpAndADP();
     this.parameters = unit.getParameters();
     this.topologyList = unit.getTopologies();
+    this.elements = unit.getElements();
+    this.influencingFactors = unit.getInfluencingFactors();
   }
 
   public Unit getUnit() {
@@ -68,12 +72,22 @@ public class UnitDto {
     return topologyList;
   }
 
+  public List<Element> getElements() {
+    return elements;
+  }
+
+  public List<InfluencingFactor> getInfluencingFactors() {
+    return influencingFactors;
+  }
+
   @Override
   public String toString() {
     return new StringJoiner(", ", UnitDto.class.getSimpleName() + "[", "]")
       .add("unit=" + unit)
       .add("parameters=" + getParameters())
       .add("topologyList=" + getTopologyList())
+      .add("elements=" + getElements())
+      .add("influencingFactors=" + getInfluencingFactors())
       .toString();
   }
 }
