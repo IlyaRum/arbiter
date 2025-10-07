@@ -22,21 +22,13 @@ public class Unit {
   private int deltaTm;
   private boolean writeResultToScada;
   private boolean mdpAndADP;
-  //private String eventObject;
 
-  private Topology topology;
-  private Element element;
-  private InfluencingFactor influencingFactor;
-
-  //@JsonIgnore
   private List<Parameter> parameters = new CopyOnWriteArrayList<>();
 
-  private Map<String, String> topologies = new ConcurrentHashMap<>();
+  private List<Topology> topologies = new CopyOnWriteArrayList<>();
   private Map<String, String> elements = new ConcurrentHashMap<>();
   private Map<String, String> influencingFactors = new ConcurrentHashMap<>();
 
-//  @JsonIgnore
-//  private Map<String, Result> results = new ConcurrentHashMap<>();
   @JsonIgnore
   private ErrorSet errorSet;
   @JsonIgnore
@@ -66,7 +58,7 @@ public class Unit {
       Topology topology = new Topology(
         topologyObj.getString("id"),
         topologyObj.getString("имя"));
-      topologies.put(topologyObj.getString("имя"), topologyObj.getString("id"));
+      topologies.add(topology);
     }
 
     JsonArray elementArray = config.getJsonArray("ТС элементов");
@@ -140,6 +132,18 @@ public class Unit {
 
   public List<Parameter> getParameters() {
     return parameters;
+  }
+
+  public List<Topology> getTopologies() {
+    return topologies;
+  }
+
+  public Map<String, String> getElements() {
+    return elements;
+  }
+
+  public Map<String, String> getInfluencingFactors() {
+    return influencingFactors;
   }
 
   // Аналог Items[j].Parameters.Data[k]

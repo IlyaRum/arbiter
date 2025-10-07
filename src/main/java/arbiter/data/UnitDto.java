@@ -16,13 +16,9 @@ public class UnitDto {
   private final int deltaTm;
   private final boolean writeResultToScada;
   private final boolean mdpAndADP;
+  private final List<Topology> topologyList;
   @JsonSerialize(using = ParametersMapSerializer.class)
   private final List<Parameter> parameters;
-
-//  public UnitData(Unit unit) {
-//    this.unit = unit;
-//    this.parameters = new ArrayList<>();
-//  }
 
   public UnitDto(Unit unit) {
     this.unit = unit;
@@ -33,10 +29,7 @@ public class UnitDto {
     this.writeResultToScada = unit.isWriteResultToScada();
     this.mdpAndADP = unit.isMdpAndADP();
     this.parameters = unit.getParameters();
-  }
-
-  public void addParameter(Parameter parameter) {
-    parameters.add(parameter);
+    this.topologyList = unit.getTopologies();
   }
 
   public Unit getUnit() {
@@ -71,11 +64,16 @@ public class UnitDto {
     return mdpAndADP;
   }
 
+  public List<Topology> getTopologyList() {
+    return topologyList;
+  }
+
   @Override
   public String toString() {
     return new StringJoiner(", ", UnitDto.class.getSimpleName() + "[", "]")
       .add("unit=" + unit)
-      .add("parameters=" + parameters)
+      .add("parameters=" + getParameters())
+      .add("topologyList=" + getTopologyList())
       .toString();
   }
 }

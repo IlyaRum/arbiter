@@ -471,7 +471,7 @@ public class WebSocketService extends ABaseService {
               result.addUnitData(unitDto);
             }
 
-            unitDto.addParameter(parameter);
+            //unitDto.addParameter(parameter);
           }
           logger.debug(String.format("%s: %s/%s= %f [%s] %s",
             unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
