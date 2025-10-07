@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
 
+/**
+ * Исходные данные
+ */
+
 public class Parameter{
   private String id;
   private String name;
@@ -152,8 +156,9 @@ public class Parameter{
   @Override
   public String toString() {
     return new StringJoiner(", ", Parameter.class.getSimpleName() + "[", "]")
-      .add("name=" + getName())
       .add("id=" + getId())
+      .add("name=" + getName())
+      .add("mappingFieldName=" + getMappingFieldName())
       .add("value=" + getValue())
       .add("time=" + getTime())
       .add("max=" + getMax())

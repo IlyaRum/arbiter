@@ -8,6 +8,10 @@ import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Сечение
+ */
+
 public class Unit {
   //private int index;
   private String name;
@@ -18,8 +22,17 @@ public class Unit {
   private boolean mdpAndADP;
   //private String eventObject;
 
+  private Topology topology;
+  private Element element;
+  private InfluencingFactor influencingFactor;
+
   @JsonIgnore
   private Map<String, Parameter> parameters = new ConcurrentHashMap<>();
+
+  private Map<String, String> topologies = new ConcurrentHashMap<>();
+  private Map<String, String> elements = new ConcurrentHashMap<>();
+  private Map<String, String> influencingFactors = new ConcurrentHashMap<>();
+
 //  @JsonIgnore
 //  private Map<String, Result> results = new ConcurrentHashMap<>();
   @JsonIgnore
@@ -35,6 +48,33 @@ public class Unit {
     this.writeResultToScada = yesNo(config, "в работе");
     this.mdpAndADP = yesNo(config, "проверять и МДП и АДП");
     this.deltaTm = config.getInteger("Дельта ТИ");
+
+    JsonArray influencingFactorArray = config.getJsonArray("Влияющие ТИ");
+    for (int i = 0; i < influencingFactorArray.size(); i++) {
+      JsonObject influencingFactorObj = influencingFactorArray.getJsonObject(i);
+      InfluencingFactor influencingFactor = new InfluencingFactor(
+        influencingFactorObj.getString("id"),
+        influencingFactorObj.getString("имя"));
+      influencingFactors.put(influencingFactorObj.getString("имя"), influencingFactorObj.getString("id"));
+    }
+    JsonArray topologyArray = config.getJsonArray("топология");
+    for (int i = 0; i < topologyArray.size(); i++) {
+      JsonObject topologyObj = topologyArray.getJsonObject(i);
+      Topology topology = new Topology(
+        topologyObj.getString("id"),
+        topologyObj.getString("имя"));
+      topologies.put(topologyObj.getString("имя"), topologyObj.getString("id"));
+    }
+
+    JsonArray elementArray = config.getJsonArray("ТС элементов");
+    System.out.println(elementArray);
+    for (int i = 0; i < elementArray.size(); i++) {
+      JsonObject elementObj = elementArray.getJsonObject(i);
+      Element element = new Element(
+        elementObj.getString("id"),
+        elementObj.getString("имя"));
+      elements.put(elementObj.getString("имя"), elementObj.getString("id"));
+    }
 
     // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");

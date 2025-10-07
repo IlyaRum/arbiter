@@ -1,11 +1,15 @@
 package arbiter.data;
 
+import arbiter.data.serialize.ParametersMapSerializer;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
 
 public class UnitData {
   private final Unit unit;
+  @JsonSerialize(using = ParametersMapSerializer.class)
   private final List<Parameter> parameters;
 
   public UnitData(Unit unit) {

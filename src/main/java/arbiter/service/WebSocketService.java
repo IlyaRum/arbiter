@@ -425,13 +425,13 @@ public class WebSocketService extends ABaseService {
       mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-      CloudEvent cloudEvent = CloudEventBuilder.v1()
-        .withId(UUID.randomUUID().toString())
-        .withSource(URI.create("urn:store:data"))
-        .withType("StoreDataEvent")
-        .withData(mapper.writeValueAsBytes(result))
-        .build();
-      return mapper.writeValueAsString(cloudEvent);
+//      CloudEvent cloudEvent = CloudEventBuilder.v1()
+//        .withId(UUID.randomUUID().toString())
+//        .withSource(URI.create("urn:store:data"))
+//        .withType("StoreDataEvent")
+//        .withData(mapper.writeValueAsBytes(result))
+//        .build();
+      return mapper.writeValueAsString(result);
 
     } catch (Exception e) {
       logger.error(e.getMessage());
@@ -453,7 +453,7 @@ public class WebSocketService extends ABaseService {
     List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
     for (Unit unit : units) {
       Map<String, Parameter> parameters = unit.getParameters();
-      UnitData unitData = null;
+      UnitData unitData;
 
       // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
       for (Parameter parameter : parameters.values()) {
