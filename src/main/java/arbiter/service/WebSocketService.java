@@ -6,15 +6,12 @@ import arbiter.data.*;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.Measurement;
 import arbiter.measurement.MeasurementList;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.CloudEventData;
-import io.cloudevents.core.builder.CloudEventBuilder;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.jackson.JsonFormat;
@@ -34,7 +31,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.*;
@@ -452,11 +448,11 @@ public class WebSocketService extends ABaseService {
 
     List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
     for (Unit unit : units) {
-      Map<String, Parameter> parameters = unit.getParameters();
-      UnitData unitData;
+      List<Parameter> parameters = unit.getParameters();
+      UnitDto unitDto;
 
       // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
-      for (Parameter parameter : parameters.values()) {
+      for (Parameter parameter : parameters) {
 
         // Аналог: if CompareText(P.Id, Data.Id) = 0 then
         if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
@@ -469,13 +465,13 @@ public class WebSocketService extends ABaseService {
             parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
 
             // Создаем или получаем UnitData для текущего юнита
-            unitData = result.getUnitData(unit);
-            if (unitData == null) {
-              unitData = new UnitData(unit);
-              result.addUnitData(unitData);
+            unitDto = result.getUnitData(unit);
+            if (unitDto == null) {
+              unitDto = new UnitDto(unit);
+              result.addUnitData(unitDto);
             }
 
-            unitData.addParameter(parameter);
+            unitDto.addParameter(parameter);
           }
           logger.debug(String.format("%s: %s/%s= %f [%s] %s",
             unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),

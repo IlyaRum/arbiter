@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
+import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Сечение
@@ -26,8 +28,8 @@ public class Unit {
   private Element element;
   private InfluencingFactor influencingFactor;
 
-  @JsonIgnore
-  private Map<String, Parameter> parameters = new ConcurrentHashMap<>();
+  //@JsonIgnore
+  private List<Parameter> parameters = new CopyOnWriteArrayList<>();
 
   private Map<String, String> topologies = new ConcurrentHashMap<>();
   private Map<String, String> elements = new ConcurrentHashMap<>();
@@ -57,6 +59,7 @@ public class Unit {
         influencingFactorObj.getString("имя"));
       influencingFactors.put(influencingFactorObj.getString("имя"), influencingFactorObj.getString("id"));
     }
+
     JsonArray topologyArray = config.getJsonArray("топология");
     for (int i = 0; i < topologyArray.size(); i++) {
       JsonObject topologyObj = topologyArray.getJsonObject(i);
@@ -67,7 +70,6 @@ public class Unit {
     }
 
     JsonArray elementArray = config.getJsonArray("ТС элементов");
-    System.out.println(elementArray);
     for (int i = 0; i < elementArray.size(); i++) {
       JsonObject elementObj = elementArray.getJsonObject(i);
       Element element = new Element(
@@ -93,7 +95,7 @@ public class Unit {
           paramObj.getString("имя"),
           paramObj.getString("id"));
       }
-      parameters.put(param.getName(), param);
+      parameters.add(param);
     }
 
     // Инициализация таймеров
@@ -107,7 +109,20 @@ public class Unit {
   }
 
   public Parameter getParameter(String name) {
-    return parameters.get(name);
+    return parameters.stream()
+      .filter(param -> name.equals(param.getName()))
+      .findFirst()
+      .orElse(null);
+  }
+
+  public void addParameter(Parameter parameter) {
+    parameters.removeIf(param -> param.getName().equals(parameter.getName()));
+    parameters.add(parameter);
+  }
+
+  public boolean containsParameter(String name) {
+    return parameters.stream()
+      .anyMatch(param -> name.equals(param.getName()));
   }
 
 //  public Result getResult(String name) {
@@ -123,14 +138,14 @@ public class Unit {
     return cycleTimer.check();
   }
 
-  public Map<String, Parameter> getParameters() {
+  public List<Parameter> getParameters() {
     return parameters;
   }
 
   // Аналог Items[j].Parameters.Data[k]
   @JsonIgnore
   public Iterable<Parameter> getAllParameters() {
-    return parameters.values();
+    return parameters;
   }
 
   public String getName() {

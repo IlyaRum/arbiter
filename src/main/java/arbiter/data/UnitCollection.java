@@ -116,7 +116,7 @@ public class UnitCollection {
 
   public List<String> getUIDs() {
     return units.stream()
-      .flatMap(unit -> unit.getParameters().values().stream())
+      .flatMap(unit -> unit.getParameters().stream())
       .flatMap(parameter -> parameter.getUIDs().stream())
       .collect(Collectors.toList());
   }
