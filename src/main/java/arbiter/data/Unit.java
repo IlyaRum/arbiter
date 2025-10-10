@@ -26,6 +26,8 @@ public class Unit {
   private List<Topology> topologies = new CopyOnWriteArrayList<>();
   private List<Element> elements = new CopyOnWriteArrayList<>();
   private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
+  private List<RepairSchemaData> repairValues = new CopyOnWriteArrayList<>();
+
 
   @JsonIgnore
   private ErrorSet errorSet;
@@ -66,6 +68,24 @@ public class Unit {
         elementObj.getString("id"),
         elementObj.getString("имя"));
       elements.add(element);
+    }
+
+    JsonObject repairSchemaObj = config.getJsonObject("ремонтная схема");
+    JsonArray TVSignals = repairSchemaObj.getJsonArray("телесигналы");
+    for (int i = 0; i < TVSignals.size(); i++) {
+      JsonObject signal = TVSignals.getJsonObject(i);
+      RepairSchemaData repairSchemaData = new RepairSchemaData();
+      repairSchemaData.setGroup(signal.getInteger("группа"));
+      JsonArray composition = signal.getJsonArray("состав");
+      for (int j = 0; j < composition.size(); j++) {
+        JsonObject compositionObj = composition.getJsonObject(j);
+        Composition compositionObject = new Composition(
+          compositionObj.getString("id"),
+          compositionObj.getString("имя")
+        );
+        repairSchemaData.setComposition(compositionObject);
+      }
+      repairValues.add(repairSchemaData);
     }
 
     // Инициализация параметров и результатов
@@ -142,6 +162,10 @@ public class Unit {
 
   public List<InfluencingFactor> getInfluencingFactors() {
     return influencingFactors;
+  }
+
+  public List<RepairSchemaData> getRepairValues() {
+    return repairValues;
   }
 
   // Аналог Items[j].Parameters.Data[k]

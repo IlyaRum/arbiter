@@ -188,3 +188,4 @@ nbdist/
 
 src/main/resources/config.properties
 /src/main/resources/arbiter_server.json
+/src/main/resources/arbiter_config.json
