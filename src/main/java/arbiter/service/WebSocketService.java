@@ -66,6 +66,8 @@ public class WebSocketService extends ABaseService {
         .setTrustAll(true)
         .setVerifyHost(false)
         .setLogActivity(true)
+        .setMaxFrameSize(1024*1024) //TODO[IER] Вынести в конфиг файл. Увеличение фрейма до 1MB(по умолчанию 64KB)
+        .setMaxMessageSize(1024*1024)
       //.setTryUsePerFrameCompression(true)
       //.setTryUsePerMessageCompression(true)
     );
