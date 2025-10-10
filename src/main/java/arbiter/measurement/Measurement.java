@@ -3,9 +3,10 @@ package arbiter.measurement;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.StringJoiner;
 
 
-/** пример данных
+/** пример измерений приходящих с СК-11
 * {"uid":"4ebe8a8e-764d-43a1-bd8d-a5c1e0fb350a",
 * "timeStamp":"2025-09-29T14:28:02.105Z",
 * "timeStamp2":"2025-09-29T14:28:02.101Z",
@@ -13,6 +14,10 @@ import java.time.format.DateTimeFormatter;
 * "value":3425.2886352539062}
 **/
 
+
+/**
+ *  Измерения
+ */
 public class Measurement {
   public enum MeasurementType {
     STRING, NUMBER
@@ -73,5 +78,19 @@ public class Measurement {
 
   public Instant getTimeStampAsInstant() {
     return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(timeStamp));
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(", ", Measurement.class.getSimpleName() + "[", "]")
+      .add("uid='" + uid + "'")
+      .add("timeStamp='" + timeStamp + "'")
+      .add("timeStamp2='" + timeStamp2 + "'")
+      .add("qCode=" + qCode)
+      .add("type=" + type)
+      .add("strValue='" + strValue + "'")
+      .add("value=" + value)
+      .add("changed=" + changed)
+      .toString();
   }
 }

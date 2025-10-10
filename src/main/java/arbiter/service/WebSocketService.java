@@ -354,6 +354,11 @@ public class WebSocketService extends ABaseService {
   public void onDataReceived(MeasurementList list) {
     StoreData result = new StoreData();
 
+    //TODO[IER]Для разработки. Удалить.
+    if (firstTime) {
+      logger.debug("measurementList = " + list);
+    }
+
     try {
       for (int i = 0; i < list.size(); i++) {
         Measurement measurement = list.get(i);

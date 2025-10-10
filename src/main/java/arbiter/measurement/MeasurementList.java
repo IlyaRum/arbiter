@@ -3,6 +3,7 @@ package arbiter.measurement;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.StringJoiner;
 
 public class MeasurementList {
   private final List<Measurement> measurements;
@@ -29,5 +30,12 @@ public class MeasurementList {
 
   public List<Measurement> getMeasurements() {
     return new ArrayList<>(measurements);
+  }
+
+  @Override
+  public String toString() {
+    return new StringJoiner(", ", MeasurementList.class.getSimpleName() + "[", "]")
+      .add("measurements=" + measurements)
+      .toString();
   }
 }
