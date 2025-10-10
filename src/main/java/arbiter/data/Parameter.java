@@ -17,7 +17,7 @@ import java.util.StringJoiner;
 public class Parameter{
   private String id;
   private String name;
-  private String mappingFieldName;
+  //private String mappingFieldName;
   protected double value;
   protected Instant time;
   private boolean assigned;
@@ -33,7 +33,7 @@ public class Parameter{
     this.id = id != null ? id.toLowerCase() : null;
     this.value = 0;
     this.time = Instant.now();
-    setMappingFieldNameFromName(name);
+//    setMappingFieldNameFromName(name);
     addID(id);
   }
 
@@ -82,13 +82,13 @@ public class Parameter{
     this.assigned = true;
   }
 
-  private void setMappingFieldNameFromName(String name) {
-    if (this.name != null) {
-      this.mappingFieldName = ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.get(name.trim());
-    } else {
-      this.mappingFieldName = null;
-    }
-  }
+//  private void setMappingFieldNameFromName(String name) {
+//    if (this.name != null) {
+//      this.mappingFieldName = ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.get(name.trim());
+//    } else {
+//      this.mappingFieldName = null;
+//    }
+//  }
 
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public int getMax() {
@@ -124,9 +124,9 @@ public class Parameter{
     return value;
   }
 
-  public String getMappingFieldName() {
-    return mappingFieldName;
-  }
+//  public String getMappingFieldName() {
+//    return mappingFieldName;
+//  }
 
   @JsonIgnore
   public int getOldInt() {
@@ -158,7 +158,7 @@ public class Parameter{
     return new StringJoiner(", ", Parameter.class.getSimpleName() + "[", "]")
       .add("id=" + getId())
       .add("name=" + getName())
-      .add("mappingFieldName=" + getMappingFieldName())
+      //.add("mappingFieldName=" + getMappingFieldName())
       .add("value=" + getValue())
       .add("time=" + getTime())
       .add("max=" + getMax())

@@ -1,8 +1,8 @@
 package arbiter.data;
 
-import arbiter.data.serialize.ParametersMapSerializer;
+//import arbiter.data.serialize.ParametersMapSerializer;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+//import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
 import java.util.List;
 import java.util.StringJoiner;
@@ -19,7 +19,7 @@ public class UnitDto {
   private final List<Topology> topologyList;
   private final List<Element> elements;
   private final List<InfluencingFactor> influencingFactors;
-  @JsonSerialize(using = ParametersMapSerializer.class)
+  //@JsonSerialize(using = ParametersMapSerializer.class)
   private final List<Parameter> parameters;
 
   public UnitDto(Unit unit) {
