@@ -7,9 +7,9 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.stream.Collectors;
 
 public class UnitCollection {
   private String version;
@@ -31,7 +31,7 @@ public class UnitCollection {
   private String eventUID;
   private String writeEventUID;
 
-//  private WebSocketClient webSocketClient;
+  //  private WebSocketClient webSocketClient;
   private Vertx vertx;
 
 //  private Consumer<List<Parameter>> processData;
@@ -97,7 +97,7 @@ public class UnitCollection {
       })
       .onFailure(err -> {
         //logger.error("Ошибка загрузки конфигурации", err);
-        System.err.println("Ошибка загрузки конфигурации: " +  err.getMessage());
+        System.err.println("Ошибка загрузки конфигурации: " + err.getMessage());
       });
   }
 
@@ -115,10 +115,27 @@ public class UnitCollection {
   }
 
   public List<String> getUIDs() {
-    return units.stream()
+    List<String> parameterUIDs = units.stream()
       .flatMap(unit -> unit.getParameters().stream())
       .flatMap(parameter -> parameter.getUIDs().stream())
-      .collect(Collectors.toList());
+      .toList();
+
+    List<String> repairSchemaUIDs = units.stream()
+      .flatMap(unit -> unit.getRepairValues().stream())
+      .flatMap(repairSchema -> repairSchema.getUIDs().stream())
+      .toList();
+
+    List<String> topologyUIDs = units.stream()
+      .flatMap(unit -> unit.getTopologies().stream())
+      .flatMap(topology -> topology.getUIDs().stream())
+      .toList();
+
+    List<String> allUIDs = new ArrayList<>();
+    allUIDs.addAll(parameterUIDs);
+    allUIDs.addAll(topologyUIDs);
+    allUIDs.addAll(repairSchemaUIDs);
+
+    return allUIDs;
   }
 
   //  public void connect() {
@@ -275,7 +292,9 @@ public class UnitCollection {
 //    writeBuffer.add(measurement);
 //  }
 
-  public List<Unit> getUnits() { return units; }
+  public List<Unit> getUnits() {
+    return units;
+  }
 //  public boolean isWriteEnable() { return writeEnable; }
 //  public Status getStatus() { return status; }
 
@@ -289,7 +308,6 @@ public class UnitCollection {
   public boolean isCheckEvent() {
     return checkEvent;
   }
-
 
 
 }

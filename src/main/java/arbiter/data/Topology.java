@@ -1,5 +1,9 @@
 package arbiter.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringJoiner;
 
 /**
@@ -11,9 +15,12 @@ public class Topology {
   private String name;
   protected double value;
 
+  private List<String> UIDs = new ArrayList<>();
+
   public Topology(String id, String name) {
     this.id = id;
     this.name = name;
+    addID(id);
   }
 
   public String getId() {
@@ -38,6 +45,19 @@ public class Topology {
 
   public void setValue(double value) {
     this.value = value;
+  }
+
+  @JsonIgnore
+  public List<String> getUIDs() {
+    return UIDs;
+  }
+
+  public void addID(final String id) {
+    if (id != null && id.length() == 36) {
+      if (!UIDs.contains(id)) {
+        UIDs.add(id);
+      }
+    }
   }
 
   @Override

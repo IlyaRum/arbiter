@@ -79,8 +79,10 @@ public class Unit {
       JsonArray composition = signal.getJsonArray("состав");
       for (int j = 0; j < composition.size(); j++) {
         JsonObject compositionObj = composition.getJsonObject(j);
+        String id = compositionObj.getString("id");
+        repairSchemaData.addID(id);
         Composition compositionObject = new Composition(
-          compositionObj.getString("id"),
+          id,
           compositionObj.getString("имя")
         );
         repairSchemaData.setComposition(compositionObject);
