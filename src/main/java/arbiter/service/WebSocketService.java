@@ -286,8 +286,7 @@ public class WebSocketService extends ABaseService {
   private void handleMeasurementData(CloudEvent event) {
     logger.debug("[data.v2]event: " + event);
     CloudEventData cloudEventData = event.getData();
-    logAsync("[data.v2]cloudEventData: " + cloudEventData);
-    //logAsync("[data.v2]CloudEventData: " + cloudEventData);
+    //logAsync("[data.v2]cloudEventData: " + cloudEventData);
 
     assert cloudEventData != null;
     String jsonData = cloudEventData.toString();
@@ -372,8 +371,9 @@ public class WebSocketService extends ABaseService {
         processParameters(memoryData, result);
       }
 
+      logger.debug(String.format("### получено %d новых значений : %s", list.size(), list));
+
       if (result.size() > 0) {
-        logger.info(String.format("### получено %d новых значений", result.size()));
         //dataProcessor.accept(result);
         if (firstTime) {
           sendPostRequestAsync(result);
@@ -387,6 +387,7 @@ public class WebSocketService extends ABaseService {
   }
 
   private void sendPostRequestAsync(StoreData result) {
+    logger.debug("Подготовка параметров перед отправкой в POST запрос: " + result);
     executor.submit(() -> {
       try {
         sendPostRequest(result);
@@ -398,8 +399,6 @@ public class WebSocketService extends ABaseService {
 
   private void sendPostRequest(StoreData result) {
     WebClient client = WebClient.create(vertx);
-
-    logger.debug("Подготовка параметров перед отправкой в POST запрос: " + result);
 
     String jsonData = convertStoreDataToJson(result);
 
@@ -480,11 +479,11 @@ public class WebSocketService extends ABaseService {
 
             //unitDto.addParameter(parameter);
           }
-          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
-            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
-            Integer.toHexString(memoryData.getQCode()),
-            memoryData.getTime().toString()));
-          break;
+//          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
+//            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
+//            Integer.toHexString(memoryData.getQCode()),
+//            memoryData.getTime().toString()));
+          //break;
         }
       }
     }
