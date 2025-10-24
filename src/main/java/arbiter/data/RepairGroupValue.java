@@ -7,19 +7,20 @@ import java.util.List;
 import java.util.StringJoiner;
 
 /**
- * Ремонтная схема
+ *  Телесигналы
  */
 
-public class RepairSchemaData {
+public class RepairGroupValue {
   private Integer group;
+  private String operation;
   private List<Composition> values = new ArrayList<>();
 
   private List<String> UIDs = new ArrayList<>();
 
-  public RepairSchemaData() {
+  public RepairGroupValue() {
   }
 
-  public RepairSchemaData(Integer group, List<Composition> values) {
+  public RepairGroupValue(Integer group, List<Composition> values) {
     this.group = group;
     this.values = values;
   }
@@ -57,11 +58,25 @@ public class RepairSchemaData {
     }
   }
 
+  public String getOperation() {
+    return operation;
+  }
+
+  public void setOperation(String operation) {
+    this.operation = operation;
+  }
+
+  public void setUIDs(List<String> UIDs) {
+    this.UIDs = UIDs;
+  }
+
   @Override
   public String toString() {
-    return new StringJoiner(", ", RepairSchemaData.class.getSimpleName() + "[", "]")
-      .add("group=" + getGroup())
-      .add("values=" + getValues())
+    return new StringJoiner(", ", RepairGroupValue.class.getSimpleName() + "[", "]")
+      .add("group=" + group)
+      .add("operation='" + operation + "'")
+      .add("values=" + values)
+      .add("UIDs=" + UIDs)
       .toString();
   }
 }

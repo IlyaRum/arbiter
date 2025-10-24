@@ -24,7 +24,7 @@ public class UnitDto {
   private final List<Topology> topologyList;
   private final List<Element> elements;
   private final List<InfluencingFactor> influencingFactors;
-  private final List<RepairSchemaData> repairValues;
+  private final RepairSchema repairSchema;
   //@JsonSerialize(using = ParametersMapSerializer.class)
   private final Map<String, Parameter> parameters;
 
@@ -40,7 +40,7 @@ public class UnitDto {
     this.topologyList = unit.getTopologies();
     this.elements = unit.getElements();
     this.influencingFactors = unit.getInfluencingFactors();
-    this.repairValues = unit.getRepairValues();
+    this.repairSchema = unit.getRepairSchema();
   }
 
   public Unit getUnit() {
@@ -87,8 +87,8 @@ public class UnitDto {
     return influencingFactors;
   }
 
-  public List<RepairSchemaData> getRepairValues() {
-    return repairValues;
+  public RepairSchema getRepairschema() {
+    return repairSchema;
   }
 
   private String getMappedParameterKey(Parameter parameter) {
@@ -102,7 +102,7 @@ public class UnitDto {
       .add("parameters=" + getParameters())
       .add("topologyList=" + getTopologyList())
       .add("elements=" + getElements())
-      .add("repairValues=" + getRepairValues())
+      .add("repairSchema=" + getRepairschema())
       .add("influencingFactors=" + getInfluencingFactors())
       .toString();
   }

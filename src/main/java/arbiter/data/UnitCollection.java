@@ -9,6 +9,7 @@ import io.vertx.core.json.JsonObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class UnitCollection {
@@ -120,9 +121,21 @@ public class UnitCollection {
       .flatMap(parameter -> parameter.getUIDs().stream())
       .toList();
 
+//    List<String> repairSchemaUIDs = units.stream()
+//      .map(Unit::getRepairSchema)
+//      .flatMap(repairSchema -> repairSchema.getRepairGroupValues().stream())
+//      .flatMap(repairGroupValue -> repairGroupValue.getUIDs().stream())
+//      .toList();
+
     List<String> repairSchemaUIDs = units.stream()
-      .flatMap(unit -> unit.getRepairValues().stream())
-      .flatMap(repairSchema -> repairSchema.getUIDs().stream())
+      .map(Unit::getRepairSchema)
+      .filter(Objects::nonNull)
+      .map(RepairSchema::getRepairGroupValues)
+      .filter(Objects::nonNull)
+      .flatMap(List::stream)
+      .map(RepairGroupValue::getUIDs)
+      .filter(Objects::nonNull)
+      .flatMap(List::stream)
       .toList();
 
     List<String> topologyUIDs = units.stream()

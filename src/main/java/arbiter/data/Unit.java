@@ -20,13 +20,14 @@ public class Unit {
   private int deltaTm;
   private boolean writeResultToScada;
   private boolean mdpAndADP;
+  private RepairSchema repairSchema;
 
   private List<Parameter> parameters = new CopyOnWriteArrayList<>();
 
   private List<Topology> topologies = new CopyOnWriteArrayList<>();
   private List<Element> elements = new CopyOnWriteArrayList<>();
   private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
-  private List<RepairSchemaData> repairValues = new CopyOnWriteArrayList<>();
+  private List<RepairGroupValue> repairGroupValues = new CopyOnWriteArrayList<>();
 
 
   @JsonIgnore
@@ -72,23 +73,28 @@ public class Unit {
 
     JsonObject repairSchemaObj = config.getJsonObject("ремонтная схема");
     JsonArray TVSignals = repairSchemaObj.getJsonArray("телесигналы");
+    String checkFormula = repairSchemaObj.getString("проверка");
+    repairSchema = new RepairSchema();
+    repairSchema.setCheckFormula(checkFormula);
     for (int i = 0; i < TVSignals.size(); i++) {
       JsonObject signal = TVSignals.getJsonObject(i);
-      RepairSchemaData repairSchemaData = new RepairSchemaData();
-      repairSchemaData.setGroup(signal.getInteger("группа"));
+      RepairGroupValue repairGroupValue = new RepairGroupValue();
+      repairGroupValue.setGroup(signal.getInteger("группа"));
+      repairGroupValue.setOperation(signal.getString("операция"));
       JsonArray composition = signal.getJsonArray("состав");
       for (int j = 0; j < composition.size(); j++) {
         JsonObject compositionObj = composition.getJsonObject(j);
         String id = compositionObj.getString("id");
-        repairSchemaData.addID(id);
+        repairGroupValue.addID(id);
         Composition compositionObject = new Composition(
           id,
           compositionObj.getString("имя")
         );
-        repairSchemaData.setComposition(compositionObject);
+        repairGroupValue.setComposition(compositionObject);
       }
-      repairValues.add(repairSchemaData);
+      this.repairGroupValues.add(repairGroupValue);
     }
+    repairSchema.setRepairGroupValues(repairGroupValues);
 
     // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");
@@ -166,8 +172,8 @@ public class Unit {
     return influencingFactors;
   }
 
-  public List<RepairSchemaData> getRepairValues() {
-    return repairValues;
+  public RepairSchema getRepairSchema() {
+    return repairSchema;
   }
 
   // Аналог Items[j].Parameters.Data[k]
