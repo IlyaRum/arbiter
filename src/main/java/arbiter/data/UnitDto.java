@@ -1,11 +1,16 @@
 package arbiter.data;
 
 //import arbiter.data.serialize.ParametersMapSerializer;
+import arbiter.constants.ParameterMappingConstants;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 //import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 public class UnitDto {
   @JsonIgnore
@@ -21,7 +26,7 @@ public class UnitDto {
   private final List<InfluencingFactor> influencingFactors;
   private final List<RepairSchemaData> repairValues;
   //@JsonSerialize(using = ParametersMapSerializer.class)
-  private final List<Parameter> parameters;
+  private final Map<String, Parameter> parameters;
 
   public UnitDto(Unit unit) {
     this.unit = unit;
@@ -31,7 +36,7 @@ public class UnitDto {
     this.deltaTm = unit.getDeltaTm();
     this.writeResultToScada = unit.isWriteResultToScada();
     this.mdpAndADP = unit.isMdpAndADP();
-    this.parameters = unit.getParameters();
+    this.parameters = unit.getParameters().stream().collect(Collectors.toMap(this::getMappedParameterKey, Function.identity(),(existing, replacement) -> existing,HashMap::new));
     this.topologyList = unit.getTopologies();
     this.elements = unit.getElements();
     this.influencingFactors = unit.getInfluencingFactors();
@@ -42,8 +47,8 @@ public class UnitDto {
     return unit;
   }
 
-  public List<Parameter> getParameters() {
-    return parameters;
+  public Map<String, Parameter> getParameters() {
+    return new HashMap<>(parameters);
   }
 
   public String getName() {
@@ -84,6 +89,10 @@ public class UnitDto {
 
   public List<RepairSchemaData> getRepairValues() {
     return repairValues;
+  }
+
+  private String getMappedParameterKey(Parameter parameter) {
+    return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(parameter.getName(), parameter.getId());
   }
 
   @Override
