@@ -37,7 +37,7 @@ public class DependencyInjector {
   }
 
   private void initializeManagers(){
-    unitCollection = new UnitCollection(vertx, AppConfig.ARBITER_CONFIG_FILE, "1.0.0");
+    unitCollection = new UnitCollection(vertx, AppConfig.getArbiterConfigJsonFile(), "1.0.0");
     webSocketManager = new WebSocketManager(this);
     subscriptionManager = new SubscriptionManager(this);
   }

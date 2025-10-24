@@ -27,7 +27,6 @@ public class AppConfig {
   public static final String CLOSE_WEBSOCKET_CONNECT = "/close-websocket-connect";
 
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
-  public static final String ARBITER_CONFIG_FILE = "arbiter_server.json";
 
   private static String authBasicCredentials;
   private static String authTokenUrl;
@@ -36,6 +35,7 @@ public class AppConfig {
   private static String subscriptionsDeleteUrl;
   private static String eventSubscriptionsAddUrl;
   private static String devFlag;
+  private static String arbiterConfigJsonFile;
 
   public static void loadConfig() {
     // Чтение конфигурации из файла или системных свойств
@@ -60,6 +60,7 @@ public class AppConfig {
       subscriptionsDeleteUrl = props.getProperty("subscriptions.delete.url");
       eventSubscriptionsAddUrl = props.getProperty("event.subscriptions.add");
       devFlag =props.getProperty("dev.flag");
+      arbiterConfigJsonFile = props.getProperty("arbiter.config.json");
 
       if (authBasicCredentials == null ||
         authTokenUrl == null ||
@@ -100,5 +101,9 @@ public class AppConfig {
 
   public static String getDevFlag() {
     return devFlag;
+  }
+
+  public static String getArbiterConfigJsonFile() {
+    return arbiterConfigJsonFile;
   }
 }
