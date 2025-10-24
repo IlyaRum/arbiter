@@ -371,9 +371,8 @@ public class WebSocketService extends ABaseService {
         processParameters(memoryData, result);
       }
 
-      logger.debug(String.format("### получено %d новых значений : %s", list.size(), list));
-
       if (result.size() > 0) {
+        logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
         //dataProcessor.accept(result);
         if (firstTime) {
           sendPostRequestAsync(result);
@@ -483,7 +482,7 @@ public class WebSocketService extends ABaseService {
 //            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
 //            Integer.toHexString(memoryData.getQCode()),
 //            memoryData.getTime().toString()));
-          //break;
+          return;
         }
       }
     }
