@@ -143,10 +143,24 @@ public class UnitCollection {
       .flatMap(topology -> topology.getUIDs().stream())
       .toList();
 
+    List<String> elementUIDs = units.stream()
+      .flatMap(unit -> unit.getElements().stream())
+      .flatMap(element -> element.getUIDs().stream())
+      .toList();
+
+    List<String> influencingFactorUIDs = units.stream()
+      .flatMap(unit -> unit.getInfluencingFactors().stream())
+      .flatMap(influencingFactor -> influencingFactor.getUIDs().stream())
+      .toList();
+
+
+
     List<String> allUIDs = new ArrayList<>();
     allUIDs.addAll(parameterUIDs);
     allUIDs.addAll(topologyUIDs);
     allUIDs.addAll(repairSchemaUIDs);
+    allUIDs.addAll(elementUIDs);
+    allUIDs.addAll(influencingFactorUIDs);
 
     return allUIDs;
   }

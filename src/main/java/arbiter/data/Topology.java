@@ -2,6 +2,7 @@ package arbiter.data;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -14,6 +15,10 @@ public class Topology {
   private String id;
   private String name;
   protected double value;
+  private int qCode;
+  private int min;
+  private int max;
+  protected Instant time;
 
   private List<String> UIDs = new ArrayList<>();
 
@@ -58,6 +63,38 @@ public class Topology {
         UIDs.add(id);
       }
     }
+  }
+
+  public int getqCode() {
+    return qCode;
+  }
+
+  public void setqCode(int qCode) {
+    this.qCode = qCode;
+  }
+
+  public int getMin() {
+    return min;
+  }
+
+  public void setMin(int min) {
+    this.min = min;
+  }
+
+  public int getMax() {
+    return max;
+  }
+
+  public void setMax(int max) {
+    this.max = max;
+  }
+
+  public Instant getTime() {
+    return time;
+  }
+
+  public void setTime(Instant time) {
+    this.time = time;
   }
 
   @Override
