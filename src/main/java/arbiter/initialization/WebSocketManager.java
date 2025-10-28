@@ -78,8 +78,12 @@ public class WebSocketManager {
         JsonObject valueObject = subscriptionResult.getJsonObject("value");
         String subscriptionId = valueObject.getString("subscriptionId");
         logger.info("[reconnect] subscriptionId: " + subscriptionId);
-        return dependencyInjector.getSubscriptionManager().changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, currentToken);
+        return dependencyInjector.getSubscriptionManager()
+          .changeSubscription(dependencyInjector.getWebSocketManager().getChannelId(), subscriptionId, currentToken)
+          .thenApply(finalResult -> new JsonObject().put("channelId", channelId));
       })
+      .thenCompose(subscriptionResult -> dependencyInjector.getEventSubscriptionService().addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
+        .thenApply(eventResult -> subscriptionResult))
        .exceptionally(throwable -> {
         isReconnecting.set(false);
         logger.error(String.format("((( ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
