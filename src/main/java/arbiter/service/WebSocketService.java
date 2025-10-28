@@ -66,8 +66,8 @@ public class WebSocketService extends ABaseService {
         .setTrustAll(true)
         .setVerifyHost(false)
         .setLogActivity(true)
-        .setMaxFrameSize(1024*1024) //TODO[IER] Вынести в конфиг файл. Увеличение фрейма до 1MB(по умолчанию 64KB)
-        .setMaxMessageSize(1024*1024)
+        .setMaxFrameSize(1024 * 1024) //TODO[IER] Вынести в конфиг файл. Увеличение фрейма до 1MB(по умолчанию 64KB)
+        .setMaxMessageSize(1024 * 1024)
       //.setTryUsePerFrameCompression(true)
       //.setTryUsePerMessageCompression(true)
     );
@@ -88,9 +88,8 @@ public class WebSocketService extends ABaseService {
     Promise<JsonObject> promise = Promise.promise();
 
     if (Objects.equals(AppConfig.getDevFlag(), "local")) {
-      handleTextMessage(promise).handle(CloudEventStrings.MEASUREMENT_VALUES_DATA_V2);
-    }
-    else {
+      handleTextMessage(promise).handle(CloudEventStrings.MEASUREMENT_VALUES_DATA_V2_ONE_SECTION);
+    } else {
       WebSocketConnectOptions options = createWebSocketConnectOptions(token);
 
       webSocketClient
@@ -317,7 +316,6 @@ public class WebSocketService extends ABaseService {
   }
 
 
-
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";
     String host = options.getHost();
@@ -368,7 +366,11 @@ public class WebSocketService extends ABaseService {
         //store.put(memoryData.getId(), memoryData);
 
         // Items[j].Parameters.Data[k]
-        processParameters(memoryData, result);
+        List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
+        for (Unit unit : units) {
+          processParameters(memoryData, result, unit);
+          processTopologies(memoryData, result, unit);
+        }
       }
 
       if (result.size() > 0) {
@@ -383,6 +385,30 @@ public class WebSocketService extends ABaseService {
     } catch (Exception e) {
       logger.error("Ошибка при обработке данных измерений", e);
     }
+  }
+
+  private void processTopologies(MemoryData memoryData, StoreData result, Unit unit) {
+
+      List<Topology> topologyList = unit.getTopologies();
+      UnitDto unitDto;
+
+      for (Topology topology : topologyList) {
+
+        if (topology.getId().equalsIgnoreCase(memoryData.getId())) {
+
+          if (topology.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+            topology.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+            unitDto = result.getUnitData(unit);
+            if (unitDto == null) {
+              unitDto = new UnitDto(unit);
+              result.addUnitData(unitDto);
+            }
+          }
+          return;
+        }
+      }
   }
 
   private void sendPostRequestAsync(StoreData result) {
@@ -449,41 +475,38 @@ public class WebSocketService extends ABaseService {
     return new MemoryData(id, value, time, qCode);
   }
 
-  private void processParameters(MemoryData memoryData, StoreData result) {
+  private void processParameters(MemoryData memoryData, StoreData result, Unit unit) {
 
-    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
-    for (Unit unit : units) {
-      List<Parameter> parameters = unit.getParameters();
-      UnitDto unitDto;
+    List<Parameter> parameters = unit.getParameters();
+    UnitDto unitDto;
 
-      // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
-      for (Parameter parameter : parameters) {
+    // Аналог: for k := 0 to Items[j].Parameters.Count - 1 do
+    for (Parameter parameter : parameters) {
 
-        // Аналог: if CompareText(P.Id, Data.Id) = 0 then
-        if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
+      // Аналог: if CompareText(P.Id, Data.Id) = 0 then
+      if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
 
-          // Проверяем, изменились ли данные
-          // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
-          if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+        // Проверяем, изменились ли данные
+        // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
+        if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
 
-            // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
-            parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+          // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
+          parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
 
-            // Создаем или получаем UnitData для текущего юнита
-            unitDto = result.getUnitData(unit);
-            if (unitDto == null) {
-              unitDto = new UnitDto(unit);
-              result.addUnitData(unitDto);
-            }
-
-            //unitDto.addParameter(parameter);
+          // Создаем или получаем UnitData для текущего юнита
+          unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
           }
+
+          //unitDto.addParameter(parameter);
+        }
 //          logger.debug(String.format("%s: %s/%s= %f [%s] %s",
 //            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
 //            Integer.toHexString(memoryData.getQCode()),
 //            memoryData.getTime().toString()));
-          return;
-        }
+        return;
       }
     }
   }
