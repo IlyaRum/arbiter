@@ -1,6 +1,11 @@
 package arbiter.data;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
@@ -15,9 +20,37 @@ public class Composition {
   private int min;
   private int max;
 
+  private List<String> UIDs = new ArrayList<>();
+
   public Composition(String id, String name) {
     this.id = id;
     this.name = name;
+    addID(id);
+  }
+
+  @JsonIgnore
+  public List<String> getUIDs() {
+    return UIDs;
+  }
+
+  public void addID(final String id) {
+    if (id != null && id.length() == 36) {
+      if (!UIDs.contains(id)) {
+        UIDs.add(id);
+      }
+    }
+  }
+
+
+  public boolean isDataDifferent(double newValue, Instant newTime) {
+    return Double.compare(value, newValue) != 0 ||
+      !Objects.equals(time, newTime);
+  }
+
+  public void setData(double value, Instant time, int qCode) {
+    this.value = value;
+    this.time = time;
+    this.qCode = qCode;
   }
 
   public String getId() {

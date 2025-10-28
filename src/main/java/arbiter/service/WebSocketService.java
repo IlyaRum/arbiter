@@ -370,6 +370,9 @@ public class WebSocketService extends ABaseService {
         for (Unit unit : units) {
           processParameters(memoryData, result, unit);
           processTopologies(memoryData, result, unit);
+          processElements(memoryData, result, unit);
+          processInfluencingFactors(memoryData, result, unit);
+          processRepairSchema(memoryData, result, unit);
         }
       }
 
@@ -385,30 +388,6 @@ public class WebSocketService extends ABaseService {
     } catch (Exception e) {
       logger.error("Ошибка при обработке данных измерений", e);
     }
-  }
-
-  private void processTopologies(MemoryData memoryData, StoreData result, Unit unit) {
-
-      List<Topology> topologyList = unit.getTopologies();
-      UnitDto unitDto;
-
-      for (Topology topology : topologyList) {
-
-        if (topology.getId().equalsIgnoreCase(memoryData.getId())) {
-
-          if (topology.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
-
-            topology.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
-
-            unitDto = result.getUnitData(unit);
-            if (unitDto == null) {
-              unitDto = new UnitDto(unit);
-              result.addUnitData(unitDto);
-            }
-          }
-          return;
-        }
-      }
   }
 
   private void sendPostRequestAsync(StoreData result) {
@@ -506,6 +485,103 @@ public class WebSocketService extends ABaseService {
 //            unit.getName(), parameter.getId(), parameter.getName(), memoryData.getValue(),
 //            Integer.toHexString(memoryData.getQCode()),
 //            memoryData.getTime().toString()));
+        return;
+      }
+    }
+  }
+
+  private void processTopologies(MemoryData memoryData, StoreData result, Unit unit) {
+
+    List<Topology> topologyList = unit.getTopologies();
+    UnitDto unitDto;
+
+    for (Topology topology : topologyList) {
+
+      if (topology.getId().equalsIgnoreCase(memoryData.getId())) {
+
+        if (topology.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+          topology.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  private void processElements(MemoryData memoryData, StoreData result, Unit unit) {
+    List<Element> elements = unit.getElements();
+    UnitDto unitDto;
+
+    for (Element element : elements) {
+
+      if (element.getId().equalsIgnoreCase(memoryData.getId())) {
+
+        if (element.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+          element.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  private void processRepairSchema(MemoryData memoryData, StoreData result, Unit unit) {
+    List<RepairGroupValue> repairGroupValues = unit.getRepairSchema().getRepairGroupValues();
+    UnitDto unitDto;
+
+    for (RepairGroupValue repairGroupValue : repairGroupValues) {
+      List<Composition> compositions = repairGroupValue.getValues();
+
+      for (Composition composition : compositions) {
+
+        if (composition.getId().equalsIgnoreCase(memoryData.getId())) {
+
+          if (composition.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+            composition.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+            unitDto = result.getUnitData(unit);
+            if (unitDto == null) {
+              unitDto = new UnitDto(unit);
+              result.addUnitData(unitDto);
+            }
+          }
+          return;
+        }
+      }
+    }
+  }
+
+  private void processInfluencingFactors(MemoryData memoryData, StoreData result, Unit unit) {
+    List<InfluencingFactor> influencingFactors = unit.getInfluencingFactors();
+    UnitDto unitDto;
+
+    for (InfluencingFactor influencingFactor : influencingFactors) {
+
+      if (influencingFactor.getId().equalsIgnoreCase(memoryData.getId())) {
+
+        if (influencingFactor.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+
+          influencingFactor.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+        }
         return;
       }
     }

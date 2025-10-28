@@ -85,7 +85,6 @@ public class Unit {
       for (int j = 0; j < composition.size(); j++) {
         JsonObject compositionObj = composition.getJsonObject(j);
         String id = compositionObj.getString("id");
-        repairGroupValue.addID(id);
         Composition compositionObject = new Composition(
           id,
           compositionObj.getString("имя")

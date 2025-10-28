@@ -1,7 +1,5 @@
 package arbiter.data;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
@@ -15,7 +13,7 @@ public class RepairGroupValue {
   private String operation;
   private List<Composition> values = new ArrayList<>();
 
-  private List<String> UIDs = new ArrayList<>();
+
 
   public RepairGroupValue() {
   }
@@ -45,19 +43,6 @@ public class RepairGroupValue {
     this.values.add(composition);
   }
 
-  @JsonIgnore
-  public List<String> getUIDs() {
-    return UIDs;
-  }
-
-  public void addID(final String id) {
-    if (id != null && id.length() == 36) {
-      if (!UIDs.contains(id)) {
-        UIDs.add(id);
-      }
-    }
-  }
-
   public String getOperation() {
     return operation;
   }
@@ -66,17 +51,12 @@ public class RepairGroupValue {
     this.operation = operation;
   }
 
-  public void setUIDs(List<String> UIDs) {
-    this.UIDs = UIDs;
-  }
-
   @Override
   public String toString() {
     return new StringJoiner(", ", RepairGroupValue.class.getSimpleName() + "[", "]")
       .add("group=" + group)
       .add("operation='" + operation + "'")
       .add("values=" + values)
-      .add("UIDs=" + UIDs)
       .toString();
   }
 }

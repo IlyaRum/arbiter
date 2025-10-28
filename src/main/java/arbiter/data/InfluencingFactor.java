@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Влияющие ТИ
@@ -33,6 +34,17 @@ public class InfluencingFactor {
         UIDs.add(id);
       }
     }
+  }
+
+  public boolean isDataDifferent(double newValue, Instant newTime) {
+    return Double.compare(value, newValue) != 0 ||
+      !Objects.equals(time, newTime);
+  }
+
+  public void setData(double value, Instant time, int qCode) {
+    this.value = value;
+    this.time = time;
+    this.qCode = qCode;
   }
 
   @JsonIgnore

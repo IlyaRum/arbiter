@@ -8,6 +8,7 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -127,15 +128,17 @@ public class UnitCollection {
 //      .flatMap(repairGroupValue -> repairGroupValue.getUIDs().stream())
 //      .toList();
 
-    List<String> repairSchemaUIDs = units.stream()
+    List<String> compositionUIDs = units.stream()
       .map(Unit::getRepairSchema)
       .filter(Objects::nonNull)
       .map(RepairSchema::getRepairGroupValues)
       .filter(Objects::nonNull)
-      .flatMap(List::stream)
-      .map(RepairGroupValue::getUIDs)
+      .flatMap(Collection::stream)
+      .map(RepairGroupValue::getValues)
       .filter(Objects::nonNull)
-      .flatMap(List::stream)
+      .flatMap(Collection::stream)
+      .map(Composition::getUIDs)
+      .flatMap(Collection::stream)
       .toList();
 
     List<String> topologyUIDs = units.stream()
@@ -153,12 +156,10 @@ public class UnitCollection {
       .flatMap(influencingFactor -> influencingFactor.getUIDs().stream())
       .toList();
 
-
-
     List<String> allUIDs = new ArrayList<>();
     allUIDs.addAll(parameterUIDs);
     allUIDs.addAll(topologyUIDs);
-    allUIDs.addAll(repairSchemaUIDs);
+    allUIDs.addAll(compositionUIDs);
     allUIDs.addAll(elementUIDs);
     allUIDs.addAll(influencingFactorUIDs);
 
