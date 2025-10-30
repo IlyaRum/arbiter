@@ -87,7 +87,7 @@ public class UnitDto {
     return influencingFactors;
   }
 
-  public RepairSchema getRepairschema() {
+  public RepairSchema getRepairSchema() {
     return repairSchema;
   }
 
@@ -102,7 +102,7 @@ public class UnitDto {
       .add("parameters=" + getParameters())
       .add("topologyList=" + getTopologyList())
       .add("elements=" + getElements())
-      .add("repairSchema=" + getRepairschema())
+      .add("repairSchema=" + getRepairSchema())
       .add("influencingFactors=" + getInfluencingFactors())
       .toString();
   }

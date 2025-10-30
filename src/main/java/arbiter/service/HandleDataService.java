@@ -188,7 +188,7 @@ public class HandleDataService extends ABaseService{
     logger.debug("Подготовка параметров перед отправкой в POST запрос: " + result);
     executor.submit(() -> {
       try {
-        sendPostRequest(result);
+        sendPostRequest(result.getUnitDataList());
       } catch (Exception e) {
         logger.error("Ошибка при асинхронной отправке данных", e);
       }
@@ -337,10 +337,10 @@ public class HandleDataService extends ABaseService{
     }
   }
 
-  private void sendPostRequest(StoreData result) {
+  private void sendPostRequest(List<UnitDto> unitDtos) {
     WebClient client = WebClient.create(vertx);
 
-    String jsonData = convertStoreDataToJson(result);
+    String jsonData = convertStoreDataToJson(unitDtos);
 
     logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
 
@@ -359,7 +359,7 @@ public class HandleDataService extends ABaseService{
       .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
   }
 
-  private String convertStoreDataToJson(StoreData result) {
+  private String convertStoreDataToJson(List<UnitDto> unitDtos) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
@@ -373,7 +373,7 @@ public class HandleDataService extends ABaseService{
 //        .withType("StoreDataEvent")
 //        .withData(mapper.writeValueAsBytes(result))
 //        .build();
-      return mapper.writeValueAsString(result);
+      return mapper.writeValueAsString(unitDtos);
 
     } catch (Exception e) {
       logger.error(e.getMessage());
