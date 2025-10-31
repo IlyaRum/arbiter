@@ -16,8 +16,6 @@ public class InfluencingFactor {
   private String name;
   protected double value;
   private int qCode;
-  private int min;
-  private int max;
   protected Instant time;
 
   private List<String> UIDs = new ArrayList<>();
@@ -82,22 +80,6 @@ public class InfluencingFactor {
 
   public void setqCode(int qCode) {
     this.qCode = qCode;
-  }
-
-  public int getMin() {
-    return min;
-  }
-
-  public void setMin(int min) {
-    this.min = min;
-  }
-
-  public int getMax() {
-    return max;
-  }
-
-  public void setMax(int max) {
-    this.max = max;
   }
 
   public Instant getTime() {

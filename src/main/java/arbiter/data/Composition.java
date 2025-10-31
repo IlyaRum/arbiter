@@ -17,8 +17,6 @@ public class Composition {
   protected double value;
   protected Instant time;
   private int qCode;
-  private int min;
-  private int max;
 
   private List<String> UIDs = new ArrayList<>();
 
@@ -93,22 +91,6 @@ public class Composition {
     this.qCode = qCode;
   }
 
-  public int getMin() {
-    return min;
-  }
-
-  public void setMin(int min) {
-    this.min = min;
-  }
-
-  public int getMax() {
-    return max;
-  }
-
-  public void setMax(int max) {
-    this.max = max;
-  }
-
   @Override
   public String toString() {
     return new StringJoiner(", ", Composition.class.getSimpleName() + "[", "]")
@@ -117,8 +99,6 @@ public class Composition {
       .add("value=" + getValue())
       .add("time=" + getTime())
       .add("qCode=" + getqCode())
-      .add("min=" + getMin())
-      .add("max=" + getMax())
       .toString();
   }
 }

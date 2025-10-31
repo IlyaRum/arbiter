@@ -23,8 +23,8 @@ public class Parameter{
   private boolean assigned;
   private double oldValue;
   private int qCode;
-  private int min;
-  private int max;
+  private Integer min; // изменено на Integer
+  private Integer max;
 //  private boolean selfTest;
   private List<String> UIDs = new ArrayList<>();
 
@@ -90,13 +90,11 @@ public class Parameter{
 //    }
 //  }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public int getMax() {
+  public Integer getMax() {
     return max;
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
-  public int getMin() {
+  public Integer getMin() {
     return min;
   }
 
