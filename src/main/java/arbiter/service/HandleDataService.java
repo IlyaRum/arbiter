@@ -398,28 +398,25 @@ public class HandleDataService extends ABaseService{
   }
 
   private void processRepairSchema(MemoryData memoryData, StoreData result, Unit unit) {
-    List<RepairGroupValue> repairGroupValues = unit.getRepairSchema().getRepairGroupValues();
-    UnitDto unitDto;
+    Optional.ofNullable(unit.getRepairSchema())
+      .map(RepairSchema::getRepairGroupValues)
+      .orElse(Collections.emptyList())
+      .forEach(repairGroupValue -> processRepairGroupValue(memoryData, result, unit, repairGroupValue));
+  }
 
-    for (RepairGroupValue repairGroupValue : repairGroupValues) {
-      List<Composition> compositions = repairGroupValue.getValues();
-
-      for (Composition composition : compositions) {
-
-        if (composition.getId().equalsIgnoreCase(memoryData.getId())) {
-
-          if (composition.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
-
-            composition.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
-
-            unitDto = result.getUnitData(unit);
-            if (unitDto == null) {
-              unitDto = new UnitDto(unit);
-              result.addUnitData(unitDto);
-            }
+  private void processRepairGroupValue(MemoryData memoryData, StoreData result, Unit unit, RepairGroupValue repairGroupValue) {
+    List<Composition> compositions = repairGroupValue.getValues();
+    for (Composition composition : compositions) {
+      if (composition.getId().equalsIgnoreCase(memoryData.getId())) {
+        if (composition.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+          composition.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
           }
-          return;
         }
+        return;
       }
     }
   }
