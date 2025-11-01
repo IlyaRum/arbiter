@@ -5,6 +5,7 @@ import arbiter.data.*;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.Measurement;
 import arbiter.measurement.MeasurementList;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -27,9 +28,8 @@ import io.vertx.ext.web.client.WebClient;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,6 +41,13 @@ public class HandleDataService extends ABaseService{
   private String currentChannelId;
   private final DependencyInjector dependencyInjector;
 
+
+  private final ObjectMapper objectMapper;
+  private final Map<String, Measurement> dataBuffer;
+  private boolean initialDataLoaded = false;
+  private final Map<String, Instant> lastTimeStamps;
+  private final Set<String> targetUids;
+
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
 
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
@@ -48,6 +55,17 @@ public class HandleDataService extends ABaseService{
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
+    this.objectMapper = new ObjectMapper();
+    this.objectMapper.registerModule(new JavaTimeModule());
+    this.dataBuffer = new ConcurrentHashMap<>();
+    this.lastTimeStamps = new ConcurrentHashMap<>();
+
+    this.targetUids = Set.of(
+      "e3fab8a4-9985-4bd6-9066-ae7f70c12db3",
+      "5176d61e-09ab-4230-b92b-77a0d79f8380",
+      "fe2856ca-2e60-4660-9e31-825e733cc06b",
+      "42f5cb41-88c3-448d-911f-01ef39bc7586"
+    );
   }
 
   public Handler<String> handleTextMessage(Promise<JsonObject> promise) {
@@ -172,9 +190,12 @@ public class HandleDataService extends ABaseService{
 
       if (result.size() > 0) {
         //dataProcessor.accept(result);
+        dataBatchAggregator(list.getMeasurements());
+
         if (firstTime) {
           logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
-          sendPostRequestAsync(result);
+          String jsonData = convertStoreDataToJson(result.getUnitDataList());
+          sendPostRequestAsync(jsonData);
           firstTime = false;
         }
       }
@@ -184,11 +205,100 @@ public class HandleDataService extends ABaseService{
     }
   }
 
-  private void sendPostRequestAsync(StoreData result) {
-    logger.debug("Подготовка параметров перед отправкой в POST запрос: " + result);
+  private void dataBatchAggregator(List<Measurement> measurements) {
+    boolean timeStampChanged = false;
+    Set<String> receivedUids = new HashSet<>();
+
+    for (Measurement measurement : measurements) {
+      String uid = measurement.getUid().toLowerCase();
+
+      if (targetUids.contains(uid)) {
+        receivedUids.add(uid);
+        timeStampChanged |= isTimestampChange(measurement);
+      }
+    }
+
+    // Проверяем, все ли целевые UID получены
+    boolean allTargetUidsReceived = receivedUids.containsAll(targetUids);
+
+    // Если это первая загрузка и получены все UID
+    if (!initialDataLoaded && allTargetUidsReceived) {
+      initialDataLoaded = true;
+     logger.debug("Первоначальные данные загружены : " + receivedUids);
+    }
+
+    boolean hasConsistentTimestamp = hasConsistentTimestamp();
+
+    logger.debug(
+      " hasConsistentTimestamp: " + hasConsistentTimestamp +
+      " timeStampChanged : " + timeStampChanged +
+      " initialDataLoaded " + initialDataLoaded +
+      " dataBuffer: " + dataBuffer +
+      " targetUids: " + targetUids
+    );
+
+    if (timeStampChanged
+      && initialDataLoaded
+      && dataBuffer.size() == targetUids.size()
+      && hasConsistentTimestamp
+    ) {
+      logger.debug("Calling generateOutputJson()..... ");
+      generateOutputJson();
+    }
+  }
+
+  private boolean isTimestampChange(Measurement measurement) {
+    String uid = measurement.getUid().toLowerCase();
+    Instant  currentTimeStamp = Instant.parse(measurement.getTimeStamp());
+
+    Instant lastTimeStamp = lastTimeStamps.get(uid);
+
+    lastTimeStamps.put(uid, currentTimeStamp);
+
+    dataBuffer.put(uid, measurement);
+
+    // Возвращаем true если timestamp изменился
+    return lastTimeStamp != null && !lastTimeStamp.equals(currentTimeStamp);
+  }
+
+
+  /**
+   * True - если все timestamps имеют одинаковую метку времени
+   * False - если хотя бы один timestamps отличается от других
+   */
+  private boolean hasConsistentTimestamp() {
+    if (dataBuffer.isEmpty()) return false;
+
+    Instant firstTimestamp = null;
+    for (Measurement item : dataBuffer.values()) {
+      if (firstTimestamp == null) {
+        firstTimestamp = Instant.parse(item.getTimeStamp());
+      } else if (!firstTimestamp.equals(Instant.parse(item.getTimeStamp()))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  private void generateOutputJson() {
+    try {
+      List<Measurement> allData = new ArrayList<>(dataBuffer.values());
+
+      allData.sort(Comparator.comparing(Measurement::getUid));
+
+      String resultJson = objectMapper.writeValueAsString(allData);
+
+      logger.debug("Сгенерирован выходной JSON (все данные с новым timestamp):" + resultJson);
+
+    } catch (JsonProcessingException e) {
+      logger.error("Ошибка генерации выходного JSON: " + e.getMessage());
+    }
+  }
+
+  private void sendPostRequestAsync(String jsonData) {
     executor.submit(() -> {
       try {
-        sendPostRequest(result.getUnitDataList());
+        sendPostRequest(jsonData);
       } catch (Exception e) {
         logger.error("Ошибка при асинхронной отправке данных", e);
       }
@@ -198,7 +308,7 @@ public class HandleDataService extends ABaseService{
   private MemoryData createMemoryData(Measurement measurement) {
     String id = measurement.getUid();
     double value = measurement.getValue();
-    Instant time = measurement.getTimeStampAsInstant();
+    Instant time = Instant.parse(measurement.getTimeStamp());
     int qCode = measurement.getQCode();
 
     return new MemoryData(id, value, time, qCode);
@@ -337,10 +447,8 @@ public class HandleDataService extends ABaseService{
     }
   }
 
-  private void sendPostRequest(List<UnitDto> unitDtos) {
+  private void sendPostRequest(String jsonData) {
     WebClient client = WebClient.create(vertx);
-
-    String jsonData = convertStoreDataToJson(unitDtos);
 
     logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
 
