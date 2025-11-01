@@ -42,7 +42,6 @@ public class HandleDataService extends ABaseService{
   private final DependencyInjector dependencyInjector;
 
 
-  private final ObjectMapper objectMapper;
   private final Map<String, Measurement> dataBuffer;
   private boolean initialDataLoaded = false;
   private final Map<String, Instant> lastTimeStamps;
@@ -55,8 +54,6 @@ public class HandleDataService extends ABaseService{
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
-    this.objectMapper = new ObjectMapper();
-    this.objectMapper.registerModule(new JavaTimeModule());
     this.dataBuffer = new ConcurrentHashMap<>();
     this.lastTimeStamps = new ConcurrentHashMap<>();
 
@@ -194,7 +191,7 @@ public class HandleDataService extends ABaseService{
 
         if (firstTime) {
           logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
-          String jsonData = convertStoreDataToJson(result.getUnitDataList());
+          String jsonData = convertStoreDataToJson(Collections.singletonList(result.getUnitDataList()));
           sendPostRequestAsync(jsonData);
           firstTime = false;
         }
@@ -242,7 +239,6 @@ public class HandleDataService extends ABaseService{
       && dataBuffer.size() == targetUids.size()
       && hasConsistentTimestamp
     ) {
-      logger.debug("Calling generateOutputJson()..... ");
       generateOutputJson();
     }
   }
@@ -281,18 +277,10 @@ public class HandleDataService extends ABaseService{
   }
 
   private void generateOutputJson() {
-    try {
-      List<Measurement> allData = new ArrayList<>(dataBuffer.values());
-
-      allData.sort(Comparator.comparing(Measurement::getUid));
-
-      String resultJson = objectMapper.writeValueAsString(allData);
-
-      logger.debug("Сгенерирован выходной JSON (все данные с новым timestamp):" + resultJson);
-
-    } catch (JsonProcessingException e) {
-      logger.error("Ошибка генерации выходного JSON: " + e.getMessage());
-    }
+    List<Measurement> allData = new ArrayList<>(dataBuffer.values());
+    allData.sort(Comparator.comparing(Measurement::getUid));
+    String resultJson = convertStoreDataToJson(Collections.singletonList(allData));
+    logger.debug("Выходной JSON с одинаковым timestamp :" + resultJson);
   }
 
   private void sendPostRequestAsync(String jsonData) {
@@ -464,7 +452,7 @@ public class HandleDataService extends ABaseService{
       .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
   }
 
-  private String convertStoreDataToJson(List<UnitDto> unitDtos) {
+  private String convertStoreDataToJson(List<Object> objects) {
     try {
       ObjectMapper mapper = new ObjectMapper();
       mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
@@ -478,7 +466,7 @@ public class HandleDataService extends ABaseService{
 //        .withType("StoreDataEvent")
 //        .withData(mapper.writeValueAsBytes(result))
 //        .build();
-      return mapper.writeValueAsString(unitDtos);
+      return mapper.writeValueAsString(objects);
 
     } catch (Exception e) {
       logger.error(e.getMessage());

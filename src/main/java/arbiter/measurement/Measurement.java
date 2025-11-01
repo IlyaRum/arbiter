@@ -76,9 +76,9 @@ public class Measurement {
   public double getValue() { return value; }
   public boolean isChanged() { return changed; }
 
-  public Instant getTimeStampAsInstant() {
-    return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(timeStamp));
-  }
+//  public Instant getTimeStampAsInstant() {
+//    return Instant.from(DateTimeFormatter.ISO_INSTANT.parse(timeStamp));
+//  }
 
   @Override
   public String toString() {
