@@ -68,7 +68,8 @@ public class WebSocketService extends ABaseService {
     Promise<JsonObject> promise = Promise.promise();
 
     if (Objects.equals(AppConfig.getDevFlag(), "local")) {
-      dependencyInjector.getHandleDataService().handleTextMessage(promise).handle(CloudEventStrings.MEASUREMENT_VALUES_DATA_V2_ONE_SECTION);
+      dependencyInjector.getHandleDataService().handleTextMessage(promise)
+        .handle(CloudEventStrings.MEASUREMENT_VALUES_DATA_V2_ONE_SECTION_PARAMETERS);
     } else {
       WebSocketConnectOptions options = createWebSocketConnectOptions(token);
 

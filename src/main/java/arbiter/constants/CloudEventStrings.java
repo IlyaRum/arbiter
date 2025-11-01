@@ -2694,4 +2694,161 @@ public class CloudEventStrings {
             ]
         }
     }    """;
+
+  public static String MEASUREMENT_VALUES_DATA_V2_ONE_SECTION_PARAMETERS = """
+      {
+        "specversion": "1.0",
+        "id": "4bad0bcf-8274-4872-a0ba-d077500e57f2",
+        "source": "/api/public/measurement-values/actual",
+        "type": "ru.monitel.ck11.measurement-values.data.v2",
+        "time": "2025-10-31T15:04:46.2463315Z",
+        "exclsubid": "mv-121",
+        "rtdbtraceid": "[C53][R326942]",
+        "datacontenttype": "application/json",
+        "data": {
+            "data": [
+                {
+                    "uid": "b6904d5a-316c-45ab-87f2-97135d2fa0cf",
+                    "timeStamp": "2025-10-31T11:26:27.909Z",
+                    "timeStamp2": "2025-10-31T11:26:27.906Z",
+                    "qCode": 1879048192,
+                    "value": 5535
+                },
+                {
+                    "uid": "293c4eed-da20-46a1-8a97-5b69252e1a13",
+                    "timeStamp": "2025-10-31T11:26:27.909Z",
+                    "timeStamp2": "2025-10-31T11:26:27.906Z",
+                    "qCode": 1879048192,
+                    "value": 6485
+                },
+                {
+                    "uid": "e3fab8a4-9985-4bd6-9066-ae7f70c12db3",
+                    "timeStamp": "2025-10-31T15:04:03.938Z",
+                    "timeStamp2": "2025-10-31T15:01:36Z",
+                    "qCode": -2147483646,
+                    "value": 4224.264376013836
+                },
+                {
+                    "uid": "5176d61e-09ab-4230-b92b-77a0d79f8380",
+                    "timeStamp": "2025-10-31T15:04:03.938Z",
+                    "timeStamp2": "2025-10-31T15:01:36Z",
+                    "qCode": -2147483646,
+                    "value": 5574.05785254303
+                },
+                {
+                    "uid": "fe2856ca-2e60-4660-9e31-825e733cc06b",
+                    "timeStamp": "2025-10-31T15:04:03.938Z",
+                    "timeStamp2": "2025-10-31T15:01:36Z",
+                    "qCode": -2147483646,
+                    "value": 6582.2937213248915
+                },
+                {
+                    "uid": "42f5cb41-88c3-448d-911f-01ef39bc7586",
+                    "timeStamp": "2025-10-31T15:04:03.938Z",
+                    "timeStamp2": "2025-10-31T15:01:36Z",
+                    "qCode": -2147483646,
+                    "value": 250343
+                },
+                {
+                    "uid": "7c2a31f4-ae00-42fa-8f57-b15f8dfdbafd",
+                    "timeStamp": "2025-10-28T20:45:49.404Z",
+                    "timeStamp2": "2025-10-28T20:45:49.398Z",
+                    "qCode": 1879048194,
+                    "value": 1
+                },
+                {
+                    "uid": "a34be95e-781d-4b4d-82f2-1ca17be89d4d",
+                    "timeStamp": "2025-10-31T07:33:08.63Z",
+                    "timeStamp2": "2025-10-31T07:33:08.63Z",
+                    "qCode": 1879048194,
+                    "value": 1
+                },
+                {
+                    "uid": "35dd470f-a10c-4ea2-b05c-dc38fb152053",
+                    "timeStamp": "2023-05-31T06:06:43.887Z",
+                    "timeStamp2": "2023-05-31T06:06:43.887Z",
+                    "qCode": -1879048190,
+                    "value": 10
+                },
+                {
+                    "uid": "d9c43f95-6cc6-4bf3-b1f9-9d8d03d3f019",
+                    "timeStamp": "2025-10-31T08:09:06.676Z",
+                    "timeStamp2": "2025-10-31T08:09:06.652Z",
+                    "qCode": 1879048192,
+                    "value": 150
+                },
+                {
+                    "uid": "ff9986f5-fabf-4f9e-944b-a7462ba1d9b2",
+                    "timeStamp": "2025-07-22T14:36:43.482Z",
+                    "timeStamp2": "2025-07-22T14:36:43.482Z",
+                    "qCode": -1879048190,
+                    "value": 495
+                },
+                {
+                    "uid": "8de35bde-fb2e-4196-b05a-3232c402d1d9",
+                    "timeStamp": "2023-12-27T11:18:25.274Z",
+                    "timeStamp2": "2023-12-27T11:18:25.274Z",
+                    "qCode": -2147483646,
+                    "value": 10006
+                },
+                {
+                    "uid": "fd26ced0-1277-4213-b810-e4a389e69316",
+                    "timeStamp": "2025-10-07T13:24:41.203Z",
+                    "timeStamp2": "2025-10-07T13:24:41.203Z",
+                    "qCode": 1879048194,
+                    "value": 0
+                },
+                {
+                    "uid": "4ebe8a8e-764d-43a1-bd8d-a5c1e0fb350a",
+                    "timeStamp": "2025-10-31T15:04:45.268Z",
+                    "timeStamp2": "2025-10-31T15:04:45.265Z",
+                    "qCode": 1879048194,
+                    "value": 4661.13916015625
+                },
+                {
+                    "uid": "80b8e4e9-b660-4f4f-87b1-86997465e5c9",
+                    "timeStamp": "2023-08-29T06:11:00Z",
+                    "timeStamp2": "2023-08-29T06:11:00Z",
+                    "qCode": -1879048190,
+                    "value": 2
+                },
+                {
+                    "uid": "12e22937-8f5b-4aa0-a562-f2787d7a5874",
+                    "timeStamp": "2025-07-22T13:25:14.551Z",
+                    "timeStamp2": "2025-07-22T13:25:14.551Z",
+                    "qCode": -1879048190,
+                    "value": 1
+                },
+                {
+                    "uid": "675765bf-ec11-4fad-99c4-779e8c9c07a0",
+                    "timeStamp": "2025-07-22T13:29:01.079Z",
+                    "timeStamp2": "2025-07-22T13:29:00.876Z",
+                    "qCode": -2147483646,
+                    "value": 4071
+                },
+                {
+                    "uid": "4bbd0569-2b03-45f0-811b-ebd1f1052def",
+                    "timeStamp": "2023-08-29T06:11:00Z",
+                    "timeStamp2": "2023-08-29T06:11:00Z",
+                    "qCode": -1879048190,
+                    "value": 60
+                },
+                {
+                    "uid": "c13eb753-81d0-44d4-a7f9-89e7d6907dab",
+                    "timeStamp": "2025-04-25T12:13:42.553Z",
+                    "timeStamp2": "2025-04-25T12:13:42.553Z",
+                    "qCode": -1879048190,
+                    "value": 100
+                },
+                {
+                    "uid": "3907e9b3-4a7a-4cd6-93e5-74bb3013a0ab",
+                    "timeStamp": "2023-10-11T12:29:00.107Z",
+                    "timeStamp2": "2023-10-11T12:29:00.107Z",
+                    "qCode": -1879048190,
+                    "value": 1
+                }
+            ]
+        }
+    }
+    """;
 }
