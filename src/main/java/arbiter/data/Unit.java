@@ -45,55 +45,63 @@ public class Unit {
     this.deltaTm = config.getInteger("Дельта ТИ");
 
     JsonArray influencingFactorArray = config.getJsonArray("Влияющие ТИ");
-    for (int i = 0; i < influencingFactorArray.size(); i++) {
-      JsonObject influencingFactorObj = influencingFactorArray.getJsonObject(i);
-      InfluencingFactor influencingFactor = new InfluencingFactor(
-        influencingFactorObj.getString("id"),
-        influencingFactorObj.getString("имя"));
-      influencingFactors.add(influencingFactor);
+    if(influencingFactorArray !=null) {
+      for (int i = 0; i < influencingFactorArray.size(); i++) {
+        JsonObject influencingFactorObj = influencingFactorArray.getJsonObject(i);
+        InfluencingFactor influencingFactor = new InfluencingFactor(
+          influencingFactorObj.getString("id"),
+          influencingFactorObj.getString("имя"));
+        influencingFactors.add(influencingFactor);
+      }
     }
 
     JsonArray topologyArray = config.getJsonArray("топология");
-    for (int i = 0; i < topologyArray.size(); i++) {
-      JsonObject topologyObj = topologyArray.getJsonObject(i);
-      Topology topology = new Topology(
-        topologyObj.getString("id"),
-        topologyObj.getString("имя"));
-      topologies.add(topology);
+    if(topologyArray !=null) {
+      for (int i = 0; i < topologyArray.size(); i++) {
+        JsonObject topologyObj = topologyArray.getJsonObject(i);
+        Topology topology = new Topology(
+          topologyObj.getString("id"),
+          topologyObj.getString("имя"));
+        topologies.add(topology);
+      }
     }
 
     JsonArray elementArray = config.getJsonArray("ТС элементов");
-    for (int i = 0; i < elementArray.size(); i++) {
-      JsonObject elementObj = elementArray.getJsonObject(i);
-      Element element = new Element(
-        elementObj.getString("id"),
-        elementObj.getString("имя"));
-      elements.add(element);
+    if(elementArray !=null) {
+      for (int i = 0; i < elementArray.size(); i++) {
+        JsonObject elementObj = elementArray.getJsonObject(i);
+        Element element = new Element(
+          elementObj.getString("id"),
+          elementObj.getString("имя"));
+        elements.add(element);
+      }
     }
 
     JsonObject repairSchemaObj = config.getJsonObject("ремонтная схема");
-    JsonArray TVSignals = repairSchemaObj.getJsonArray("телесигналы");
-    String checkFormula = repairSchemaObj.getString("проверка");
-    repairSchema = new RepairSchema();
-    repairSchema.setCheckFormula(checkFormula);
-    for (int i = 0; i < TVSignals.size(); i++) {
-      JsonObject signal = TVSignals.getJsonObject(i);
-      RepairGroupValue repairGroupValue = new RepairGroupValue();
-      repairGroupValue.setGroup(signal.getInteger("группа"));
-      repairGroupValue.setOperation(signal.getString("операция"));
-      JsonArray composition = signal.getJsonArray("состав");
-      for (int j = 0; j < composition.size(); j++) {
-        JsonObject compositionObj = composition.getJsonObject(j);
-        String id = compositionObj.getString("id");
-        Composition compositionObject = new Composition(
-          id,
-          compositionObj.getString("имя")
-        );
-        repairGroupValue.setComposition(compositionObject);
+    if(repairSchemaObj !=null) {
+      JsonArray TVSignals = repairSchemaObj.getJsonArray("телесигналы");
+      String checkFormula = repairSchemaObj.getString("проверка");
+      repairSchema = new RepairSchema();
+      repairSchema.setCheckFormula(checkFormula);
+      for (int i = 0; i < TVSignals.size(); i++) {
+        JsonObject signal = TVSignals.getJsonObject(i);
+        RepairGroupValue repairGroupValue = new RepairGroupValue();
+        repairGroupValue.setGroup(signal.getInteger("группа"));
+        repairGroupValue.setOperation(signal.getString("операция"));
+        JsonArray composition = signal.getJsonArray("состав");
+        for (int j = 0; j < composition.size(); j++) {
+          JsonObject compositionObj = composition.getJsonObject(j);
+          String id = compositionObj.getString("id");
+          Composition compositionObject = new Composition(
+            id,
+            compositionObj.getString("имя")
+          );
+          repairGroupValue.setComposition(compositionObject);
+        }
+        this.repairGroupValues.add(repairGroupValue);
       }
-      this.repairGroupValues.add(repairGroupValue);
+      repairSchema.setRepairGroupValues(repairGroupValues);
     }
-    repairSchema.setRepairGroupValues(repairGroupValues);
 
     // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");
