@@ -1,6 +1,7 @@
 package arbiter.service;
 
 
+import arbiter.constants.ParameterMappingConstants;
 import arbiter.data.*;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.Measurement;
@@ -50,6 +51,13 @@ public class HandleDataService extends ABaseService{
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
 
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
+
+  private final Map<String, Double> previousParameterValues = new ConcurrentHashMap<>();
+
+  /**
+   * Map для накопления изменений из разных событий
+   */
+  private final Map<String, Parameter> accumulatedChanges = new ConcurrentHashMap<>();
 
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
@@ -187,7 +195,7 @@ public class HandleDataService extends ABaseService{
 
       if (result.size() > 0) {
         //dataProcessor.accept(result);
-        dataBatchAggregator(list.getMeasurements());
+        dataBatchAggregator(list.getMeasurements(), result);
 
         if (firstTime) {
           logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
@@ -202,7 +210,7 @@ public class HandleDataService extends ABaseService{
     }
   }
 
-  private void dataBatchAggregator(List<Measurement> measurements) {
+  private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     boolean timeStampChanged = false;
     Set<String> receivedUids = new HashSet<>();
 
@@ -222,6 +230,9 @@ public class HandleDataService extends ABaseService{
     if (!initialDataLoaded && allTargetUidsReceived) {
       initialDataLoaded = true;
      logger.debug("Первоначальные данные загружены : " + receivedUids);
+
+      // Сохраняем первоначальные значения
+      saveCurrentParameterValues(result);
     }
 
     boolean hasConsistentTimestamp = hasConsistentTimestamp();
@@ -234,14 +245,185 @@ public class HandleDataService extends ABaseService{
       " targetUids: " + targetUids
     );
 
+    accumulateChanges(result);
+
     if (timeStampChanged
       && initialDataLoaded
       && dataBuffer.size() == targetUids.size()
       && hasConsistentTimestamp
+      && !accumulatedChanges.isEmpty()
     ) {
+
+      StoreData accumulatedResult = createStoreDataFromAccumulatedChanges();
       generateOutputJson();
+
+      String jsonData = convertStoreDataToJson(Collections.singletonList(accumulatedResult.getUnitDataList()));
+      logger.debug("Отправляем PUT запрос в арбитр расчетов: " + jsonData);
+
+      saveCurrentParameterValuesFromAccumulated();
+
+      // Отправляем запрос
+      //sendPutRequestAsync(jsonData);
+
+      accumulatedChanges.clear();
+    }
+//    else if (timeStampChanged && initialDataLoaded) {
+//      // Сохраняем значения даже если не отправляем, чтобы обновить previous values
+//      saveCurrentParameterValues(result);
+//    }
+  }
+
+  /**
+   * Накапливает изменения из текущего result при каждом вызове
+   */
+  private void accumulateChanges(StoreData result) {
+    for (UnitDto unitDto : result.getUnitDataList()) {
+      for (Parameter param : unitDto.getParameters().values()) {
+        String paramId = param.getId();
+        double currentValue = param.getValue();
+
+        if (hasParameterValueChanged(paramId, currentValue)) {
+          accumulatedChanges.put(paramId, param);
+        }
+      }
     }
   }
+
+  /**
+   * Создает StoreData из накопленных изменений, когда все условия выполнены:
+   * все targetUids получены, одинаковый timestamp, initialDataLoaded, hasConsistentTimestamp
+   */
+  private StoreData createStoreDataFromAccumulatedChanges() {
+    StoreData accumulatedResult = new StoreData();
+
+    if (!accumulatedChanges.isEmpty()) {
+      Map<Unit, Map<String, Parameter>> changesByUnit = new HashMap<>();
+
+      for (Parameter param : accumulatedChanges.values()) {
+        Unit unit = findUnitForParameter(param);
+        if (unit != null) {
+          changesByUnit.computeIfAbsent(unit, k -> new HashMap<>())
+            .put(getMappedParameterKey(param), param);
+        }
+      }
+
+      for (Map.Entry<Unit, Map<String, Parameter>> entry : changesByUnit.entrySet()) {
+        Unit unit = entry.getKey();
+        Map<String, Parameter> unitParams = entry.getValue();
+
+        if (!unitParams.isEmpty()) {
+          UnitDto unitDto = new FilteredUnitDto(new UnitDto(unit), unitParams);
+          accumulatedResult.addUnitData(unitDto);
+        }
+      }
+    }
+
+    return accumulatedResult;
+  }
+
+  /**
+   * Сохраняем текущие значения как предыдущие для следующего сравнения
+   */
+  private void saveCurrentParameterValuesFromAccumulated() {
+    for (Parameter param : accumulatedChanges.values()) {
+      previousParameterValues.put(param.getId(), param.getValue());
+    }
+  }
+
+  /**
+   * Получает ключ для маппинга параметра (аналогично getMappedParameterKey в UnitDto)
+   */
+  private String getMappedParameterKey(Parameter param) {
+    //TODO [IER] Используем ту же логику, что и в UnitDto
+    // Нужно отрефакторить, чтобы использовать один метод
+    return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(param.getName(), param.getId());
+  }
+
+  /**
+   * Находит юнит для параметра
+   */
+  private Unit findUnitForParameter(Parameter param) {
+    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
+    for (Unit unit : units) {
+      for (Parameter unitParam : unit.getParameters()) {
+        if (unitParam.getId().equals(param.getId())) {
+          return unit;
+        }
+      }
+    }
+    return null;
+  }
+
+
+  /**
+   * Сохраняет текущие значения параметров для сравнения в следующий раз
+   */
+  private void saveCurrentParameterValues(StoreData result) {
+    for (UnitDto unitDto : result.getUnitDataList()) {
+      for (Parameter param : unitDto.getParameters().values()) {
+        String paramId = param.getId();
+        double currentValue = param.getValue();
+        previousParameterValues.put(paramId, currentValue);
+      }
+    }
+  }
+
+  /**
+   * Фильтрует StoreData, оставляя только параметры с измененными значениями
+   */
+//  private StoreData filterChangedParameters(StoreData originalResult) {
+//    StoreData filteredResult = new StoreData();
+//
+//    for (UnitDto unitDto : originalResult.getUnitDataList()) {
+//      UnitDto filteredUnitDto = createFilteredUnitDto(unitDto);
+//      if (filteredUnitDto != null && !filteredUnitDto.getParameters().isEmpty()) {
+//        filteredResult.addUnitData(filteredUnitDto);
+//      }
+//    }
+//
+//    return filteredResult;
+//  }
+
+  /**
+   * Создает UnitDto только с параметрами, у которых изменилось значение
+   */
+//  private UnitDto createFilteredUnitDto(UnitDto originalUnitDto) {
+//    Map<String, Parameter> changedParameters = new HashMap<>();
+//
+//    for (Map.Entry<String, Parameter> entry : originalUnitDto.getParameters().entrySet()) {
+//      Parameter param = entry.getValue();
+//      String paramId = param.getId();
+//
+//      // Проверяем, изменилось ли значение параметра
+//      if (hasParameterValueChanged(paramId, param.getValue())) {
+//        changedParameters.put(entry.getKey(), param);
+//      }
+//    }
+//
+//    // Если есть измененные параметры, создаем новый UnitDto
+//    if (!changedParameters.isEmpty()) {
+//      return new FilteredUnitDto(originalUnitDto, changedParameters);
+//    }
+//
+//    return null;
+//  }
+
+  /**
+   * Проверяет, изменилось ли значение параметра.
+   * Сравнивает текущее значение с предыдущим сохраненным значением
+   */
+  private boolean hasParameterValueChanged(String paramId, double currentValue) {
+
+    Double previousValue = previousParameterValues.get(paramId);
+    // Если предыдущего значения нет - считаем что изменилось (первый раз)
+    if (previousValue == null) {
+      return true;
+    }
+
+    // Сравниваем с учетом точности double
+    return Math.abs(currentValue - previousValue) > 1e-10;
+  }
+
 
   private boolean isTimestampChange(Measurement measurement) {
     String uid = measurement.getUid().toLowerCase();
@@ -303,7 +485,7 @@ public class HandleDataService extends ABaseService{
   }
 
   private void processParameters(MemoryData memoryData, StoreData result, Unit unit) {
-
+    logger.debug("-------");
     List<Parameter> parameters = unit.getParameters();
     UnitDto unitDto;
 
@@ -315,7 +497,13 @@ public class HandleDataService extends ABaseService{
 
         // Проверяем, изменились ли данные
         // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
-        if (parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+        boolean isDataDifferent = parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime());
+        logger.debug("parameterId=" + parameter.getId() +
+          " / parameterName=" + parameter.getName() +
+          " / parameterValue=" + parameter.getValue() +
+
+          " /----/ memoryData=" + memoryData + " / isDataDifferent=" + isDataDifferent);
+        if (isDataDifferent) {
 
           // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
           parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
@@ -485,5 +673,22 @@ public class HandleDataService extends ABaseService{
       .onFailure(err -> {
         System.err.println("Logging failed: " + err.getMessage());
       });
+  }
+
+  /**
+   * Класс для UnitDto с фильтрованными параметрами
+   */
+  private static class FilteredUnitDto extends UnitDto {
+    private final Map<String, Parameter> filteredParameters;
+
+    public FilteredUnitDto(UnitDto original, Map<String, Parameter> filteredParameters) {
+      super(original.getUnit());
+      this.filteredParameters = filteredParameters;
+    }
+
+    @Override
+    public Map<String, Parameter> getParameters() {
+      return filteredParameters;
+    }
   }
 }

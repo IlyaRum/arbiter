@@ -69,8 +69,7 @@ public class Parameter{
   // Для сравнения (аналог P.Value <> Data.Value или P.Time <> Data.Time)
 
   public boolean isDataDifferent(double newValue, Instant newTime) {
-    return !assigned ||
-      Double.compare(value, newValue) != 0 ||
+    return Double.compare(value, newValue) != 0 ||
       !Objects.equals(time, newTime);
   }
   // Аналог P.SetData(Data.Value, Data.Time, Data.QCode)
