@@ -7,10 +7,8 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class UnitCollection {
@@ -35,6 +33,7 @@ public class UnitCollection {
 
   //  private WebSocketClient webSocketClient;
   private Vertx vertx;
+  private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
 
 //  private Consumer<List<Parameter>> processData;
 //  private Consumer<Unit> processEvent;
@@ -94,6 +93,10 @@ public class UnitCollection {
           this.unit = new Unit(i, unitsArray.getJsonObject(i));
           units.add(unit);
         }
+
+        // Инициализация целевых UID после загрузки units
+        initializeUnitTargetUids();
+        logger.info("Unit target UIDs initialized for " + unitTargetUids.size() + " units");
 
         //connect();
       })
@@ -337,6 +340,64 @@ public class UnitCollection {
     return checkEvent;
   }
 
+  /**
+   * Инициализирует целевые UID для всех юнитов
+   */
+  private void initializeUnitTargetUids() {
+    for (Unit unit : units) {
+      Set<String> targetUids = extractTargetUidsFromUnit(unit);
+      unitTargetUids.put(unit.getName(), targetUids);
+      logger.debug("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
+    }
+  }
+
+  /**
+   * Извлекает целевые UID из исходных данных юнита
+   */
+  private Set<String> extractTargetUidsFromUnit(Unit unit) {
+    Set<String> targetUids = new HashSet<>();
+    List<Parameter> parameters = unit.getParameters();
+
+    for (Parameter param : parameters) {
+      String paramName = param.getName();
+      if (isTargetParameter(paramName)) {
+        targetUids.add(param.getId().toLowerCase());
+      }
+    }
+    return targetUids;
+  }
+
+  /**
+   * Проверяет, является ли параметр целевым для отслеживания
+   */
+  private boolean isTargetParameter(String parameterName) {
+    if (parameterName == null) return false;
+    return parameterName.equals("МДП без ПА [СМЗУ]") ||
+      parameterName.equals("МДП с ПА [СМЗУ]") ||
+      parameterName.equals("АДП [СМЗУ]") ||
+      parameterName.equals("Номер цикла расчета СМЗУ");
+  }
+
+  /**
+   * Возвращает целевые UID для указанного юнита
+   */
+  public Set<String> getTargetUidsForUnit(String unitName) {
+    return unitTargetUids.getOrDefault(unitName, Collections.emptySet());
+  }
+
+  /**
+   * Возвращает целевые UID для указанного юнита
+   */
+  public Set<String> getTargetUidsForUnit(Unit unit) {
+    return getTargetUidsForUnit(unit.getName());
+  }
+
+  /**
+   * Проверяет, инициализированы ли целевые UID для всех юнитов
+   */
+  public boolean areTargetUidsInitialized() {
+    return !unitTargetUids.isEmpty();
+  }
 
 }
 

@@ -55,13 +55,14 @@ public class HandleDataService extends ABaseService{
   //private final Map<String, Parameter> accumulatedChanges = new ConcurrentHashMap<>();
 
   //ключ - ID юнита, значение - набор целевых UID для targetUids юнита
-  private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
+//  private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Measurement>> unitDataBuffers = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Instant>> unitLastTimeStamps = new ConcurrentHashMap<>();
   private final Map<String, Boolean> unitInitialDataLoaded = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Double>> unitPreviousParameterValues = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Parameter>> unitAccumulatedChanges = new ConcurrentHashMap<>();
-
+  // Добавляем поле для хранения текущего timestamp каждого юнита
+  private final Map<String, Instant> unitCurrentTimestamps = new ConcurrentHashMap<>();
 
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
@@ -69,7 +70,7 @@ public class HandleDataService extends ABaseService{
     //this.dataBuffer = new ConcurrentHashMap<>();
     //this.lastTimeStamps = new ConcurrentHashMap<>();
 
-    initializeUnitTargetUids();
+    //initializeUnitStateStructures();
 
 //    this.targetUids = Set.of(
 //      "e3fab8a4-9985-4bd6-9066-ae7f70c12db3",
@@ -204,7 +205,7 @@ public class HandleDataService extends ABaseService{
         dataBatchAggregator(list.getMeasurements(), result);
 
         if (firstTime) {
-          logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
+          //logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
           String jsonData = convertStoreDataToJson(Collections.singletonList(result.getUnitDataList()));
           sendPostRequestAsync(jsonData);
           firstTime = false;
@@ -221,86 +222,169 @@ public class HandleDataService extends ABaseService{
    */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     // Группируем измерения по UID для быстрого доступа
+    logger.debug(String.format("dataBatchAggregator: result=%s", result));
     Map<String, Measurement> measurementsByUid = new HashMap<>();
     for (Measurement measurement : measurements) {
       measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
     }
 
-// Обрабатываем каждый юнит отдельно
+    // Обрабатываем каждый юнит отдельно
     for (UnitDto unitDto : result.getUnitDataList()) {
       String unitId = getUnitIdentifier(unitDto);
+      Unit unit = findUnitByName(unitId);
 
-      if (!unitTargetUids.containsKey(unitId)) {
-        logger.debug("No target UIDs found for unit: " + unitId);
+      if (unit == null) {
+        logger.debug("Unit not found: " + unitId);
         continue;
       }
 
-      Set<String> targetUids = unitTargetUids.get(unitId);
+      // Получаем целевые UID из UnitCollection
+      Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
+
+      logger.debug("targetUids=" + targetUids);
+
+      if (targetUids.isEmpty()) {
+        logger.debug("No target UIDs configured for unit: " + unitId);
+        continue;
+      }
+
+      // Ленивая инициализация структур состояния для этого юнита
+      initializeUnitStateStructures(unitId);
+
+      // Получаем структуры состояния для этого юнита
       Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
       Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
 
-      boolean timeStampChanged = false;
+      // Собираем полученные измерения для этого юнита
       Set<String> receivedUids = new HashSet<>();
+      Instant currentBatchTimestamp = null;
+      boolean hasConsistentTimestamp = true;
 
-      // Проверяем получение целевых UID для этого юнита
+      // Проверяем согласованность timestamp в текущей пачке
       for (String targetUid : targetUids) {
         Measurement measurement = measurementsByUid.get(targetUid);
         if (measurement != null) {
           receivedUids.add(targetUid);
-          timeStampChanged |= isTimestampChange(unitId, measurement);
+          Instant measurementTimestamp = Instant.parse(measurement.getTimeStamp());
+
+          if (currentBatchTimestamp == null) {
+            currentBatchTimestamp = measurementTimestamp;
+          }
+
+          else if (!currentBatchTimestamp.equals(measurementTimestamp)) {
+            hasConsistentTimestamp = false;
+            break; // Прерываем при первом несовпадении
+          }
         }
       }
 
-      // Проверяем, все ли целевые UID получены для этого юнита
-      boolean allTargetUidsReceived = receivedUids.containsAll(targetUids);
+      // Если не все измерения получены или timestamp не согласованы - пропускаем
+      if (!receivedUids.isEmpty()) {
+        // Обновляем dataBuffer для полученных UID
+        for (String receivedUid : receivedUids) {
+          Measurement measurement = measurementsByUid.get(receivedUid);
+          if (measurement != null) {
+            dataBuffer.put(receivedUid, measurement);
+            lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
+            logger.debug("Updated buffer for unit " + unitId + ", uid " + receivedUid);
+          }
+        }
 
-      // Если это первая загрузка и получены все UID
-      if (!initialDataLoaded && allTargetUidsReceived) {
-        unitInitialDataLoaded.put(unitId, true);
-        logger.debug("Первоначальные данные загружены для юнита " + unitId + ": " + receivedUids);
+        // Проверяем, есть ли у нас полный набор данных с одинаковым timestamp
+        boolean allTargetsHaveData = true;
+        Instant commonTimestamp = null;
+        boolean allTimestampsMatch = true;
 
-        // Сохраняем первоначальные значения для этого юнита
-        saveCurrentParameterValues(unitId, result);
-      }
+        for (String targetUid : targetUids) {
+          Measurement bufferedMeasurement = dataBuffer.get(targetUid);
+          if (bufferedMeasurement == null) {
+            allTargetsHaveData = false;
+            logger.debug("Missing data for unit " + unitId + ", uid " + targetUid);
+            break;
+          }
 
-      boolean hasConsistentTimestamp = hasConsistentTimestamp(unitId);
+          Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
+          if (commonTimestamp == null) {
+            commonTimestamp = bufferedTimestamp;
+          } else if (!commonTimestamp.equals(bufferedTimestamp)) {
+            allTimestampsMatch = false;
+            logger.debug("Buffer timestamp mismatch for unit " + unitId +
+              ": " + commonTimestamp + " vs " + bufferedTimestamp);
+            break;
+          }
+        }
 
-      logger.debug(
-        "Unit " + unitId +
-          " hasConsistentTimestamp: " + hasConsistentTimestamp +
-          " timeStampChanged : " + timeStampChanged +
-          " initialDataLoaded " + initialDataLoaded +
-          " dataBuffer: " + dataBuffer +
-          " targetUids: " + targetUids +
-          ", receivedUids: " + receivedUids
-      );
+        // Если у нас есть полный набор данных с одинаковым timestamp
+        if (allTargetsHaveData && allTimestampsMatch && commonTimestamp != null) {
+          logger.debug(String.format("Unit %s - Full set available with timestamp %s",
+            unitId, commonTimestamp));
 
-      accumulateChanges(unitId, result);
+          // Проверяем, изменился ли timestamp с последнего раза
+          Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
+          boolean timeStampChanged = previousTimestamp == null ||
+            !previousTimestamp.equals(commonTimestamp);
 
-      if (timeStampChanged
-        && initialDataLoaded
-        && dataBuffer.size() == targetUids.size()
-        && hasConsistentTimestamp
-        && !accumulatedChanges.isEmpty()
-      ) {
+          if (timeStampChanged) {
+            logger.debug("Timestamp changed for unit " + unitId +
+              ": " + previousTimestamp + " -> " + commonTimestamp);
+            unitCurrentTimestamps.put(unitId, commonTimestamp);
 
-        StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
-        generateOutputJson(unitId);
+            // Если это первая загрузка
+            if (!initialDataLoaded) {
+              unitInitialDataLoaded.put(unitId, true);
+              saveCurrentParameterValues(unitId, result);
+              logger.debug("Initial data loaded for unit " + unitId);
+            } else {
+              // Накапливаем изменения
+              accumulateChanges(unitId, result);
 
-        String jsonData = convertStoreDataToJson(Collections.singletonList(accumulatedResult.getUnitDataList()));
-        logger.debug("Отправляем PUT запрос для юнита " + unitId + ": " + jsonData);
+              // Если есть накопленные изменения - отправляем
+              if (!accumulatedChanges.isEmpty()) {
+                StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
 
-        saveCurrentParameterValuesFromAccumulated(unitId);
+                if (accumulatedResult != null && accumulatedResult.size() > 0) {
+                  String jsonData = convertStoreDataToJson(
+                    Collections.singletonList(accumulatedResult.getUnitDataList()));
 
-        // Отправляем запрос
-        //sendPutRequestAsync(jsonData);
+                  logger.debug("Sending PUT request for unit " + unitId +
+                    " with " + accumulatedChanges.size() + " changed parameters");
+                  logger.debug("JSON data: " + jsonData);
 
-        accumulatedChanges.clear();
+                  // Отправляем запрос
+                  //sendPutRequestAsync(jsonData);
+
+                  // Сохраняем текущие значения как предыдущие
+                  saveCurrentParameterValuesFromAccumulated(unitId);
+
+                  // Очищаем накопленные изменения
+                  accumulatedChanges.clear();
+                }
+              }
+            }
+          } else {
+            logger.debug("Timestamp not changed for unit " + unitId + ": " + commonTimestamp);
+          }
+        } else {
+          logger.debug(String.format("Unit %s - Not ready: allTargetsHaveData=%s, allTimestampsMatch=%s",
+            unitId, allTargetsHaveData, allTimestampsMatch));
+        }
       }
     }
+  }
+
+  /**
+   * Ленивая инициализация структур состояния для юнита
+   */
+  private void initializeUnitStateStructures(String unitId) {
+    unitDataBuffers.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitLastTimeStamps.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitInitialDataLoaded.putIfAbsent(unitId, false);
+    unitPreviousParameterValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitCurrentTimestamps.putIfAbsent(unitId, Instant.MIN);
   }
 
   /**
@@ -531,7 +615,6 @@ public class HandleDataService extends ABaseService{
   }
 
   private void processParameters(MemoryData memoryData, StoreData result, Unit unit) {
-    logger.debug("-------");
     List<Parameter> parameters = unit.getParameters();
     UnitDto unitDto;
 
@@ -544,11 +627,11 @@ public class HandleDataService extends ABaseService{
         // Проверяем, изменились ли данные
         // Аналог: if not P.Assigned or (P.Time <> Data.Time) or (P.Value <> Data.Value) then
         boolean isDataDifferent = parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime());
-        logger.debug("parameterId=" + parameter.getId() +
-          " / parameterName=" + parameter.getName() +
-          " / parameterValue=" + parameter.getValue() +
-
-          " /----/ memoryData=" + memoryData + " / isDataDifferent=" + isDataDifferent);
+//        logger.debug("parameterId=" + parameter.getId() +
+//          " / parameterName=" + parameter.getName() +
+//          " / parameterValue=" + parameter.getValue() +
+//
+//          " /----/ memoryData=" + memoryData + " / isDataDifferent=" + isDataDifferent);
         if (isDataDifferent) {
 
           // Аналог: P.SetData(Data.Value, Data.Time, Data.QCode)
@@ -738,28 +821,7 @@ public class HandleDataService extends ABaseService{
     }
   }
 
-  /**
-   * Инициализирует целевые UID для каждого юнита из конфигурации JSON
-   */
-  private void initializeUnitTargetUids() {
-    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
-    logger.debug("Initialized units: " + units);
-    for (Unit unit : units) {
-      Set<String> targetUids = extractTargetUidsFromUnit(unit);
-      unitTargetUids.put(getUnitIdentifier(unit), targetUids);
-
-      // Инициализируем структуры данных для этого юнита
-      unitDataBuffers.put(getUnitIdentifier(unit), new ConcurrentHashMap<>());
-      unitLastTimeStamps.put(getUnitIdentifier(unit), new ConcurrentHashMap<>());
-      unitInitialDataLoaded.put(getUnitIdentifier(unit), false);
-      unitPreviousParameterValues.put(getUnitIdentifier(unit), new ConcurrentHashMap<>());
-      unitAccumulatedChanges.put(getUnitIdentifier(unit), new ConcurrentHashMap<>());
-
-      logger.debug("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
-    }
-  }
-
-  /**
+ /**
    * Извлекает целевые UID из исходных данных юнита
    */
   private Set<String> extractTargetUidsFromUnit(Unit unit) {
