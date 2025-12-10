@@ -223,7 +223,7 @@ public class MeasurementDataProcessor {
 
               // Для первого раза отправляем все данные
               if (firstTime && dataReadyCallback != null) {
-                dataReadyCallback.onDataReady(result);
+                dataReadyCallback.onDataReady(result, unitId);
                 firstTime = false;
               }
             } else {
@@ -238,17 +238,8 @@ public class MeasurementDataProcessor {
 
                   // Уведомляем слушателей о готовых данных
                   if (dataReadyCallback != null) {
-                    dataReadyCallback.onDataReady(accumulatedResult);
+                    dataReadyCallback.onDataReady(accumulatedResult, unitId);
                   }
-//                  String jsonData = convertStoreDataToJson(
-//                    Collections.singletonList(accumulatedResult.getUnitDataList()));
-//
-//                  logger.debug("Sending PUT request for unit " + unitId +
-//                    " with " + accumulatedChanges.size() + " changed parameters");
-//                  logger.debug("JSON data: " + jsonData);
-
-                  // Отправляем запрос
-                  //sendPutRequestAsync(jsonData);
 
                   // Сохраняем текущие значения как предыдущие
                   saveCurrentParameterValuesFromAccumulated(unitId);
@@ -334,7 +325,7 @@ public class MeasurementDataProcessor {
         }
 
         if (!changesForUnit.isEmpty()) {
-          UnitDto unitDto = new MeasurementDataProcessor.FilteredUnitDto(new UnitDto(unit), changesForUnit);
+          UnitDto unitDto = new FilteredUnitDto(new UnitDto(unit), changesForUnit);
           accumulatedResult.addUnitData(unitDto);
           logger.debug("Created StoreData with " + changesForUnit.size() +
             " changed parameters for unit: " + unitId);
@@ -383,7 +374,6 @@ public class MeasurementDataProcessor {
     }
   }
 
-
   /**
    * Получает ключ для маппинга параметра (аналогично getMappedParameterKey в UnitDto)
    */
@@ -407,7 +397,6 @@ public class MeasurementDataProcessor {
     }
     return null;
   }
-
 
   /**
    * Сохраняет текущие значения параметров для конкретного юнита
@@ -441,54 +430,6 @@ public class MeasurementDataProcessor {
     // Сравниваем с учетом точности double
     return Math.abs(currentValue - previousValue) > 1e-10;
   }
-
-//  private boolean isTimestampChange(String unitId, Measurement measurement) {
-//    String uid = measurement.getUid().toLowerCase();
-//    Instant  currentTimeStamp = Instant.parse(measurement.getTimeStamp());
-//
-//
-//    Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
-//    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
-//
-//    Instant lastTimeStamp = lastTimeStamps.get(uid);
-//    lastTimeStamps.put(uid, currentTimeStamp);
-//
-//    dataBuffer.put(uid, measurement);
-//
-//    // Возвращаем true если timestamp изменился
-//    return lastTimeStamp != null && !lastTimeStamp.equals(currentTimeStamp);
-//  }
-
-  /**
-   * Проверяет согласованность timestamp для конкретного юнита
-   *
-   * True - если все timestamps имеют одинаковую метку времени
-   * False - если хотя бы один timestamps отличается от других
-   */
-//  private boolean hasConsistentTimestamp(String unitId) {
-//    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
-//    if (dataBuffer.isEmpty()) return false;
-//
-//    Instant firstTimestamp = null;
-//    for (Measurement item : dataBuffer.values()) {
-//      if (firstTimestamp == null) {
-//        firstTimestamp = Instant.parse(item.getTimeStamp());
-//      } else if (!firstTimestamp.equals(Instant.parse(item.getTimeStamp()))) {
-//        return false;
-//      }
-//    }
-//    return true;
-//  }
-
-//  private void sendPostRequestAsync(String jsonData) {
-//    executor.submit(() -> {
-//      try {
-//        sendPostRequest(jsonData);
-//      } catch (Exception e) {
-//        logger.error("Ошибка при асинхронной отправке данных", e);
-//      }
-//    });
-//  }
 
   private MemoryData createMemoryData(Measurement measurement) {
     String id = measurement.getUid();
@@ -633,48 +574,6 @@ public class MeasurementDataProcessor {
     }
   }
 
-//  private void sendPostRequest(String jsonData) {
-//    WebClient client = WebClient.create(vertx);
-//
-//    logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
-//
-//    client.postAbs("https://your-api-endpoint.com/data")
-//      .putHeader("Content-Type", "application/json")
-//      .sendBuffer(Buffer.buffer(jsonData))
-//      .compose(response -> {
-//        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-//          logger.debug("Данные успешно отправлены. Ответ: " + response.bodyAsString());
-//          return Future.succeededFuture();
-//        } else {
-//          return Future.failedFuture("HTTP error: " + response.statusCode() + " - " + response.bodyAsString());
-//        }
-//      })
-//      .onSuccess(v -> logger.debug("POST запрос выполнен успешно"))
-//      .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
-//  }
-
-//  private String convertStoreDataToJson(List<Object> objects) {
-//    try {
-//      ObjectMapper mapper = new ObjectMapper();
-//      mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
-//      mapper.registerModule(new JavaTimeModule());
-//      mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-//      mapper.enable(SerializationFeature.INDENT_OUTPUT);
-//
-////      CloudEvent cloudEvent = CloudEventBuilder.v1()
-////        .withId(UUID.randomUUID().toString())
-////        .withSource(URI.create("urn:store:data"))
-////        .withType("StoreDataEvent")
-////        .withData(mapper.writeValueAsBytes(result))
-////        .build();
-//      return mapper.writeValueAsString(objects);
-//
-//    } catch (Exception e) {
-//      logger.error(e.getMessage());
-//      return e.getMessage();
-//    }
-//  }
-
   /**
    * Получает идентификатор юнита из UnitDto
    */
@@ -700,7 +599,7 @@ public class MeasurementDataProcessor {
   }
 
   public interface DataReadyCallback {
-    void onDataReady(StoreData data);
+    void onDataReady(StoreData data, String unitId);
   }
 
 }
