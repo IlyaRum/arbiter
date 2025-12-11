@@ -21,7 +21,10 @@ public class StoreData {
 
   public int size() {
     return unitDtoList.stream()
-      .mapToInt(unitDto -> unitDto.getParameters().size())
+      .mapToInt(unitDto -> unitDto.getParameters().size() +
+        unitDto.getTopologyList().size() +
+        unitDto.getElements().size() +
+        unitDto.getInfluencingFactors().size())
       .sum();
   }
 

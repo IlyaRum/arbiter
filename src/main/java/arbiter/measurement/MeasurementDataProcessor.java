@@ -29,8 +29,11 @@ public class MeasurementDataProcessor {
   private final Map<String, Map<String, Instant>> unitLastTimeStamps = new ConcurrentHashMap<>();
   private final Map<String, Boolean> unitInitialDataLoaded = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Double>> unitPreviousParameterValues = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Parameter>> unitAccumulatedChanges = new ConcurrentHashMap<>();
   private final Map<String, Instant> unitCurrentTimestamps = new ConcurrentHashMap<>();
+
+  // Мапы для накопления изменений типов данных для каждого сечения
+  private final Map<String, Map<String, Parameter>> unitAccumulatedChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Topology>> unitAccumulatedTopologyChanges = new ConcurrentHashMap<>();
 
   public MeasurementDataProcessor(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
@@ -139,7 +142,9 @@ public class MeasurementDataProcessor {
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
       Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
+      Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
 
       // Собираем полученные измерения для этого юнита
       Set<String> receivedUids = new HashSet<>();
@@ -219,6 +224,7 @@ public class MeasurementDataProcessor {
             if (!initialDataLoaded) {
               unitInitialDataLoaded.put(unitId, true);
               saveCurrentParameterValues(unitId, result);
+              saveCurrentTopologyValues(unitId, result);
               logger.debug("Initial data loaded for unit " + unitId);
 
               // Для первого раза отправляем все данные
@@ -229,6 +235,7 @@ public class MeasurementDataProcessor {
             } else {
               // Накапливаем изменения
               accumulateChanges(unitId, result);
+              accumulateTopologyChanges(unitId, result);
 
               // Если есть накопленные изменения - отправляем
               if (!accumulatedChanges.isEmpty()) {
@@ -243,9 +250,11 @@ public class MeasurementDataProcessor {
 
                   // Сохраняем текущие значения как предыдущие
                   saveCurrentParameterValuesFromAccumulated(unitId);
+                  saveCurrentTopologyValuesFromAccumulated(unitId);
 
                   // Очищаем накопленные изменения
                   accumulatedChanges.clear();
+                  accumulatedTopologyChanges.clear();
                 }
               }
             }
@@ -268,12 +277,14 @@ public class MeasurementDataProcessor {
     unitLastTimeStamps.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitInitialDataLoaded.putIfAbsent(unitId, false);
     unitPreviousParameterValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitCurrentTimestamps.putIfAbsent(unitId, Instant.MIN);
+
+    unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitAccumulatedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
   }
 
   /**
-   * Накапливает изменения для конкретного юнита
+   * Накапливает изменения параметров для конкретного юнита
    */
   private void accumulateChanges(String unitId, StoreData result) {
     Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
@@ -289,6 +300,26 @@ public class MeasurementDataProcessor {
         accumulatedChanges.put(paramId, param);
         logger.debug("Parameter changed for unit " + unitId + ": " +
           param.getName() + " = " + currentValue);
+      }
+    }
+  }
+
+  /**
+   * Накапливает изменения топологий для конкретного юнита
+   */
+  private void accumulateTopologyChanges(String unitId, StoreData result) {
+    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto == null) return;
+
+    for (Topology topology : unitDto.getTopologyList()) {
+      String topologyId = topology.getId();
+      double currentValue = topology.getValue();
+
+      if (hasTopologyValueChanged(unitId, topologyId, currentValue)) {
+        accumulatedTopologyChanges.put(topologyId, topology);
+        logger.debug("Topology changed for unit " + unitId + ": " +
+          topology.getName() + " = " + currentValue);
       }
     }
   }
@@ -312,11 +343,14 @@ public class MeasurementDataProcessor {
   private StoreData createStoreDataFromAccumulatedChanges(String unitId) {
     StoreData accumulatedResult = new StoreData();
     Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
+    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
 
-    if (!accumulatedChanges.isEmpty()) {
+    if (!accumulatedChanges.isEmpty() ||
+      !accumulatedTopologyChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
         Map<String, Parameter> changesForUnit = new HashMap<>();
+        Map<String, Topology> topologyChangesForUnit = new HashMap<>();
 
         for (Parameter param : accumulatedChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
@@ -324,11 +358,19 @@ public class MeasurementDataProcessor {
           }
         }
 
-        if (!changesForUnit.isEmpty()) {
-          UnitDto unitDto = new FilteredUnitDto(new UnitDto(unit), changesForUnit);
+        for (Topology topology : accumulatedTopologyChanges.values()) {
+          if (isTopologyBelongsToUnit(unit, topology)) {
+            topologyChangesForUnit.put(topology.getId(), topology);
+          }
+        }
+
+        if (!changesForUnit.isEmpty() ||
+          !topologyChangesForUnit.isEmpty()) {
+          FilteredUnitDto unitDto = new FilteredUnitDto(new UnitDto(unit), changesForUnit, topologyChangesForUnit);
           accumulatedResult.addUnitData(unitDto);
           logger.debug("Created StoreData with " + changesForUnit.size() +
-            " changed parameters for unit: " + unitId);
+            " changed parameters and " + topologyChangesForUnit.size() +
+            " changed topologies for unit: " + unitId);
         }
       }
     }
@@ -362,6 +404,18 @@ public class MeasurementDataProcessor {
   }
 
   /**
+   * Проверяет принадлежность топологии юниту
+   */
+  private boolean isTopologyBelongsToUnit(Unit unit, Topology topology) {
+    for (Topology unitTopology : unit.getTopologies()) {
+      if (unitTopology.getId().equals(topology.getId())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Сохраняем текущие значения как предыдущие для следующего сравнения для конкретного юнита
    */
   private void saveCurrentParameterValuesFromAccumulated(String unitId) {
@@ -371,6 +425,21 @@ public class MeasurementDataProcessor {
       previousParameterValues.put(param.getId(), param.getValue());
       logger.debug("Updated previous value for unit " + unitId +
         ": " + param.getName() + " = " + param.getValue());
+    }
+  }
+
+  /**
+   * Сохраняет текущие значения топологий из накопленных изменений
+   */
+  private void saveCurrentTopologyValuesFromAccumulated(String unitId) {
+    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
+    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+
+    for (Topology topology : accumulatedTopologyChanges.values()) {
+      String key = "topology_" + topology.getId();
+      previousParameterValues.put(key, topology.getValue());
+      logger.debug("Updated previous topology value for unit " + unitId +
+        ": " + topology.getName() + " = " + topology.getValue());
     }
   }
 
@@ -416,6 +485,23 @@ public class MeasurementDataProcessor {
   }
 
   /**
+   * Сохраняет текущие значения топологий для конкретного юнита
+   */
+  private void saveCurrentTopologyValues(String unitId, StoreData result) {
+    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto != null) {
+      for (Topology topology : unitDto.getTopologyList()) {
+        String key = "topology_" + topology.getId();
+        double currentValue = topology.getValue();
+        previousParameterValues.put(key, currentValue);
+        logger.debug("Saved initial topology value for unit " + unitId +
+          ": " + topology.getName() + " = " + currentValue);
+      }
+    }
+  }
+
+  /**
    * Проверяет, изменилось ли значение параметра.
    * Сравнивает текущее значение с предыдущим сохраненным значением
    */
@@ -428,6 +514,23 @@ public class MeasurementDataProcessor {
     }
 
     // Сравниваем с учетом точности double
+    return Math.abs(currentValue - previousValue) > 1e-10;
+  }
+
+  /**
+   * Проверяет, изменилось ли значение топологии
+   */
+  private boolean hasTopologyValueChanged(String unitId, String topologyId, double currentValue) {
+    // Можно использовать ту же мапу previousParameterValues или создать отдельную
+    // Для простоты будем использовать ту же, но с префиксом
+    String key = "topology_" + topologyId;
+    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+    Double previousValue = previousParameterValues.get(key);
+
+    if (previousValue == null) {
+      return true;
+    }
+
     return Math.abs(currentValue - previousValue) > 1e-10;
   }
 
@@ -582,19 +685,28 @@ public class MeasurementDataProcessor {
   }
 
   /**
-   * Класс для UnitDto с фильтрованными параметрами
+   * Класс для UnitDto с фильтрованными параметрами и топологией
    */
   private static class FilteredUnitDto extends UnitDto {
     private final Map<String, Parameter> filteredParameters;
+    private final Map<String, Topology> filteredTopologies;
+    private final List<Topology> filteredTopologyList;
 
-    public FilteredUnitDto(UnitDto original, Map<String, Parameter> filteredParameters) {
+    public FilteredUnitDto(UnitDto original, Map<String, Parameter> filteredParameters, Map<String, Topology> filteredTopologies) {
       super(original.getUnit());
       this.filteredParameters = filteredParameters;
+      this.filteredTopologies = filteredTopologies;
+      this.filteredTopologyList = new ArrayList<>(filteredTopologies.values());
     }
 
     @Override
     public Map<String, Parameter> getParameters() {
       return filteredParameters;
+    }
+
+    @Override
+    public List<Topology> getTopologyList() {
+      return filteredTopologyList;
     }
   }
 
