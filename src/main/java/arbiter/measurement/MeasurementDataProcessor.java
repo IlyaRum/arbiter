@@ -28,8 +28,10 @@ public class MeasurementDataProcessor {
   private final Map<String, Map<String, Measurement>> unitDataBuffers = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Instant>> unitLastTimeStamps = new ConcurrentHashMap<>();
   private final Map<String, Boolean> unitInitialDataLoaded = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Double>> unitPreviousParameterValues = new ConcurrentHashMap<>();
   private final Map<String, Instant> unitCurrentTimestamps = new ConcurrentHashMap<>();
+
+  private final Map<String, Map<String, Double>> unitPreviousParameterValues = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Double>> unitPreviousTopologyValues = new ConcurrentHashMap<>();
 
   // Мапы для накопления изменений типов данных для каждого сечения
   private final Map<String, Map<String, Parameter>> unitAccumulatedChanges = new ConcurrentHashMap<>();
@@ -142,6 +144,7 @@ public class MeasurementDataProcessor {
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
       Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+      Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
 
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
       Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
@@ -177,7 +180,7 @@ public class MeasurementDataProcessor {
           if (measurement != null) {
             dataBuffer.put(receivedUid, measurement);
             lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-            logger.debug("Updated buffer for unit " + unitId + ", uid " + receivedUid);
+            logger.debug("Updated buffer for unit=" + unitId + ", uid=" + receivedUid + ", value=" + measurement.getValue());
           }
         }
 
@@ -277,6 +280,7 @@ public class MeasurementDataProcessor {
     unitLastTimeStamps.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitInitialDataLoaded.putIfAbsent(unitId, false);
     unitPreviousParameterValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitPreviousTopologyValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitCurrentTimestamps.putIfAbsent(unitId, Instant.MIN);
 
     unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
@@ -433,11 +437,10 @@ public class MeasurementDataProcessor {
    */
   private void saveCurrentTopologyValuesFromAccumulated(String unitId) {
     Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
-    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+    Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
 
     for (Topology topology : accumulatedTopologyChanges.values()) {
-      String key = "topology_" + topology.getId();
-      previousParameterValues.put(key, topology.getValue());
+      previousTopologyValues.put(topology.getId(), topology.getValue());
       logger.debug("Updated previous topology value for unit " + unitId +
         ": " + topology.getName() + " = " + topology.getValue());
     }
@@ -488,13 +491,12 @@ public class MeasurementDataProcessor {
    * Сохраняет текущие значения топологий для конкретного юнита
    */
   private void saveCurrentTopologyValues(String unitId, StoreData result) {
-    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
+    Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto != null) {
       for (Topology topology : unitDto.getTopologyList()) {
-        String key = "topology_" + topology.getId();
         double currentValue = topology.getValue();
-        previousParameterValues.put(key, currentValue);
+        previousTopologyValues.put(topology.getId(), currentValue);
         logger.debug("Saved initial topology value for unit " + unitId +
           ": " + topology.getName() + " = " + currentValue);
       }
@@ -513,6 +515,13 @@ public class MeasurementDataProcessor {
       return true;
     }
 
+    // Особый случай: если значение 99999 - всегда считаем изменением
+    //TODO[IER] На тестировании обнаружилось для 'МДП с ПА [СМЗУ]' и 'АДП [СМЗУ]' всегда равны 99999.0
+    // поставил условие, чтобы всегда попадало в PUT запрос
+    if (currentValue == 99999.0 || previousValue == 99999.0) {
+      return true;
+    }
+
     // Сравниваем с учетом точности double
     return Math.abs(currentValue - previousValue) > 1e-10;
   }
@@ -521,11 +530,8 @@ public class MeasurementDataProcessor {
    * Проверяет, изменилось ли значение топологии
    */
   private boolean hasTopologyValueChanged(String unitId, String topologyId, double currentValue) {
-    // Можно использовать ту же мапу previousParameterValues или создать отдельную
-    // Для простоты будем использовать ту же, но с префиксом
-    String key = "topology_" + topologyId;
-    Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
-    Double previousValue = previousParameterValues.get(key);
+    Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
+    Double previousValue = previousTopologyValues.get(topologyId);
 
     if (previousValue == null) {
       return true;
