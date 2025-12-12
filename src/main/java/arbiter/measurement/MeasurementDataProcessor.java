@@ -149,17 +149,15 @@ public class MeasurementDataProcessor {
       Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
-//      Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
-//      Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
 
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
       Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
       Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
+      Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
 
       // Собираем полученные измерения для этого юнита
       Set<String> receivedUids = new HashSet<>();
       Instant currentBatchTimestamp = null;
-//      boolean hasConsistentTimestamp = true;
 
       // Проверяем согласованность timestamp в текущей пачке
       for (String targetUid : targetUids) {
@@ -173,7 +171,6 @@ public class MeasurementDataProcessor {
           }
 
           else if (!currentBatchTimestamp.equals(measurementTimestamp)) {
-//            hasConsistentTimestamp = false;
             break; // Прерываем при первом несовпадении
           }
         }
@@ -236,6 +233,7 @@ public class MeasurementDataProcessor {
               saveCurrentParameterValues(unitId, result);
               saveCurrentTopologyValues(unitId, result);
               saveCurrentElementValues(unitId, result);
+              saveCurrentInfluencingFactorValues(unitId, result);
               logger.debug("Initial data loaded for unit " + unitId);
 
               // Для первого раза отправляем все данные
@@ -248,6 +246,7 @@ public class MeasurementDataProcessor {
               accumulateChanges(unitId, result);
               accumulateTopologyChanges(unitId, result);
               accumulateElementChanges(unitId, result);
+              accumulateInfluencingFactorChanges(unitId, result);
 
               // Если есть накопленные изменения - отправляем
               if (!accumulatedChanges.isEmpty()) {
@@ -264,11 +263,13 @@ public class MeasurementDataProcessor {
                   saveCurrentParameterValuesFromAccumulated(unitId);
                   saveCurrentTopologyValuesFromAccumulated(unitId);
                   saveCurrentElementValuesFromAccumulated(unitId);
+                  saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
 
                   // Очищаем накопленные изменения
                   accumulatedChanges.clear();
                   accumulatedTopologyChanges.clear();
                   accumulatedElementChanges.clear();
+                  accumulatedInfluencingFactorChanges.clear();
                 }
               }
             }
@@ -295,11 +296,13 @@ public class MeasurementDataProcessor {
     unitPreviousParameterValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousTopologyValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousElementValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitPreviousFactorValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
 
 
     unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitAccumulatedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitAccumulatedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitAccumulatedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
   }
 
   /**
@@ -364,6 +367,26 @@ public class MeasurementDataProcessor {
   }
 
   /**
+   * Накапливает изменения элементов для конкретного юнита
+   */
+  private void accumulateInfluencingFactorChanges(String unitId, StoreData result) {
+    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto == null) return;
+
+    for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
+      String influencingFactorId = influencingFactor.getId();
+      double currentValue = influencingFactor.getValue();
+
+      if (hasFactorValueChanged(unitId, influencingFactorId, currentValue)) {
+        accumulatedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
+        logger.debug("InfluencingFactor changed for unit " + unitId + ": " +
+          influencingFactor.getName() + " = " + currentValue);
+      }
+    }
+  }
+
+  /**
    * Находит UnitDto по идентификатору юнита
    */
   private UnitDto findUnitDtoById(StoreData result, String unitId) {
@@ -384,15 +407,18 @@ public class MeasurementDataProcessor {
     Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
     Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
     Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
+    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
 
     if (!accumulatedChanges.isEmpty() ||
       !accumulatedTopologyChanges.isEmpty() ||
-      !accumulatedElementChanges.isEmpty()) {
+      !accumulatedElementChanges.isEmpty() ||
+      !accumulatedInfluencingFactorChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
         Map<String, Parameter> changesForUnit = new HashMap<>();
         Map<String, Topology> topologyChangesForUnit = new HashMap<>();
         Map<String, Element> elementChangesForUnit = new HashMap<>();
+        Map<String, InfluencingFactor> influencingFactorChangesForUnit = new HashMap<>();
 
         for (Parameter param : accumulatedChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
@@ -412,15 +438,29 @@ public class MeasurementDataProcessor {
           }
         }
 
+        for (InfluencingFactor influencingFactor : accumulatedInfluencingFactorChanges.values()) {
+          if (isInfluencingFactorBelongsToUnit(unit, influencingFactor)) {
+            influencingFactorChangesForUnit.put(influencingFactor.getId(), influencingFactor);
+          }
+        }
+
         if (!changesForUnit.isEmpty() ||
           !topologyChangesForUnit.isEmpty() ||
-          !elementChangesForUnit.isEmpty()) {
-          FilteredUnitDto unitDto = new FilteredUnitDto(new UnitDto(unit), changesForUnit, topologyChangesForUnit, elementChangesForUnit);
+          !elementChangesForUnit.isEmpty() ||
+          !influencingFactorChangesForUnit.isEmpty()) {
+
+          FilteredUnitDto unitDto = new FilteredUnitDto(new UnitDto(unit),
+                  changesForUnit,
+                  topologyChangesForUnit,
+                  elementChangesForUnit,
+                  influencingFactorChangesForUnit);
           accumulatedResult.addUnitData(unitDto);
+
           logger.debug("Created StoreData with " + changesForUnit.size() +
             " changed parameters and " + elementChangesForUnit.size() +
             " changed elements and " + topologyChangesForUnit.size() +
-            " changed topologies for unit: " + unitId);
+            " changed topologies and " + influencingFactorChangesForUnit.size() +
+            " changed influencingFactor for unit: " + unitId);
         }
       }
     }
@@ -478,6 +518,18 @@ public class MeasurementDataProcessor {
   }
 
   /**
+   * Проверяет принадлежность InfluencingFactor юниту
+   */
+  private boolean isInfluencingFactorBelongsToUnit(Unit unit, InfluencingFactor influencingFactor) {
+    for (InfluencingFactor unitInfluencingFactor : unit.getInfluencingFactors()) {
+      if (unitInfluencingFactor.getId().equals(influencingFactor.getId())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * Сохраняем текущие значения как предыдущие для следующего сравнения для конкретного юнита
    */
   private void saveCurrentParameterValuesFromAccumulated(String unitId) {
@@ -515,6 +567,20 @@ public class MeasurementDataProcessor {
       previousElementValues.put(element.getId(), element.getValue());
       logger.debug("Updated previous element value for unit " + unitId +
         ": " + element.getName() + " = " + element.getValue());
+    }
+  }
+
+  /**
+   * Сохраняет текущие значения InfluencingFactor из накопленных изменений
+   */
+  private void saveCurrentInfluencingFactorValuesFromAccumulated(String unitId) {
+    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+    Map<String, Double> previousInfluencingFactorValues = unitPreviousFactorValues.get(unitId);
+
+    for (InfluencingFactor influencingFactor : accumulatedInfluencingFactorChanges.values()) {
+      previousInfluencingFactorValues.put(influencingFactor.getId(), influencingFactor.getValue());
+      logger.debug("Updated previous influencingFactor value for unit " + unitId +
+        ": " + influencingFactor.getName() + " = " + influencingFactor.getValue());
     }
   }
 
@@ -592,6 +658,22 @@ public class MeasurementDataProcessor {
   }
 
   /**
+   * Сохраняет текущие значения InfluencingFactor для конкретного юнита
+   */
+  private void saveCurrentInfluencingFactorValues(String unitId, StoreData result) {
+    Map<String, Double> previousInfluencingFactorValues = unitPreviousFactorValues.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto != null) {
+      for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
+        double currentValue = influencingFactor.getValue();
+        previousInfluencingFactorValues.put(influencingFactor.getId(), currentValue);
+        logger.debug("Saved initial influencingFactor value for unit " + unitId +
+          ": " + influencingFactor.getName() + " = " + currentValue);
+      }
+    }
+  }
+
+  /**
    * Проверяет, изменилось ли значение параметра.
    * Сравнивает текущее значение с предыдущим сохраненным значением
    */
@@ -634,6 +716,20 @@ public class MeasurementDataProcessor {
   private boolean hasElementValueChanged(String unitId, String elementId, double currentValue) {
     Map<String, Double> previousElementValues = unitPreviousElementValues.get(unitId);
     Double previousValue = previousElementValues.get(elementId);
+
+    if (previousValue == null) {
+      return true;
+    }
+
+    return Math.abs(currentValue - previousValue) > 1e-10;
+  }
+
+  /**
+   * Проверяет, изменилось ли значение InfluencingFactor
+   */
+  private boolean hasFactorValueChanged(String unitId, String elementId, double currentValue) {
+    Map<String, Double> previousFactorValues = unitPreviousFactorValues.get(unitId);
+    Double previousValue = previousFactorValues.get(elementId);
 
     if (previousValue == null) {
       return true;
@@ -801,17 +897,22 @@ public class MeasurementDataProcessor {
     private final List<Topology> filteredTopologyList;
     private final List<Element> filteredElementList;
     private final Map<String, Element> filteredElements;
+    private final List<InfluencingFactor> filteredInfuencingFactorList;
+    private final Map<String, InfluencingFactor> influencingFactories;
 
     public FilteredUnitDto(UnitDto original,
                            Map<String, Parameter> filteredParameters,
                            Map<String, Topology> filteredTopologies,
-                           Map<String, Element> filteredElements) {
+                           Map<String, Element> filteredElements,
+                           Map<String, InfluencingFactor> influencingFactories) {
       super(original.getUnit());
       this.filteredParameters = filteredParameters;
       this.filteredTopologies = filteredTopologies;
       this.filteredTopologyList = new ArrayList<>(filteredTopologies.values());
       this.filteredElements = filteredElements;
+      this.influencingFactories = influencingFactories;
       this.filteredElementList = new ArrayList<>(filteredElements.values());
+      this.filteredInfuencingFactorList = new ArrayList<>(influencingFactories.values());
     }
 
     @Override
@@ -826,6 +927,11 @@ public class MeasurementDataProcessor {
 
     @Override public List<Element> getElements() {
       return filteredElementList;
+    }
+
+    @Override
+    public List<InfluencingFactor> getInfluencingFactors() {
+      return filteredInfuencingFactorList;
     }
   }
 
