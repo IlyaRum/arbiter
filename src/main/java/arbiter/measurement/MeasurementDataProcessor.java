@@ -57,15 +57,7 @@ public class MeasurementDataProcessor {
       StoreData result = processMeasurementsToStoreData(list);
 
       if (result.size() > 0) {
-        //dataProcessor.accept(result);
         dataBatchAggregator(list.getMeasurements(), result);
-
-//        if (firstTime) {
-//          //logger.debug(String.format("### получено %d новых значений : %s", result.size(), result));
-//          String jsonData = convertStoreDataToJson(Collections.singletonList(result.getUnitDataList()));
-//          sendPostRequestAsync(jsonData);
-//          firstTime = false;
-//        }
       }
 
     } catch (Exception e) {
@@ -116,7 +108,7 @@ public class MeasurementDataProcessor {
    */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     // Группируем измерения по UID для быстрого доступа
-    logger.debug(String.format("dataBatchAggregator: result=%s", result));
+    //logger.debug(String.format("dataBatchAggregator: result=%s", result));
     Map<String, Measurement> measurementsByUid = new HashMap<>();
     for (Measurement measurement : measurements) {
       measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
@@ -135,7 +127,7 @@ public class MeasurementDataProcessor {
       // Получаем целевые UID из UnitCollection
       Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
 
-      logger.debug("targetUids=" + targetUids);
+      //logger.debug("targetUids=" + targetUids);
 
       if (targetUids.isEmpty()) {
         logger.debug("No target UIDs configured for unit: " + unitId);
@@ -163,15 +155,27 @@ public class MeasurementDataProcessor {
       for (String targetUid : targetUids) {
         Measurement measurement = measurementsByUid.get(targetUid);
         if (measurement != null) {
-          receivedUids.add(targetUid);
+          //receivedUids.add(targetUid);
           Instant measurementTimestamp = Instant.parse(measurement.getTimeStamp());
 
           if (currentBatchTimestamp == null) {
+            // Устанавливаем эталонный timestamp из первого измерения
             currentBatchTimestamp = measurementTimestamp;
+            receivedUids.add(targetUid);
+            logger.debug("Set reference timestamp for unit " + unitId +
+              ": " + currentBatchTimestamp + " from UID: " + targetUid);
           }
-
-          else if (!currentBatchTimestamp.equals(measurementTimestamp)) {
-            break; // Прерываем при первом несовпадении
+          else if (currentBatchTimestamp.equals(measurementTimestamp)) {
+            // Timestamp совпадает с эталонным - добавляем
+            receivedUids.add(targetUid);
+          }
+          else {
+            // Timestamp не совпадает - НЕ добавляем в receivedUids
+            logger.debug("Skipping UID " + targetUid + " for unit " + unitId +
+              ": timestamp mismatch. Expected: " + currentBatchTimestamp +
+              ", Got: " + measurementTimestamp);
+            // Не используем break - продолжаем проверять остальные UID
+            // Но этот UID не будет добавлен в receivedUids
           }
         }
       }
@@ -184,7 +188,7 @@ public class MeasurementDataProcessor {
           if (measurement != null) {
             dataBuffer.put(receivedUid, measurement);
             lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-            logger.debug("Updated buffer for unit=" + unitId + ", uid=" + receivedUid + ", value=" + measurement.getValue());
+            logger.debug("Updated buffer for unit=" + unitId + ", uid=" + receivedUid + ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
           }
         }
 
