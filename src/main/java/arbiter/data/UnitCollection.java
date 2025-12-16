@@ -347,7 +347,7 @@ public class UnitCollection {
     for (Unit unit : units) {
       Set<String> targetUids = extractTargetUidsFromUnit(unit);
       unitTargetUids.put(unit.getName(), targetUids);
-      logger.debug("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
+      logger.info("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
     }
   }
 
@@ -390,6 +390,21 @@ public class UnitCollection {
    */
   public Set<String> getTargetUidsForUnit(Unit unit) {
     return getTargetUidsForUnit(unit.getName());
+  }
+
+  /**
+   * Получает UID параметра "Номер цикла расчета СМЗУ" из юнита
+   */
+  public String getCycleNumberUidFromUnit(Unit unit) {
+    List<Parameter> parameters = unit.getParameters();
+
+    for (Parameter param : parameters) {
+      String paramName = param.getName();
+      if (paramName != null && paramName.equals("Номер цикла расчета СМЗУ")) {
+        return param.getId().toLowerCase();
+      }
+    }
+    return null;
   }
 
   /**

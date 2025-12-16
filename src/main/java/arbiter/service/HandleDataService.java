@@ -110,18 +110,18 @@ public class HandleDataService extends ABaseService{
     JsonObject data = new JsonObject(jsonStr);
     JsonArray dataArray = data.getJsonArray("data");
     MeasurementList measurementList = new MeasurementList();
-    StringBuilder result = new StringBuilder();
+//    StringBuilder result = new StringBuilder();
     for (int i = 0; i < dataArray.size(); i++) {
       JsonObject item = dataArray.getJsonObject(i);
       JsonNode jsonNode = item.mapTo(JsonNode.class);
       measurementList.add(jsonNode);
-      String uid = item.getString("uid");
-      double value = item.getDouble("value");
-
-      if (i > 0) {
-        result.append("; ");
-      }
-      result.append(String.format("%s = %f", uid, value));
+//      String uid = item.getString("uid");
+//      double value = item.getDouble("value");
+//
+//      if (i > 0) {
+//        result.append("; ");
+//      }
+//      result.append(String.format("%s = %f", uid, value));
     }
 
     dataProcessor.onDataReceived(measurementList);
@@ -188,7 +188,7 @@ public class HandleDataService extends ABaseService{
   private void sendPutRequest(String jsonData, String unitId) {
     WebClient client = WebClient.create(vertx);
 
-    logger.debug(String.format("Отправляем PUT запрос для сечения %s: %s", unitId, jsonData));
+    logger.debug(String.format("Отправляем PUT запрос для сечения %s", unitId));
 
     client.putAbs("https://your-api-endpoint.com/data")
       .putHeader("Content-Type", "application/json")
@@ -208,7 +208,7 @@ public class HandleDataService extends ABaseService{
   private void sendPostRequest(String jsonData) {
     WebClient client = WebClient.create(vertx);
 
-    logger.debug("Отправляем POST запрос в арбитр расчетов: " + jsonData);
+    logger.debug("Отправляем POST запрос в арбитр расчетов... ");
 
     client.postAbs("https://your-api-endpoint.com/data")
       .putHeader("Content-Type", "application/json")

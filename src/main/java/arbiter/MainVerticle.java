@@ -146,7 +146,7 @@ public class MainVerticle extends AbstractVerticle {
     System.out.println("Metrics available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.METRICS);
     System.out.println("Info available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.INFO);
     System.out.println("Close websocket connect available at: http://localhost:" + AppConfig.HTTP_PORT + AppConfig.CORE_PREFIX + AppConfig.CLOSE_WEBSOCKET_CONNECT);
-    logger.info("Из " + AppConfig.getArbiterConfigJsonFile() + " получен cрез из " + data.getUIDs().size() + " UID's " + data.getUIDs());
+    logger.info("Из " + AppConfig.getArbiterConfigJsonFile() + " получен cрез из " + data.getUIDs().size());
   }
 
   private void handleStartupError(Promise<Void> startPromise, Throwable throwable) {
