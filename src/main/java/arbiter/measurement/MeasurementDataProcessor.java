@@ -109,11 +109,15 @@ public class MeasurementDataProcessor {
   /**
    * Агрегатор данных для каждого юнита отдельно
    */
+  /**
+   * Агрегатор данных для каждого юнита отдельно
+   */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     // Начало обработки батча
     logger.debug("=== Начало обработки batch данных ===");
     logger.debug("Получено measurements: " + measurements.size());
     logger.debug("Количество сечений в result: " + result.getUnitDataList().size());
+
     // Группируем измерения по UID для быстрого доступа
     logger.debug(String.format("dataBatchAggregator: result=%s", result));
     Map<String, Measurement> measurementsByUid = new HashMap<>();
@@ -140,12 +144,16 @@ public class MeasurementDataProcessor {
       // Получаем целевые UID из UnitCollection
       Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
       logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
-      logger.debug("Unit="+ unitId + " targetUids=" + targetUids);
+      logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
 
       if (targetUids.isEmpty()) {
         logger.warn("Нет target UID для юнита: " + unitId);
         continue;
       }
+
+      // Получаем UID "Номер цикла расчета СМЗУ" для этого юнита
+      String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
+      logger.debug("UID 'Номер цикла расчета СМЗУ' для юнита " + unitId + ": " + cycleNumberUid);
 
       // Ленивая инициализация структур состояния для этого юнита
       initializeUnitStateStructures(unitId);
@@ -166,169 +174,191 @@ public class MeasurementDataProcessor {
 
       // Собираем полученные измерения для этого юнита
       Set<String> receivedUids = new HashSet<>();
-      Instant currentBatchTimestamp = null;
+      boolean hasCycleNumberInCurrentBatch = false;
+      Instant cycleTimestamp = null;
       int measurementsFound = 0;
 
-      logger.debug("Проверка согласованности timestamp в текущей пачке...");
-      // Проверяем согласованность timestamp в текущей пачке
+      logger.debug("Проверка полученных измерений в текущей пачке...");
+
+      // Проверяем, есть ли в текущей пачке UID цикла
+      if (cycleNumberUid != null && measurementsByUid.containsKey(cycleNumberUid)) {
+        hasCycleNumberInCurrentBatch = true;
+        Measurement cycleMeasurement = measurementsByUid.get(cycleNumberUid);
+        cycleTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
+        logger.debug(String.format("В текущей пачке получен UID цикла: %s с timestamp: %s",
+          cycleNumberUid, cycleTimestamp));
+      }
+
+      // Собираем все полученные UID из текущей пачки
       for (String targetUid : targetUids) {
         Measurement measurement = measurementsByUid.get(targetUid);
         if (measurement != null) {
           measurementsFound++;
           receivedUids.add(targetUid);
-          Instant measurementTimestamp = Instant.parse(measurement.getTimeStamp());
 
-          if (currentBatchTimestamp == null) {
-            currentBatchTimestamp = measurementTimestamp;
-            logger.debug(String.format("Установлен currentBatchTimestamp: %s для UID: %s",
-              currentBatchTimestamp, targetUid));
-          }
-
-          else if (!currentBatchTimestamp.equals(measurementTimestamp)) {
-            logger.warn(String.format("Обнаружено несоответствие timestamp! Ожидалось: %s, получено: %s для UID: %s",
-              currentBatchTimestamp, measurementTimestamp, targetUid));
-            break; // Прерываем при первом несовпадении
+          // Если это UID цикла, логируем отдельно
+          if (cycleNumberUid != null && targetUid.equals(cycleNumberUid)) {
+            logger.debug(String.format("Получен UID цикла: %s, value=%s, timestamp=%s",
+              targetUid, measurement.getValue(), measurement.getTimeStamp()));
           }
         }
       }
 
-      logger.debug(String.format("Для юнита %s найдено measurements: %d из %d targetUids",
-        unitId, measurementsFound, targetUids.size()));
+      logger.debug(String.format("Для юнита %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
+        unitId, measurementsFound, targetUids.size(), hasCycleNumberInCurrentBatch));
 
-      // Если не все измерения получены или timestamp не согласованы - пропускаем
+      // Обновляем dataBuffer для полученных UID
       if (!receivedUids.isEmpty()) {
         logger.debug("Обновление dataBuffer для полученных UID...");
-        // Обновляем dataBuffer для полученных UID
         for (String receivedUid : receivedUids) {
           Measurement measurement = measurementsByUid.get(receivedUid);
           if (measurement != null) {
             dataBuffer.put(receivedUid, measurement);
             lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-            logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid + ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
+            logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid +
+              ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
           }
         }
         logger.debug(String.format("Buffer обновлен. Текущий размер buffer для юнита %s: %d",
           unitId, dataBuffer.size()));
-        // Проверяем, есть ли у нас полный набор данных с одинаковым timestamp
-        boolean allTargetsHaveData = true;
-        Instant commonTimestamp = null;
-        boolean allTimestampsMatch = true;
-        int missingDataCount = 0;
+      }
 
-        logger.debug("Проверка наличия полного набора данных...");
-        for (String targetUid : targetUids) {
-          Measurement bufferedMeasurement = dataBuffer.get(targetUid);
-          if (bufferedMeasurement == null) {
-            allTargetsHaveData = false;
-            logger.debug("Missing data for unit " + unitId + ", uid " + targetUid);
-            break;
-          }
+      // Проверяем, можем ли мы выполнить проверку согласованности
+      // Мы можем это сделать, если:
+      // 1. У нас есть UID цикла в буфере (получен сейчас или ранее)
+      // 2. У нас есть все целевые UID в буфере
+      // 3. Все timestamp совпадают
 
-          Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
-          if (commonTimestamp == null) {
-            commonTimestamp = bufferedTimestamp;
-          } else if (!commonTimestamp.equals(bufferedTimestamp)) {
-            allTimestampsMatch = false;
-            logger.debug("Buffer timestamp mismatch for unit " + unitId +
-              ": " + commonTimestamp + " vs " + bufferedTimestamp);
-            break;
-          }
-        }
+      boolean canCheckConsistency = false;
+      Instant referenceTimestamp = null;
 
-        logger.debug(String.format("Проверка завершена для юнита %s: allTargetsHaveData=%s, allTimestampsMatch=%s, missingDataCount=%d",
-          unitId, allTargetsHaveData, allTimestampsMatch, missingDataCount));
-        // Если у нас есть полный набор данных с одинаковым timestamp
-        if (allTargetsHaveData && allTimestampsMatch && commonTimestamp != null) {
-          logger.info(String.format("ЮНИТ %s - ПОЛНЫЙ НАБОР ДАННЫХ ДОСТУПЕН с timestamp %s",
-            unitId, commonTimestamp));
+      if (cycleNumberUid != null) {
+        Measurement cycleMeasurement = dataBuffer.get(cycleNumberUid);
+        if (cycleMeasurement != null) {
+          referenceTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
+          logger.debug(String.format("Используем timestamp из буфера для UID цикла %s: %s",
+            cycleNumberUid, referenceTimestamp));
 
-          // Проверяем, изменился ли timestamp с последнего раза
-          Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
-          boolean timeStampChanged = previousTimestamp == null ||
-            !previousTimestamp.equals(commonTimestamp);
+          // Проверяем, есть ли полный набор данных
+          boolean allTargetsHaveData = true;
+          boolean allTimestampsMatch = true;
 
-          logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
-            previousTimestamp, commonTimestamp, timeStampChanged));
-
-          if (timeStampChanged) {
-            logger.debug("Timestamp ИЗМЕНИЛСЯ для юнита " + unitId +
-              ": " + previousTimestamp + " -> " + commonTimestamp);
-            unitCurrentTimestamps.put(unitId, commonTimestamp);
-
-            // Если это первая загрузка
-            if (!initialDataLoaded) {
-              logger.debug("ПЕРВИЧНАЯ ЗАГРУЗКА данных для юнита " + unitId);
-              unitInitialDataLoaded.put(unitId, true);
-              saveCurrentParameterValues(unitId, result);
-              saveCurrentTopologyValues(unitId, result);
-              saveCurrentElementValues(unitId, result);
-              saveCurrentInfluencingFactorValues(unitId, result);
-              logger.debug("Начальные данные загружены для юнита " + unitId);
-
-              // Для первого раза отправляем все данные
-//              if (firstTime && dataReadyCallback != null) {
-//                logger.info("ВЫЗОВ КОЛБЭКА: Первоначальные данные готовы для юнита " + unitId);
-//                dataReadyCallback.onDataReady(result, unitId);
-//                firstTime = false;
-//              }
-            } else {
-              // Накапливаем изменения
-              logger.debug("НАКОПЛЕНИЕ ИЗМЕНЕНИЙ для юнита " + unitId);
-              accumulateChanges(unitId, result);
-              accumulateTopologyChanges(unitId, result);
-              accumulateElementChanges(unitId, result);
-              accumulateInfluencingFactorChanges(unitId, result);
-
-              int paramChanges = accumulatedChanges.size();
-              int topologyChanges = accumulatedTopologyChanges.size();
-              int elementChanges = accumulatedElementChanges.size();
-              int factorChanges = accumulatedInfluencingFactorChanges.size();
-
-              logger.debug(String.format("Накопленные изменения для юнита %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
-                unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
-
-              // Если есть накопленные изменения - отправляем
-              if (!accumulatedChanges.isEmpty()) {
-                logger.debug("Создание StoreData из накопленных изменений...");
-                StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
-
-                if (accumulatedResult != null && accumulatedResult.size() > 0) {
-                  logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
-                  // Уведомляем слушателей о готовых данных
-                  if (dataReadyCallback != null) {
-                    logger.debug("ВЫЗОВ КОЛБЭКА: Накопленные изменения готовы для юнита " + unitId);
-                    dataReadyCallback.onDataReady(accumulatedResult, unitId);
-                  }
-
-                  // Сохраняем текущие значения как предыдущие
-                  saveCurrentParameterValuesFromAccumulated(unitId);
-                  saveCurrentTopologyValuesFromAccumulated(unitId);
-                  saveCurrentElementValuesFromAccumulated(unitId);
-                  saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
-                  logger.debug("Текущие значения сохранены как предыдущие");
-
-                  // Очищаем накопленные изменения
-                  accumulatedChanges.clear();
-                  accumulatedTopologyChanges.clear();
-                  accumulatedElementChanges.clear();
-                  accumulatedInfluencingFactorChanges.clear();
-                  logger.info("Накопленные изменения очищены");
-                }
-              }
-              else {
-                logger.debug("Нет накопленных изменений для отправки");
-              }
+          logger.debug("Проверка наличия полного набора данных...");
+          for (String targetUid : targetUids) {
+            Measurement bufferedMeasurement = dataBuffer.get(targetUid);
+            if (bufferedMeasurement == null) {
+              allTargetsHaveData = false;
+              logger.debug("Missing data in buffer for unit " + unitId + ", uid " + targetUid);
+              break;
             }
-          } else {
-            logger.debug("Timestamp not changed for unit " + unitId + ": " + commonTimestamp);
+
+            Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
+            if (!referenceTimestamp.equals(bufferedTimestamp)) {
+              allTimestampsMatch = false;
+              logger.debug("Buffer timestamp mismatch for unit " + unitId +
+                ": reference=" + referenceTimestamp + ", actual=" + bufferedTimestamp +
+                " для UID: " + targetUid);
+              break;
+            }
           }
+
+          canCheckConsistency = allTargetsHaveData && allTimestampsMatch;
+          logger.debug(String.format("Проверка согласованности для юнита %s: canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
+            unitId, canCheckConsistency, allTargetsHaveData, allTimestampsMatch));
         } else {
-          logger.debug(String.format("Unit %s - Not ready: allTargetsHaveData=%s, allTimestampsMatch=%s",
-            unitId, allTargetsHaveData, allTimestampsMatch));
+          logger.debug("UID цикла еще не получен, откладываем проверку согласованности");
         }
       }
-      else {
-        logger.debug("Нет полученных UID для юнита " + unitId);
+
+      // Если у нас есть полный набор данных с одинаковым timestamp
+      if (canCheckConsistency && referenceTimestamp != null) {
+        logger.info(String.format("ЮНИТ %s - ПОЛНЫЙ НАБОР ДАННЫХ ДОСТУПЕН с timestamp %s (определено по UID цикла)",
+          unitId, referenceTimestamp));
+
+        // Проверяем, изменился ли timestamp с последнего раза
+        Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
+        boolean timeStampChanged = previousTimestamp == null ||
+          !previousTimestamp.equals(referenceTimestamp);
+
+        logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
+          previousTimestamp, referenceTimestamp, timeStampChanged));
+
+        if (timeStampChanged) {
+          logger.debug("Timestamp ИЗМЕНИЛСЯ для юнита " + unitId +
+            ": " + previousTimestamp + " -> " + referenceTimestamp);
+          unitCurrentTimestamps.put(unitId, referenceTimestamp);
+
+          // Если это первая загрузка
+          if (!initialDataLoaded) {
+            logger.debug("ПЕРВИЧНАЯ ЗАГРУЗКА данных для юнита " + unitId);
+            unitInitialDataLoaded.put(unitId, true);
+            saveCurrentParameterValues(unitId, result);
+            saveCurrentTopologyValues(unitId, result);
+            saveCurrentElementValues(unitId, result);
+            saveCurrentInfluencingFactorValues(unitId, result);
+            logger.debug("Начальные данные загружены для юнита " + unitId);
+          } else {
+            // Накапливаем изменения
+            logger.debug("НАКОПЛЕНИЕ ИЗМЕНЕНИЙ для юнита " + unitId);
+            accumulateChanges(unitId, result);
+            accumulateTopologyChanges(unitId, result);
+            accumulateElementChanges(unitId, result);
+            accumulateInfluencingFactorChanges(unitId, result);
+
+            int paramChanges = accumulatedChanges.size();
+            int topologyChanges = accumulatedTopologyChanges.size();
+            int elementChanges = accumulatedElementChanges.size();
+            int factorChanges = accumulatedInfluencingFactorChanges.size();
+
+            logger.debug(String.format("Накопленные изменения для юнита %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+              unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
+
+            // Если есть накопленные изменения - отправляем
+            if (!accumulatedChanges.isEmpty() ||
+              !accumulatedTopologyChanges.isEmpty() ||
+              !accumulatedElementChanges.isEmpty() ||
+              !accumulatedInfluencingFactorChanges.isEmpty()) {
+
+              logger.debug("Создание StoreData из накопленных изменений...");
+              StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
+
+              if (accumulatedResult != null && accumulatedResult.size() > 0) {
+                logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
+                // Уведомляем слушателей о готовых данных
+                if (dataReadyCallback != null) {
+                  logger.debug("ВЫЗОВ КОЛБЭКА: Накопленные изменения готовы для юнита " + unitId);
+                  dataReadyCallback.onDataReady(accumulatedResult, unitId);
+                }
+
+                // Сохраняем текущие значения как предыдущие
+                saveCurrentParameterValuesFromAccumulated(unitId);
+                saveCurrentTopologyValuesFromAccumulated(unitId);
+                saveCurrentElementValuesFromAccumulated(unitId);
+                saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+                logger.debug("Текущие значения сохранены как предыдущие");
+
+                // Очищаем накопленные изменения
+                accumulatedChanges.clear();
+                accumulatedTopologyChanges.clear();
+                accumulatedElementChanges.clear();
+                accumulatedInfluencingFactorChanges.clear();
+                logger.info("Накопленные изменения очищены");
+              }
+            } else {
+              logger.debug("Нет накопленных изменений для отправки");
+            }
+          }
+        } else {
+          logger.debug("Timestamp не изменился для юнита " + unitId + ": " + referenceTimestamp);
+        }
+      } else {
+        if (cycleNumberUid == null) {
+          logger.debug("UID цикла не определен для юнита " + unitId);
+        } else if (dataBuffer.get(cycleNumberUid) == null) {
+          logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
+        } else {
+          logger.debug("Неполный набор данных или несовпадение timestamp для юнита " + unitId);
+        }
       }
     }
     logger.debug("=== Завершение обработки batch данных ===");
