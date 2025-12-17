@@ -56,7 +56,13 @@ public class MeasurementDataProcessor {
     try {
       StoreData result = processMeasurementsToStoreData(list);
 
-      if (result.size() > 0) {
+      // Для первого раза отправляем все данные в POST запрос
+      if (firstTime && dataReadyCallback != null) {
+        dataReadyCallback.onDataReady(result, null);
+        firstTime = false;
+      }
+
+      if (!firstTime && result.size() > 0) {
         dataBatchAggregator(list.getMeasurements(), result);
       }
 
@@ -71,10 +77,7 @@ public class MeasurementDataProcessor {
   private StoreData processMeasurementsToStoreData(MeasurementList list) {
     StoreData result = new StoreData();
 
-    //TODO[IER]Для разработки. Удалить.
-    if (firstTime) {
-      logger.debug("measurementList = " + list);
-    }
+    logger.debug("measurementList = " + list);
 
     for (int i = 0; i < list.size(); i++) {
       Measurement measurement = list.get(i);
@@ -107,40 +110,54 @@ public class MeasurementDataProcessor {
    * Агрегатор данных для каждого юнита отдельно
    */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
+    // Начало обработки батча
+    logger.debug("=== Начало обработки batch данных ===");
+    logger.debug("Получено measurements: " + measurements.size());
+    logger.debug("Количество сечений в result: " + result.getUnitDataList().size());
     // Группируем измерения по UID для быстрого доступа
-    //logger.debug(String.format("dataBatchAggregator: result=%s", result));
+    logger.debug(String.format("dataBatchAggregator: result=%s", result));
     Map<String, Measurement> measurementsByUid = new HashMap<>();
     for (Measurement measurement : measurements) {
       measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
     }
 
+    logger.debug("Измерения сгруппированы по UID. Уникальных UID: " + measurementsByUid.size());
+
     // Обрабатываем каждый юнит отдельно
+    int unitProcessedCount = 0;
     for (UnitDto unitDto : result.getUnitDataList()) {
       String unitId = getUnitIdentifier(unitDto);
+      unitProcessedCount++;
+      logger.debug(String.format("[%d/%d] Обработка юнита: %s",
+        unitProcessedCount, result.getUnitDataList().size(), unitId));
       Unit unit = findUnitByName(unitId);
 
       if (unit == null) {
-        logger.debug("Unit not found: " + unitId);
+        logger.warn("Юнит не найден: " + unitId);
         continue;
       }
 
       // Получаем целевые UID из UnitCollection
       Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
-
-      //logger.debug("targetUids=" + targetUids);
+      logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
+      logger.debug("Unit="+ unitId + " targetUids=" + targetUids);
 
       if (targetUids.isEmpty()) {
-        logger.debug("No target UIDs configured for unit: " + unitId);
+        logger.warn("Нет target UID для юнита: " + unitId);
         continue;
       }
 
       // Ленивая инициализация структур состояния для этого юнита
       initializeUnitStateStructures(unitId);
+      logger.debug("Структуры состояния инициализированы для юнита: " + unitId);
 
       // Получаем структуры состояния для этого юнита
       Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+
+      logger.debug(String.format("Состояние юнита %s: bufferSize=%d, initialDataLoaded=%s",
+        unitId, dataBuffer.size(), initialDataLoaded));
 
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
       Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
@@ -150,53 +167,55 @@ public class MeasurementDataProcessor {
       // Собираем полученные измерения для этого юнита
       Set<String> receivedUids = new HashSet<>();
       Instant currentBatchTimestamp = null;
+      int measurementsFound = 0;
 
+      logger.debug("Проверка согласованности timestamp в текущей пачке...");
       // Проверяем согласованность timestamp в текущей пачке
       for (String targetUid : targetUids) {
         Measurement measurement = measurementsByUid.get(targetUid);
         if (measurement != null) {
-          //receivedUids.add(targetUid);
+          measurementsFound++;
+          receivedUids.add(targetUid);
           Instant measurementTimestamp = Instant.parse(measurement.getTimeStamp());
 
           if (currentBatchTimestamp == null) {
-            // Устанавливаем эталонный timestamp из первого измерения
             currentBatchTimestamp = measurementTimestamp;
-            receivedUids.add(targetUid);
-            logger.debug("Set reference timestamp for unit " + unitId +
-              ": " + currentBatchTimestamp + " from UID: " + targetUid);
+            logger.debug(String.format("Установлен currentBatchTimestamp: %s для UID: %s",
+              currentBatchTimestamp, targetUid));
           }
-          else if (currentBatchTimestamp.equals(measurementTimestamp)) {
-            // Timestamp совпадает с эталонным - добавляем
-            receivedUids.add(targetUid);
-          }
-          else {
-            // Timestamp не совпадает - НЕ добавляем в receivedUids
-            logger.debug("Skipping UID " + targetUid + " for unit " + unitId +
-              ": timestamp mismatch. Expected: " + currentBatchTimestamp +
-              ", Got: " + measurementTimestamp);
-            // Не используем break - продолжаем проверять остальные UID
-            // Но этот UID не будет добавлен в receivedUids
+
+          else if (!currentBatchTimestamp.equals(measurementTimestamp)) {
+            logger.warn(String.format("Обнаружено несоответствие timestamp! Ожидалось: %s, получено: %s для UID: %s",
+              currentBatchTimestamp, measurementTimestamp, targetUid));
+            break; // Прерываем при первом несовпадении
           }
         }
       }
 
+      logger.debug(String.format("Для юнита %s найдено measurements: %d из %d targetUids",
+        unitId, measurementsFound, targetUids.size()));
+
       // Если не все измерения получены или timestamp не согласованы - пропускаем
       if (!receivedUids.isEmpty()) {
+        logger.debug("Обновление dataBuffer для полученных UID...");
         // Обновляем dataBuffer для полученных UID
         for (String receivedUid : receivedUids) {
           Measurement measurement = measurementsByUid.get(receivedUid);
           if (measurement != null) {
             dataBuffer.put(receivedUid, measurement);
             lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-            logger.debug("Updated buffer for unit=" + unitId + ", uid=" + receivedUid + ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
+            logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid + ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
           }
         }
-
+        logger.debug(String.format("Buffer обновлен. Текущий размер buffer для юнита %s: %d",
+          unitId, dataBuffer.size()));
         // Проверяем, есть ли у нас полный набор данных с одинаковым timestamp
         boolean allTargetsHaveData = true;
         Instant commonTimestamp = null;
         boolean allTimestampsMatch = true;
+        int missingDataCount = 0;
 
+        logger.debug("Проверка наличия полного набора данных...");
         for (String targetUid : targetUids) {
           Measurement bufferedMeasurement = dataBuffer.get(targetUid);
           if (bufferedMeasurement == null) {
@@ -216,9 +235,11 @@ public class MeasurementDataProcessor {
           }
         }
 
+        logger.debug(String.format("Проверка завершена для юнита %s: allTargetsHaveData=%s, allTimestampsMatch=%s, missingDataCount=%d",
+          unitId, allTargetsHaveData, allTimestampsMatch, missingDataCount));
         // Если у нас есть полный набор данных с одинаковым timestamp
         if (allTargetsHaveData && allTimestampsMatch && commonTimestamp != null) {
-          logger.debug(String.format("Unit %s - Full set available with timestamp %s",
+          logger.info(String.format("ЮНИТ %s - ПОЛНЫЙ НАБОР ДАННЫХ ДОСТУПЕН с timestamp %s",
             unitId, commonTimestamp));
 
           // Проверяем, изменился ли timestamp с последнего раза
@@ -226,40 +247,56 @@ public class MeasurementDataProcessor {
           boolean timeStampChanged = previousTimestamp == null ||
             !previousTimestamp.equals(commonTimestamp);
 
+          logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
+            previousTimestamp, commonTimestamp, timeStampChanged));
+
           if (timeStampChanged) {
-            logger.debug("Timestamp changed for unit " + unitId +
+            logger.debug("Timestamp ИЗМЕНИЛСЯ для юнита " + unitId +
               ": " + previousTimestamp + " -> " + commonTimestamp);
             unitCurrentTimestamps.put(unitId, commonTimestamp);
 
             // Если это первая загрузка
             if (!initialDataLoaded) {
+              logger.debug("ПЕРВИЧНАЯ ЗАГРУЗКА данных для юнита " + unitId);
               unitInitialDataLoaded.put(unitId, true);
               saveCurrentParameterValues(unitId, result);
               saveCurrentTopologyValues(unitId, result);
               saveCurrentElementValues(unitId, result);
               saveCurrentInfluencingFactorValues(unitId, result);
-              logger.debug("Initial data loaded for unit " + unitId);
+              logger.debug("Начальные данные загружены для юнита " + unitId);
 
               // Для первого раза отправляем все данные
-              if (firstTime && dataReadyCallback != null) {
-                dataReadyCallback.onDataReady(result, unitId);
-                firstTime = false;
-              }
+//              if (firstTime && dataReadyCallback != null) {
+//                logger.info("ВЫЗОВ КОЛБЭКА: Первоначальные данные готовы для юнита " + unitId);
+//                dataReadyCallback.onDataReady(result, unitId);
+//                firstTime = false;
+//              }
             } else {
               // Накапливаем изменения
+              logger.debug("НАКОПЛЕНИЕ ИЗМЕНЕНИЙ для юнита " + unitId);
               accumulateChanges(unitId, result);
               accumulateTopologyChanges(unitId, result);
               accumulateElementChanges(unitId, result);
               accumulateInfluencingFactorChanges(unitId, result);
 
+              int paramChanges = accumulatedChanges.size();
+              int topologyChanges = accumulatedTopologyChanges.size();
+              int elementChanges = accumulatedElementChanges.size();
+              int factorChanges = accumulatedInfluencingFactorChanges.size();
+
+              logger.debug(String.format("Накопленные изменения для юнита %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+                unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
+
               // Если есть накопленные изменения - отправляем
               if (!accumulatedChanges.isEmpty()) {
+                logger.debug("Создание StoreData из накопленных изменений...");
                 StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
 
                 if (accumulatedResult != null && accumulatedResult.size() > 0) {
-
+                  logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
                   // Уведомляем слушателей о готовых данных
                   if (dataReadyCallback != null) {
+                    logger.debug("ВЫЗОВ КОЛБЭКА: Накопленные изменения готовы для юнита " + unitId);
                     dataReadyCallback.onDataReady(accumulatedResult, unitId);
                   }
 
@@ -268,13 +305,18 @@ public class MeasurementDataProcessor {
                   saveCurrentTopologyValuesFromAccumulated(unitId);
                   saveCurrentElementValuesFromAccumulated(unitId);
                   saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+                  logger.debug("Текущие значения сохранены как предыдущие");
 
                   // Очищаем накопленные изменения
                   accumulatedChanges.clear();
                   accumulatedTopologyChanges.clear();
                   accumulatedElementChanges.clear();
                   accumulatedInfluencingFactorChanges.clear();
+                  logger.info("Накопленные изменения очищены");
                 }
+              }
+              else {
+                logger.debug("Нет накопленных изменений для отправки");
               }
             }
           } else {
@@ -285,7 +327,11 @@ public class MeasurementDataProcessor {
             unitId, allTargetsHaveData, allTimestampsMatch));
         }
       }
+      else {
+        logger.debug("Нет полученных UID для юнита " + unitId);
+      }
     }
+    logger.debug("=== Завершение обработки batch данных ===");
   }
 
   /**
