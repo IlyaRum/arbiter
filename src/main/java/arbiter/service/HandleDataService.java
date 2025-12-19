@@ -132,7 +132,7 @@ public class HandleDataService extends ABaseService{
   private void handleRTEvents(CloudEvent event) {
     logger.debug("[rt-events]event: " + event);
     CloudEventData cloudEventData = event.getData();
-    logAsync("[rt-events]CloudEventData: " + cloudEventData);
+    //logAsync("[rt-events]CloudEventData: " + cloudEventData);
   }
 
   private void handleChannelOpened(CloudEvent event) {

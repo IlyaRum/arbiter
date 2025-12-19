@@ -85,12 +85,12 @@ public class Measurement {
     return new StringJoiner(", ", Measurement.class.getSimpleName() + "[", "]")
       .add("uid='" + uid + "'")
       .add("timeStamp='" + timeStamp + "'")
-      .add("timeStamp2='" + timeStamp2 + "'")
-      .add("qCode=" + qCode)
-      .add("type=" + type)
-      .add("strValue='" + strValue + "'")
+      //.add("timeStamp2='" + timeStamp2 + "'")
+      //.add("qCode=" + qCode)
+      //.add("type=" + type)
+      //.add("strValue='" + strValue + "'")
       .add("value=" + value)
-      .add("changed=" + changed)
+      //.add("changed=" + changed)
       .toString();
   }
 }

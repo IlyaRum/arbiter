@@ -56,13 +56,13 @@ public class MeasurementDataProcessor {
     try {
       StoreData result = processMeasurementsToStoreData(list);
 
-      // Для первого раза отправляем все данные в POST запрос
       if (firstTime && dataReadyCallback != null) {
+        logger.info("Отправка всех накопленных изменений в расчетный сервис. Размер: " + result.size());
         dataReadyCallback.onDataReady(result, null);
         firstTime = false;
       }
 
-      if (!firstTime && result.size() > 0) {
+      if (result.size() > 0) {
         dataBatchAggregator(list.getMeasurements(), result);
       }
 
@@ -114,7 +114,6 @@ public class MeasurementDataProcessor {
    */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     // Начало обработки батча
-    logger.debug("=== Начало обработки batch данных ===");
     logger.debug("Получено measurements: " + measurements.size());
     logger.debug("Количество сечений в result: " + result.getUnitDataList().size());
 
@@ -132,12 +131,12 @@ public class MeasurementDataProcessor {
     for (UnitDto unitDto : result.getUnitDataList()) {
       String unitId = getUnitIdentifier(unitDto);
       unitProcessedCount++;
-      logger.debug(String.format("[%d/%d] Обработка юнита: %s",
+      logger.debug(String.format("[%d/%d] Обработка сечения: %s",
         unitProcessedCount, result.getUnitDataList().size(), unitId));
       Unit unit = findUnitByName(unitId);
 
       if (unit == null) {
-        logger.warn("Юнит не найден: " + unitId);
+        logger.warn("Сечение " + unitId + " не найдено!");
         continue;
       }
 
@@ -147,24 +146,24 @@ public class MeasurementDataProcessor {
       logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
 
       if (targetUids.isEmpty()) {
-        logger.warn("Нет target UID для юнита: " + unitId);
+        logger.warn("Нет target UID для сечения: " + unitId);
         continue;
       }
 
       // Получаем UID "Номер цикла расчета СМЗУ" для этого юнита
       String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
-      logger.debug("UID 'Номер цикла расчета СМЗУ' для юнита " + unitId + ": " + cycleNumberUid);
+      logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения " + unitId + ": " + cycleNumberUid);
 
       // Ленивая инициализация структур состояния для этого юнита
       initializeUnitStateStructures(unitId);
-      logger.debug("Структуры состояния инициализированы для юнита: " + unitId);
+      logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
 
       // Получаем структуры состояния для этого юнита
       Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
       Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
       boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
 
-      logger.debug(String.format("Состояние юнита %s: bufferSize=%d, initialDataLoaded=%s",
+      logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
         unitId, dataBuffer.size(), initialDataLoaded));
 
       Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
@@ -204,7 +203,7 @@ public class MeasurementDataProcessor {
         }
       }
 
-      logger.debug(String.format("Для юнита %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
+      logger.debug(String.format("Для сечения %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
         unitId, measurementsFound, targetUids.size(), hasCycleNumberInCurrentBatch));
 
       // Обновляем dataBuffer для полученных UID
@@ -219,7 +218,7 @@ public class MeasurementDataProcessor {
               ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
           }
         }
-        logger.debug(String.format("Buffer обновлен. Текущий размер buffer для юнита %s: %d",
+        logger.debug(String.format("Buffer обновлен. Текущий размер buffer для сечения %s: %d",
           unitId, dataBuffer.size()));
       }
 
@@ -263,7 +262,7 @@ public class MeasurementDataProcessor {
           }
 
           canCheckConsistency = allTargetsHaveData && allTimestampsMatch;
-          logger.debug(String.format("Проверка согласованности для юнита %s: canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
+          logger.debug(String.format("Проверка согласованности для сечения %s: canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
             unitId, canCheckConsistency, allTargetsHaveData, allTimestampsMatch));
         } else {
           logger.debug("UID цикла еще не получен, откладываем проверку согласованности");
@@ -272,9 +271,6 @@ public class MeasurementDataProcessor {
 
       // Если у нас есть полный набор данных с одинаковым timestamp
       if (canCheckConsistency && referenceTimestamp != null) {
-        logger.info(String.format("ЮНИТ %s - ПОЛНЫЙ НАБОР ДАННЫХ ДОСТУПЕН с timestamp %s (определено по UID цикла)",
-          unitId, referenceTimestamp));
-
         // Проверяем, изменился ли timestamp с последнего раза
         Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
         boolean timeStampChanged = previousTimestamp == null ||
@@ -284,22 +280,22 @@ public class MeasurementDataProcessor {
           previousTimestamp, referenceTimestamp, timeStampChanged));
 
         if (timeStampChanged) {
-          logger.debug("Timestamp ИЗМЕНИЛСЯ для юнита " + unitId +
+          logger.debug("Timestamp ИЗМЕНИЛСЯ для сечения " + unitId +
             ": " + previousTimestamp + " -> " + referenceTimestamp);
           unitCurrentTimestamps.put(unitId, referenceTimestamp);
 
           // Если это первая загрузка
           if (!initialDataLoaded) {
-            logger.debug("ПЕРВИЧНАЯ ЗАГРУЗКА данных для юнита " + unitId);
+            logger.debug("ПЕРВИЧНАЯ ЗАГРУЗКА данных для сечения " + unitId);
             unitInitialDataLoaded.put(unitId, true);
             saveCurrentParameterValues(unitId, result);
             saveCurrentTopologyValues(unitId, result);
             saveCurrentElementValues(unitId, result);
             saveCurrentInfluencingFactorValues(unitId, result);
-            logger.debug("Начальные данные загружены для юнита " + unitId);
+            logger.debug("Начальные данные загружены для сечения " + unitId);
           } else {
             // Накапливаем изменения
-            logger.debug("НАКОПЛЕНИЕ ИЗМЕНЕНИЙ для юнита " + unitId);
+            logger.debug("НАКОПЛЕНИЕ ИЗМЕНЕНИЙ для сечения " + unitId);
             accumulateChanges(unitId, result);
             accumulateTopologyChanges(unitId, result);
             accumulateElementChanges(unitId, result);
@@ -310,7 +306,7 @@ public class MeasurementDataProcessor {
             int elementChanges = accumulatedElementChanges.size();
             int factorChanges = accumulatedInfluencingFactorChanges.size();
 
-            logger.debug(String.format("Накопленные изменения для юнита %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+            logger.info(String.format("Накопленные изменения для сечения %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
               unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
 
             // Если есть накопленные изменения - отправляем
@@ -326,7 +322,7 @@ public class MeasurementDataProcessor {
                 logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
                 // Уведомляем слушателей о готовых данных
                 if (dataReadyCallback != null) {
-                  logger.debug("ВЫЗОВ КОЛБЭКА: Накопленные изменения готовы для юнита " + unitId);
+                  logger.info("Отправка накопленных изменений в расчетный сервис для сечения: " + unitId);
                   dataReadyCallback.onDataReady(accumulatedResult, unitId);
                 }
 
@@ -335,33 +331,32 @@ public class MeasurementDataProcessor {
                 saveCurrentTopologyValuesFromAccumulated(unitId);
                 saveCurrentElementValuesFromAccumulated(unitId);
                 saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
-                logger.debug("Текущие значения сохранены как предыдущие");
+                logger.info("Текущие значения сохранены как предыдущие");
 
                 // Очищаем накопленные изменения
                 accumulatedChanges.clear();
                 accumulatedTopologyChanges.clear();
                 accumulatedElementChanges.clear();
                 accumulatedInfluencingFactorChanges.clear();
-                logger.info("Накопленные изменения очищены");
+                logger.info("Накопленные изменения очищены \n");
               }
             } else {
               logger.debug("Нет накопленных изменений для отправки");
             }
           }
         } else {
-          logger.debug("Timestamp не изменился для юнита " + unitId + ": " + referenceTimestamp);
+          logger.debug("Timestamp не изменился для сечения " + unitId + ": " + referenceTimestamp);
         }
       } else {
         if (cycleNumberUid == null) {
-          logger.debug("UID цикла не определен для юнита " + unitId);
+          logger.debug("UID цикла не определен для сечения " + unitId);
         } else if (dataBuffer.get(cycleNumberUid) == null) {
           logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
         } else {
-          logger.debug("Неполный набор данных или несовпадение timestamp для юнита " + unitId);
+          logger.debug("Неполный набор данных или несовпадение timestamp для сечения " + unitId);
         }
       }
     }
-    logger.debug("=== Завершение обработки batch данных ===");
   }
 
   /**
@@ -617,8 +612,8 @@ public class MeasurementDataProcessor {
     Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
     for (Parameter param : accumulatedChanges.values()) {
       previousParameterValues.put(param.getId(), param.getValue());
-      logger.debug("Updated previous value for unit " + unitId +
-        ": " + param.getName() + " = " + param.getValue());
+      logger.info("Updated previous value for unit " + unitId +
+        ": " + param.getName() + " = " + param.getValue() + ", timestamp=" + param.getTime());
     }
   }
 
