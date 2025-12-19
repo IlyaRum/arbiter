@@ -3,20 +3,14 @@ package arbiter.measurement;
 import arbiter.constants.ParameterMappingConstants;
 import arbiter.data.*;
 import arbiter.di.DependencyInjector;
-import arbiter.service.HandleDataService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import io.cloudevents.jackson.JsonFormat;
-import io.vertx.core.Future;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
-import io.vertx.ext.web.client.WebClient;
 
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MeasurementDataProcessor {
 
@@ -43,6 +37,12 @@ public class MeasurementDataProcessor {
   private final Map<String, Map<String, InfluencingFactor>> unitAccumulatedFactorChanges = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Composition>> unitAccumulatedRepairChanges = new ConcurrentHashMap<>();
 
+  private final ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor(r -> {
+    Thread t = new Thread(r, "Callback-Processor");
+    t.setDaemon(true);
+    return t;
+  });
+
   public MeasurementDataProcessor(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
   }
@@ -58,8 +58,14 @@ public class MeasurementDataProcessor {
 
       if (firstTime && dataReadyCallback != null) {
         logger.info("Отправка всех накопленных изменений в расчетный сервис. Размер: " + result.size());
-        dataReadyCallback.onDataReady(result, null);
         firstTime = false;
+        singleThreadExecutor.submit(() -> {
+          try {
+            dataReadyCallback.onDataReady(result, null);
+          } catch (Exception e) {
+            logger.error("Ошибка при обработке первоначальных данных", e);
+          }
+        });
       }
 
       if (result.size() > 0) {
@@ -320,25 +326,33 @@ public class MeasurementDataProcessor {
 
               if (accumulatedResult != null && accumulatedResult.size() > 0) {
                 logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
-                // Уведомляем слушателей о готовых данных
-                if (dataReadyCallback != null) {
-                  logger.info("Отправка накопленных изменений в расчетный сервис для сечения: " + unitId);
-                  dataReadyCallback.onDataReady(accumulatedResult, unitId);
-                }
 
-                // Сохраняем текущие значения как предыдущие
-                saveCurrentParameterValuesFromAccumulated(unitId);
-                saveCurrentTopologyValuesFromAccumulated(unitId);
-                saveCurrentElementValuesFromAccumulated(unitId);
-                saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
-                logger.info("Текущие значения сохранены как предыдущие");
+                singleThreadExecutor.submit(() -> {
+                  try {
+                    // Уведомляем слушателей о готовых данных
+                    if (dataReadyCallback != null) {
+                      logger.info("Отправка накопленных изменений в расчетный сервис для сечения: " + unitId);
+                      dataReadyCallback.onDataReady(accumulatedResult, unitId);
+                    }
 
-                // Очищаем накопленные изменения
-                accumulatedChanges.clear();
-                accumulatedTopologyChanges.clear();
-                accumulatedElementChanges.clear();
-                accumulatedInfluencingFactorChanges.clear();
-                logger.info("Накопленные изменения очищены \n");
+                    // Сохраняем текущие значения как предыдущие
+                    saveCurrentParameterValuesFromAccumulated(unitId);
+                    saveCurrentTopologyValuesFromAccumulated(unitId);
+                    saveCurrentElementValuesFromAccumulated(unitId);
+                    saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+                    logger.info("Текущие значения сохранены как предыдущие");
+
+                    // Очищаем накопленные изменения
+                    accumulatedChanges.clear();
+                    accumulatedTopologyChanges.clear();
+                    accumulatedElementChanges.clear();
+                    accumulatedInfluencingFactorChanges.clear();
+                    logger.info("Накопленные изменения очищены \n");
+
+                  } catch (Exception e) {
+                    logger.error("Ошибка при обработке данных в callback", e);
+                  }
+                });
               }
             } else {
               logger.debug("Нет накопленных изменений для отправки");
@@ -1013,5 +1027,4 @@ public class MeasurementDataProcessor {
   public interface DataReadyCallback {
     void onDataReady(StoreData data, String unitId);
   }
-
 }
