@@ -57,7 +57,7 @@ public class HandleDataService extends ABaseService{
   public Handler<String> handleTextMessage(Promise<JsonObject> promise) {
     return message -> {
       try {
-        logger.debug("Input message: " + message);
+        logger.info("Input message: " + message);
 
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes(StandardCharsets.UTF_8));
@@ -156,7 +156,6 @@ public class HandleDataService extends ABaseService{
       String jsonData = convertStoreDataToJson(Collections.singletonList(data.getUnitDataList()));
 
       if (firstTime) {
-        logger.debug(String.format("### получено %d новых значений : %s", data.size(), data));
         sendPostRequestAsync(jsonData);
         firstTime = false;
       } else {
@@ -208,7 +207,7 @@ public class HandleDataService extends ABaseService{
   private void sendPostRequest(String jsonData) {
     WebClient client = WebClient.create(vertx);
 
-    logger.debug("Отправляем POST запрос в арбитр расчетов... ");
+    logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData.toString());
 
     client.postAbs("https://your-api-endpoint.com/data")
       .putHeader("Content-Type", "application/json")

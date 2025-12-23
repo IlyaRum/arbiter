@@ -115,9 +115,6 @@ public class MeasurementDataProcessor {
   /**
    * Агрегатор данных для каждого юнита отдельно
    */
-  /**
-   * Агрегатор данных для каждого юнита отдельно
-   */
   private void dataBatchAggregator(List<Measurement> measurements, StoreData result) {
     // Начало обработки батча
     logger.debug("Получено measurements: " + measurements.size());
@@ -321,7 +318,6 @@ public class MeasurementDataProcessor {
               !accumulatedElementChanges.isEmpty() ||
               !accumulatedInfluencingFactorChanges.isEmpty()) {
 
-              logger.debug("Создание StoreData из накопленных изменений...");
               StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
 
               if (accumulatedResult != null && accumulatedResult.size() > 0) {
@@ -334,25 +330,24 @@ public class MeasurementDataProcessor {
                       logger.info("Отправка накопленных изменений в расчетный сервис для сечения: " + unitId);
                       dataReadyCallback.onDataReady(accumulatedResult, unitId);
                     }
-
-                    // Сохраняем текущие значения как предыдущие
-                    saveCurrentParameterValuesFromAccumulated(unitId);
-                    saveCurrentTopologyValuesFromAccumulated(unitId);
-                    saveCurrentElementValuesFromAccumulated(unitId);
-                    saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
-                    logger.info("Текущие значения сохранены как предыдущие");
-
-                    // Очищаем накопленные изменения
-                    accumulatedChanges.clear();
-                    accumulatedTopologyChanges.clear();
-                    accumulatedElementChanges.clear();
-                    accumulatedInfluencingFactorChanges.clear();
-                    logger.info("Накопленные изменения очищены \n");
-
                   } catch (Exception e) {
                     logger.error("Ошибка при обработке данных в callback", e);
                   }
                 });
+
+                // Сохраняем текущие значения как предыдущие
+                saveCurrentParameterValuesFromAccumulated(unitId);
+                saveCurrentTopologyValuesFromAccumulated(unitId);
+                saveCurrentElementValuesFromAccumulated(unitId);
+                saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+                logger.info("Текущие значения сохранены как предыдущие");
+
+                // Очищаем накопленные изменения
+                accumulatedChanges.clear();
+                accumulatedTopologyChanges.clear();
+                accumulatedElementChanges.clear();
+                accumulatedInfluencingFactorChanges.clear();
+                logger.info("Накопленные изменения очищены \n");
               }
             } else {
               logger.debug("Нет накопленных изменений для отправки");
@@ -504,14 +499,14 @@ public class MeasurementDataProcessor {
       !accumulatedInfluencingFactorChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
-        Map<String, Parameter> changesForUnit = new HashMap<>();
+        Map<String, Parameter> parameterChangesForUnit = new HashMap<>();
         Map<String, Topology> topologyChangesForUnit = new HashMap<>();
         Map<String, Element> elementChangesForUnit = new HashMap<>();
         Map<String, InfluencingFactor> influencingFactorChangesForUnit = new HashMap<>();
 
         for (Parameter param : accumulatedChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
-            changesForUnit.put(getMappedParameterKey(param), param);
+            parameterChangesForUnit.put(getMappedParameterKey(param), param);
           }
         }
 
@@ -533,23 +528,23 @@ public class MeasurementDataProcessor {
           }
         }
 
-        if (!changesForUnit.isEmpty() ||
+        if (!parameterChangesForUnit.isEmpty() ||
           !topologyChangesForUnit.isEmpty() ||
           !elementChangesForUnit.isEmpty() ||
           !influencingFactorChangesForUnit.isEmpty()) {
 
           FilteredUnitDto unitDto = new FilteredUnitDto(new UnitDto(unit),
-                  changesForUnit,
+                  parameterChangesForUnit,
                   topologyChangesForUnit,
                   elementChangesForUnit,
                   influencingFactorChangesForUnit);
           accumulatedResult.addUnitData(unitDto);
 
-          logger.debug("Created StoreData with " + changesForUnit.size() +
-            " changed parameters and " + elementChangesForUnit.size() +
-            " changed elements and " + topologyChangesForUnit.size() +
-            " changed topologies and " + influencingFactorChangesForUnit.size() +
-            " changed influencingFactor for unit: " + unitId);
+          logger.info("Created StoreData for unit " + unitId + " with: " +
+            " changed parameters=" + parameterChangesForUnit.size() +
+            " and changed elements=" + elementChangesForUnit.size() +
+            " and changed topologies=" + topologyChangesForUnit.size() +
+            " and changed influencingFactor=" + influencingFactorChangesForUnit.size());
         }
       }
     }
@@ -627,7 +622,8 @@ public class MeasurementDataProcessor {
     for (Parameter param : accumulatedChanges.values()) {
       previousParameterValues.put(param.getId(), param.getValue());
       logger.info("Updated previous value for unit " + unitId +
-        ": " + param.getName() + " = " + param.getValue() + ", timestamp=" + param.getTime());
+        ": " + param.getName() + "/" + param.getId() + " = " + param.getValue() +
+        ", timestamp=" + param.getTime());
     }
   }
 
