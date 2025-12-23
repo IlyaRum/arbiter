@@ -207,7 +207,7 @@ public class HandleDataService extends ABaseService{
   private void sendPostRequest(String jsonData) {
     WebClient client = WebClient.create(vertx);
 
-    logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData.toString());
+    logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData);
 
     client.postAbs("https://your-api-endpoint.com/data")
       .putHeader("Content-Type", "application/json")
