@@ -31,24 +31,8 @@ public class UnitCollection {
   private String eventUID;
   private String writeEventUID;
 
-  //  private WebSocketClient webSocketClient;
   private Vertx vertx;
   private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
-
-//  private Consumer<List<Parameter>> processData;
-//  private Consumer<Unit> processEvent;
-
-//  public UnitCollection(Vertx vertx, String configFile, String versionInfo,
-//                        String password, Consumer<List<Parameter>> processData,
-//                        Consumer<Unit> processEvent) {
-//    this.vertx = vertx;
-//    this.version = versionInfo;
-//    this.password = password;
-//    this.processData = processData;
-//    this.processEvent = processEvent;
-//
-//    loadConfig(configFile);
-//  }
 
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.vertx = vertx;
@@ -120,18 +104,38 @@ public class UnitCollection {
   }
 
   public List<String> getUIDs() {
-    List<String> parameterUIDs = units.stream()
-      .flatMap(unit -> unit.getParameters().stream())
-      .flatMap(parameter -> parameter.getUIDs().stream())
+    List<String> allUIDs = new ArrayList<>();
+    allUIDs.addAll(getParameterUIDs());
+    allUIDs.addAll(getTopologyUIDs());
+    allUIDs.addAll(getCompositionUIDs());
+    allUIDs.addAll(getElementUIDs());
+    allUIDs.addAll(getInfluencingFactorUIDs());
+    return allUIDs;
+  }
+
+  private List<String> getInfluencingFactorUIDs() {
+    return units.stream()
+      .flatMap(unit1 -> unit1.getInfluencingFactors().stream())
+      .flatMap(influencingFactor -> influencingFactor.getUIDs().stream())
       .toList();
+  }
 
-//    List<String> repairSchemaUIDs = units.stream()
-//      .map(Unit::getRepairSchema)
-//      .flatMap(repairSchema -> repairSchema.getRepairGroupValues().stream())
-//      .flatMap(repairGroupValue -> repairGroupValue.getUIDs().stream())
-//      .toList();
+  private List<String> getElementUIDs() {
+    return units.stream()
+      .flatMap(unit1 -> unit1.getElements().stream())
+      .flatMap(element -> element.getUIDs().stream())
+      .toList();
+  }
 
-    List<String> compositionUIDs = units.stream()
+  private List<String> getTopologyUIDs() {
+    return units.stream()
+      .flatMap(unit1 -> unit1.getTopologies().stream())
+      .flatMap(topology -> topology.getUIDs().stream())
+      .toList();
+  }
+
+  private List<String> getCompositionUIDs() {
+    return units.stream()
       .map(Unit::getRepairSchema)
       .filter(Objects::nonNull)
       .map(RepairSchema::getRepairGroupValues)
@@ -143,30 +147,13 @@ public class UnitCollection {
       .map(Composition::getUIDs)
       .flatMap(Collection::stream)
       .toList();
+  }
 
-    List<String> topologyUIDs = units.stream()
-      .flatMap(unit -> unit.getTopologies().stream())
-      .flatMap(topology -> topology.getUIDs().stream())
+  private List<String> getParameterUIDs() {
+    return units.stream()
+      .flatMap(unit -> unit.getParameters().stream())
+      .flatMap(parameter -> parameter.getUIDs().stream())
       .toList();
-
-    List<String> elementUIDs = units.stream()
-      .flatMap(unit -> unit.getElements().stream())
-      .flatMap(element -> element.getUIDs().stream())
-      .toList();
-
-    List<String> influencingFactorUIDs = units.stream()
-      .flatMap(unit -> unit.getInfluencingFactors().stream())
-      .flatMap(influencingFactor -> influencingFactor.getUIDs().stream())
-      .toList();
-
-    List<String> allUIDs = new ArrayList<>();
-    allUIDs.addAll(parameterUIDs);
-    allUIDs.addAll(topologyUIDs);
-    allUIDs.addAll(compositionUIDs);
-    allUIDs.addAll(elementUIDs);
-    allUIDs.addAll(influencingFactorUIDs);
-
-    return allUIDs;
   }
 
   //  public void connect() {

@@ -1,6 +1,7 @@
 package arbiter.data;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.StringJoiner;
 
@@ -21,10 +22,19 @@ public class StoreData {
 
   public int size() {
     return unitDtoList.stream()
-      .mapToInt(unitDto -> unitDto.getParameters().size() +
-        unitDto.getTopologyList().size() +
-        unitDto.getElements().size() +
-        unitDto.getInfluencingFactors().size())
+      .mapToInt(unitDto -> {
+        int sizeCompositionIds = unitDto.getRepairSchema().getRepairGroupValues().stream()
+          .map(RepairGroupValue::getValues)
+          .flatMap(Collection::stream)
+          .toList()
+          .size();
+
+        return unitDto.getParameters().size() +
+          unitDto.getTopologyList().size() +
+          unitDto.getElements().size() +
+          unitDto.getInfluencingFactors().size() +
+          sizeCompositionIds;
+      })
       .sum();
   }
 
