@@ -1,8 +1,6 @@
-package arbiter.data;
+package arbiter.data.model;
 
-import arbiter.constants.ParameterMappingConstants;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -25,7 +23,6 @@ public class Parameter{
   private int qCode;
   private Integer min; // изменено на Integer
   private Integer max;
-//  private boolean selfTest;
   private List<String> UIDs = new ArrayList<>();
 
   public Parameter(String name, String id) {
@@ -66,13 +63,10 @@ public class Parameter{
     this.time = time;
   }
 
-  // Для сравнения (аналог P.Value <> Data.Value или P.Time <> Data.Time)
-
   public boolean isDataDifferent(double newValue, Instant newTime) {
     return Double.compare(value, newValue) != 0 ||
       !Objects.equals(time, newTime);
   }
-  // Аналог P.SetData(Data.Value, Data.Time, Data.QCode)
 
   public void setData(double value, Instant time, int qCode) {
     this.value = value;
@@ -109,10 +103,6 @@ public class Parameter{
     return name;
   }
 
-//  public int getqCode() {
-//    return qCode;
-//  }
-
   public Instant getTime() {
     return time;
   }
@@ -120,10 +110,6 @@ public class Parameter{
   public double getValue() {
     return value;
   }
-
-//  public String getMappingFieldName() {
-//    return mappingFieldName;
-//  }
 
   @JsonIgnore
   public int getOldInt() {
@@ -140,11 +126,6 @@ public class Parameter{
     return oldValue;
   }
 
-//  @JsonIgnore
-//  public boolean isSelfTest() {
-//    return selfTest;
-//  }
-
   @JsonIgnore
   public List<String> getUIDs() {
     return UIDs;
@@ -155,16 +136,11 @@ public class Parameter{
     return new StringJoiner(", ", Parameter.class.getSimpleName() + "[", "]")
       .add("id=" + getId())
       .add("name=" + getName())
-      //.add("mappingFieldName=" + getMappingFieldName())
       .add("value=" + getValue())
       .add("time=" + getTime())
       .add("max=" + getMax())
       .add("min=" + getMin())
       .add("qCode=" + getQCode())
-//      .add("Unit="+ getUnit())
-//      .add("assigned=" + assigned)
-//      .add("oldValue=" + oldValue)
-//      .add("selfTest=" + selfTest)
       .toString();
   }
 }

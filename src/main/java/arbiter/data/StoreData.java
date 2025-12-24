@@ -1,5 +1,9 @@
 package arbiter.data;
 
+import arbiter.data.dto.UnitDto;
+import arbiter.data.model.RepairGroupValue;
+import arbiter.data.model.Unit;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -38,7 +42,6 @@ public class StoreData {
       .sum();
   }
 
-  // Вспомогательный метод для поиска данных юнита
   public UnitDto getUnitData(Unit unit) {
     return unitDtoList.stream()
       .filter(ud -> ud.getUnit().equals(unit))

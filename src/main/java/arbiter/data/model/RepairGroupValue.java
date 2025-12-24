@@ -1,4 +1,4 @@
-package arbiter.data;
+package arbiter.data.model;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,8 +12,6 @@ public class RepairGroupValue {
   private Integer group;
   private String operation;
   private List<Composition> values = new ArrayList<>();
-
-
 
   public RepairGroupValue() {
   }

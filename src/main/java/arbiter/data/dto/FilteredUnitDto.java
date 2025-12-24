@@ -1,4 +1,9 @@
-package arbiter.data;
+package arbiter.data.dto;
+
+import arbiter.data.model.Element;
+import arbiter.data.model.InfluencingFactor;
+import arbiter.data.model.Parameter;
+import arbiter.data.model.Topology;
 
 import java.util.ArrayList;
 import java.util.List;

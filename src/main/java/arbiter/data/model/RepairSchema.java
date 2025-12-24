@@ -1,4 +1,4 @@
-package arbiter.data;
+package arbiter.data.model;
 
 
 import java.util.List;

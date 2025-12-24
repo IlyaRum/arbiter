@@ -1,4 +1,4 @@
-package arbiter.data;
+package arbiter.data.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
@@ -9,10 +9,9 @@ import java.util.Objects;
 import java.util.StringJoiner;
 
 /**
- * топология
+ * ТС элементов
  */
-
-public class Topology {
+public class Element {
   private String id;
   private String name;
   protected double value;
@@ -21,10 +20,34 @@ public class Topology {
 
   private List<String> UIDs = new ArrayList<>();
 
-  public Topology(String id, String name) {
+  public Element(String id, String name) {
     this.id = id;
     this.name = name;
     addID(id);
+  }
+
+  public void addID(final String id) {
+    if (id != null && id.length() == 36) {
+      if (!UIDs.contains(id)) {
+        UIDs.add(id);
+      }
+    }
+  }
+
+  public boolean isDataDifferent(double newValue, Instant newTime) {
+    return Double.compare(value, newValue) != 0 ||
+      !Objects.equals(time, newTime);
+  }
+
+  public void setData(double value, Instant time, int qCode) {
+    this.value = value;
+    this.time = time;
+    this.qCode = qCode;
+  }
+
+  @JsonIgnore
+  public List<String> getUIDs() {
+    return UIDs;
   }
 
   public String getId() {
@@ -51,30 +74,6 @@ public class Topology {
     this.value = value;
   }
 
-  @JsonIgnore
-  public List<String> getUIDs() {
-    return UIDs;
-  }
-
-  public void addID(final String id) {
-    if (id != null && id.length() == 36) {
-      if (!UIDs.contains(id)) {
-        UIDs.add(id);
-      }
-    }
-  }
-
-  public boolean isDataDifferent(double newValue, Instant newTime) {
-    return Double.compare(value, newValue) != 0 ||
-      !Objects.equals(time, newTime);
-  }
-
-  public void setData(double value, Instant time, int qCode) {
-    this.value = value;
-    this.time = time;
-    this.qCode = qCode;
-  }
-
   public int getqCode() {
     return qCode;
   }
@@ -93,10 +92,12 @@ public class Topology {
 
   @Override
   public String toString() {
-    return new StringJoiner(", ", Topology.class.getSimpleName() + "[", "]")
+    return new StringJoiner(", ", Element.class.getSimpleName() + "[", "]")
       .add("id='" + id + "'")
       .add("name='" + name + "'")
       .add("value=" + value)
+      .add("qCode=" + qCode)
+      .add("time=" + time)
       .toString();
   }
 }

@@ -1,5 +1,6 @@
 package arbiter.data;
 
+import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.logging.Logger;
@@ -89,14 +90,6 @@ public class UnitCollection {
         System.err.println("Ошибка загрузки конфигурации: " + err.getMessage());
       });
   }
-
-//  public void addID(final String id) {
-//    if (id != null && id.length() == 36) {
-//      if (!UIDs.contains(id)) {
-//        UIDs.add(id);
-//      }
-//    }
-//  }
 
   public boolean yesNo(JsonObject obj, String key) {
     if (!obj.containsKey(key)) return false;

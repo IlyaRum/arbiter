@@ -1,7 +1,8 @@
-package arbiter.data;
+package arbiter.data.dto;
 
 //import arbiter.data.serialize.ParametersMapSerializer;
 import arbiter.constants.ParameterMappingConstants;
+import arbiter.data.model.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 //import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 

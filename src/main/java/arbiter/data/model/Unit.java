@@ -1,5 +1,7 @@
-package arbiter.data;
+package arbiter.data.model;
 
+import arbiter.data.ErrorSet;
+import arbiter.data.UltimateTimer;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -13,7 +15,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
  */
 
 public class Unit {
-  //private int index;
   private String name;
   private String group;
   private int direction;
@@ -36,7 +37,6 @@ public class Unit {
   private UltimateTimer cycleTimer;
 
   public Unit(int index, JsonObject config) {
-//    this.index = index;
     this.name = config.getString("наименование");
     this.group = config.getString("группа");
     this.direction = config.getInteger("направление");
@@ -150,10 +150,6 @@ public class Unit {
       .anyMatch(param -> name.equals(param.getName()));
   }
 
-//  public Result getResult(String name) {
-//    return results.get(name);
-//  }
-
   public boolean checkCircuit() {
     // Реализация проверки схемы
     return false;
@@ -183,7 +179,6 @@ public class Unit {
     return repairSchema;
   }
 
-  // Аналог Items[j].Parameters.Data[k]
   @JsonIgnore
   public Iterable<Parameter> getAllParameters() {
     return parameters;
@@ -192,10 +187,6 @@ public class Unit {
   public String getName() {
     return name;
   }
-
-//  public String getEventObject() {
-//    return eventObject;
-//  }
 
   public boolean isWriteResultToScada() {
     return writeResultToScada;
@@ -217,17 +208,9 @@ public class Unit {
     return group;
   }
 
-//  public int getIndex() {
-//    return index;
-//  }
-
   public boolean isMdpAndADP() {
     return mdpAndADP;
   }
-
-//  public Map<String, Result> getResults() {
-//    return results;
-//  }
 
   public int getDeltaTm() {
     return deltaTm;
@@ -236,18 +219,12 @@ public class Unit {
   @Override
   public String toString() {
     return new StringJoiner(", ", Unit.class.getSimpleName() + "[", "]")
-//      .add("index=" + index)
       .add("name='" + name + "'")
       .add("group='" + group + "'")
       .add("direction=" + direction)
       .add("writeResultToScada=" + writeResultToScada)
       .add("deltaTm=" + deltaTm)
       .add("mdpAndADP=" + mdpAndADP)
-//      .add("parameters=" + parameters)
-//      .add("results=" + results)
-//      .add("eventObject='" + eventObject + "'")
-//      .add("errorSet=" + errorSet)
-//      .add("cycleTimer=" + cycleTimer)
       .toString();
   }
 }
