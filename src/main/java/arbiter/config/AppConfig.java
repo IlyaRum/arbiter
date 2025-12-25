@@ -36,6 +36,7 @@ public class AppConfig {
   private static String eventSubscriptionsAddUrl;
   private static String devFlag;
   private static String arbiterConfigJsonFile;
+  private static String calcSrvUrl;
 
   public static void loadConfig() {
     // Чтение конфигурации из файла или системных свойств
@@ -61,6 +62,7 @@ public class AppConfig {
       eventSubscriptionsAddUrl = props.getProperty("event.subscriptions.add");
       devFlag =props.getProperty("dev.flag");
       arbiterConfigJsonFile = props.getProperty("arbiter.config.json");
+      calcSrvUrl = props.getProperty("calc-srv.absolute.url");
 
       if (authBasicCredentials == null ||
         authTokenUrl == null ||
@@ -105,5 +107,9 @@ public class AppConfig {
 
   public static String getArbiterConfigJsonFile() {
     return arbiterConfigJsonFile;
+  }
+
+  public static String getCalcSrvAbsoluteUrl() {
+    return calcSrvUrl;
   }
 }

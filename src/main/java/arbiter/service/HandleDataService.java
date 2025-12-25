@@ -1,13 +1,11 @@
 package arbiter.service;
 
 
-import arbiter.constants.ParameterMappingConstants;
+import arbiter.config.AppConfig;
 import arbiter.data.*;
 import arbiter.di.DependencyInjector;
-import arbiter.measurement.Measurement;
 import arbiter.measurement.MeasurementDataProcessor;
 import arbiter.measurement.MeasurementList;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -29,9 +27,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -189,7 +185,7 @@ public class HandleDataService extends ABaseService{
 
     logger.debug(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
 
-    client.putAbs("https://your-api-endpoint.com/data")
+    client.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
@@ -209,7 +205,7 @@ public class HandleDataService extends ABaseService{
 
     logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData);
 
-    client.postAbs("https://your-api-endpoint.com/data")
+    client.postAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
