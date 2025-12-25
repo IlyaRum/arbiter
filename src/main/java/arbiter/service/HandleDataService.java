@@ -187,7 +187,7 @@ public class HandleDataService extends ABaseService{
   private void sendPutRequest(String jsonData, String unitId) {
     WebClient client = WebClient.create(vertx);
 
-    logger.debug(String.format("Отправляем PUT запрос для сечения %s", unitId));
+    logger.debug(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
 
     client.putAbs("https://your-api-endpoint.com/data")
       .putHeader("Content-Type", "application/json")

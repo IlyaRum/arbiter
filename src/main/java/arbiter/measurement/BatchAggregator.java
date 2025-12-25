@@ -160,10 +160,6 @@ public class BatchAggregator {
         measurementsFound++;
         receivedUids.add(targetUid);
 
-        if (cycleNumberUid != null && targetUid.equals(cycleNumberUid)) {
-          logger.debug(String.format("Получен UID цикла: %s, value=%s, timestamp=%s",
-            targetUid, measurement.getValue(), measurement.getTimeStamp()));
-        }
       }
     }
 
@@ -177,18 +173,17 @@ public class BatchAggregator {
 
   private static void updateDataBuffer(Set<String> receivedUids, Map<String, Measurement> measurementsByUid,
                                        Map<String, Measurement> dataBuffer, Map<String, Instant> lastTimeStamps, String unitId) {
-    logger.debug("Обновление dataBuffer для полученных UID...");
+    logger.debug("Обновляем буфер для полученных UID...");
     for (String receivedUid : receivedUids) {
       Measurement measurement = measurementsByUid.get(receivedUid);
       if (measurement != null) {
         dataBuffer.put(receivedUid, measurement);
         lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-        logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid +
+        logger.debug("Буфер обновлен для сечения '" + unitId + "', receivedUid=" + receivedUid +
           ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
       }
     }
-    logger.debug(String.format("Buffer обновлен. Текущий размер buffer=%d для сечения '%s'",
-      dataBuffer.size(), unitId));
+    logger.debug(String.format("Буфер обновлен для сечения '%s'. Текущий размер=%d ", unitId, dataBuffer.size()));
   }
 
   private ConsistencyCheckResult checkDataConsistency(String unitId, String cycleNumberUid,
@@ -228,16 +223,16 @@ public class BatchAggregator {
       Measurement bufferedMeasurement = dataBuffer.get(targetUid);
       if (bufferedMeasurement == null) {
         allTargetsHaveData = false;
-        logger.debug("Missing data in buffer for unit " + unitId + ", uid " + targetUid);
+        logger.debug("Отсутствуют данные в буфере для сечения '" + unitId + "'/" + targetUid);
         break;
       }
 
       Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
       if (!referenceTimestamp.equals(bufferedTimestamp)) {
         allTimestampsMatch = false;
-        logger.debug("Buffer timestamp mismatch for unit " + unitId +
-          ": reference=" + referenceTimestamp + ", actual=" + bufferedTimestamp +
-          " для UID: " + targetUid);
+        logger.debug("Несовпадение временных меток в буфере для сечения '" + unitId +
+          "'/" + targetUid +
+          ": ожидалось=" + referenceTimestamp + ", получено=" + bufferedTimestamp);
         break;
       }
     }
@@ -260,11 +255,11 @@ public class BatchAggregator {
 
   private static void logConsistencyCheckFailure(String cycleNumberUid, String unitId, Map<String, Measurement> dataBuffer) {
     if (cycleNumberUid == null) {
-      logger.debug("UID цикла не определен для сечения: " + unitId);
+      logger.debug("UID цикла не определен для сечения: '" + unitId + "'");
     } else if (dataBuffer.get(cycleNumberUid) == null) {
       logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
     } else {
-      logger.debug("Неполный набор данных или несовпадение timestamp для сечения: " + unitId);
+      logger.info("Неполный набор данных или несовпадение timestamp для сечения: '" + unitId + "'");
     }
   }
 
@@ -279,8 +274,8 @@ public class BatchAggregator {
       previousTimestamp, referenceTimestamp, timeStampChanged));
 
     if (timeStampChanged) {
-      logger.debug("Timestamp изменился для сечения " + unitId +
-        ": " + previousTimestamp + " -> " + referenceTimestamp);
+      logger.debug("Timestamp изменился для сечения '" + unitId +
+        "': " + previousTimestamp + " -> " + referenceTimestamp);
       unitCurrentTimestamps.put(unitId, referenceTimestamp);
 
       if (!initialDataLoaded) {
@@ -288,22 +283,22 @@ public class BatchAggregator {
       } else
         processAccumulatedChanges(result, unitId, unitState);
     } else {
-      logger.debug("Timestamp: " + referenceTimestamp + " не изменился для сечения: " + unitId);
+      logger.debug("Timestamp: " + referenceTimestamp + " не изменился для сечения: '" + unitId + "'");
     }
   }
 
   private void processInitialDataLoad(StoreData result, String unitId) {
-    logger.debug("Первичная загрузка данных для сечения " + unitId);
+    logger.debug("Первичная загрузка данных для сечения '" + unitId + "'");
     unitInitialDataLoaded.put(unitId, true);
     saveCurrentParameterValues(unitId, result);
     saveCurrentTopologyValues(unitId, result);
     saveCurrentElementValues(unitId, result);
     saveCurrentInfluencingFactorValues(unitId, result);
-    logger.debug("Начальные данные загружены для сечения " + unitId);
+    logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
   private void processAccumulatedChanges(StoreData result, String unitId, UnitState unitState) {
-    logger.debug("Накопление изменений для сечения " + unitId);
+    logger.debug("Накопление изменений для сечения '" + unitId + "'");
     accumulateChanges(unitId, result);
     accumulateTopologyChanges(unitId, result);
     accumulateElementChanges(unitId, result);
@@ -314,7 +309,7 @@ public class BatchAggregator {
     int elementChanges = unitState.getAccumulatedElementChanges().size();
     int factorChanges = unitState.getAccumulatedInfluencingFactorChanges().size();
 
-    logger.info(String.format("Накопленные изменения для сечения %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+    logger.info(String.format("Накопленные изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d",
       unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
 
     if (!unitState.getAccumulatedChanges().isEmpty() ||
@@ -322,22 +317,21 @@ public class BatchAggregator {
       !unitState.getAccumulatedElementChanges().isEmpty() ||
       !unitState.getAccumulatedInfluencingFactorChanges().isEmpty()) {
 
-      sendAccumlatedChanges(unitId, unitState);
+      sendAccumulatedChanges(unitId, unitState);
     } else {
       logger.debug("Нет накопленных изменений для отправки");
     }
   }
 
-  private void sendAccumlatedChanges(String unitId, UnitState unitState) {
+  private void sendAccumulatedChanges(String unitId, UnitState unitState) {
     StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
 
     if (accumulatedResult != null && accumulatedResult.size() > 0) {
-      logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
 
       singleThreadExecutor.submit(() -> {
         try {
           if (dataReadyCallback != null) {
-            logger.info("Отправка всех накопленных изменений в расчетный сервис для сечения: " + unitId);
+            logger.info("Отправка всех накопленных изменений в расчетный сервис для сечения: '" + unitId + "'");
             dataReadyCallback.onDataReady(accumulatedResult, unitId);
           }
         } catch (Exception e) {
@@ -402,7 +396,7 @@ public class BatchAggregator {
 
       if (hasParameterValueChanged(unitId, paramId, currentValue)) {
         accumulatedChanges.put(paramId, param);
-        logger.debug("Parameter changed for unit " + unitId + ": " +
+        logger.debug("Parameter изменен для сечения '" + unitId + "': " +
           param.getName() + " = " + currentValue);
       }
     }
@@ -422,7 +416,7 @@ public class BatchAggregator {
 
       if (hasTopologyValueChanged(unitId, topologyId, currentValue)) {
         accumulatedTopologyChanges.put(topologyId, topology);
-        logger.debug("Topology changed for unit " + unitId + ": " +
+        logger.debug("Topology изменен для сечения '" + unitId + "': " +
           topology.getName() + " = " + currentValue);
       }
     }
@@ -442,7 +436,7 @@ public class BatchAggregator {
 
       if (hasElementValueChanged(unitId, elementId, currentValue)) {
         accumulatedElementChanges.put(elementId, element);
-        logger.debug("Element changed for unit " + unitId + ": " +
+        logger.debug("Element изменен для сечения '" + unitId + "': " +
           element.getName() + " = " + currentValue);
       }
     }
@@ -462,7 +456,7 @@ public class BatchAggregator {
 
       if (hasFactorValueChanged(unitId, influencingFactorId, currentValue)) {
         accumulatedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
-        logger.debug("InfluencingFactor changed for unit " + unitId + ": " +
+        logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
           influencingFactor.getName() + " = " + currentValue);
       }
     }
@@ -526,11 +520,11 @@ public class BatchAggregator {
             influencingFactorChangesForUnit);
           accumulatedResult.addUnitData(unitDto);
 
-          logger.debug("Created StoreData for unit " + unitId + " with: " +
-            " changed parameters=" + parameterChangesForUnit.size() +
-            " and changed elements=" + elementChangesForUnit.size() +
-            " and changed topologies=" + topologyChangesForUnit.size() +
-            " and changed influencingFactor=" + influencingFactorChangesForUnit.size());
+          logger.debug("Создан StoreData для сечения '" + unitId + "' с количеством изменений: " +
+            " parameters=" + parameterChangesForUnit.size() +
+            ", elements=" + elementChangesForUnit.size() +
+            ", topologies=" + topologyChangesForUnit.size() +
+            ", influencingFactor=" + influencingFactorChangesForUnit.size());
         }
       }
     }
@@ -607,8 +601,8 @@ public class BatchAggregator {
     Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
     for (Parameter param : accumulatedChanges.values()) {
       previousParameterValues.put(param.getId(), param.getValue());
-      logger.info("Updated previous value for unit " + unitId +
-        ": " + param.getName() + "/" + param.getId() + " = " + param.getValue() +
+      logger.info("Предыдущие значения parameter обновлены для сечения '" + unitId +
+        "': " + param.getName() + "/" + param.getId() + " = " + param.getValue() +
         ", timestamp=" + param.getTime());
     }
   }
@@ -622,8 +616,8 @@ public class BatchAggregator {
 
     for (Topology topology : accumulatedTopologyChanges.values()) {
       previousTopologyValues.put(topology.getId(), topology.getValue());
-      logger.debug("Updated previous topology value for unit " + unitId +
-        ": " + topology.getName() + " = " + topology.getValue());
+      logger.debug("Предыдущие значения topology обновлены для сечения '" + unitId +
+        "': " + topology.getName() + " = " + topology.getValue());
     }
   }
 
@@ -636,8 +630,8 @@ public class BatchAggregator {
 
     for (Element element : accumulatedElementChanges.values()) {
       previousElementValues.put(element.getId(), element.getValue());
-      logger.debug("Updated previous element value for unit " + unitId +
-        ": " + element.getName() + " = " + element.getValue());
+      logger.debug("Предыдущие значения element обновлены для сечения '" + unitId +
+        "': " + element.getName() + " = " + element.getValue());
     }
   }
 
@@ -650,8 +644,8 @@ public class BatchAggregator {
 
     for (InfluencingFactor influencingFactor : accumulatedInfluencingFactorChanges.values()) {
       previousInfluencingFactorValues.put(influencingFactor.getId(), influencingFactor.getValue());
-      logger.debug("Updated previous influencingFactor value for unit " + unitId +
-        ": " + influencingFactor.getName() + " = " + influencingFactor.getValue());
+      logger.debug("Предыдущие значения influencingFactor обновлены для сечения '" + unitId +
+        "': " + influencingFactor.getName() + " = " + influencingFactor.getValue());
     }
   }
 
@@ -690,8 +684,8 @@ public class BatchAggregator {
         String paramId = param.getId();
         double currentValue = param.getValue();
         previousParameterValues.put(paramId, currentValue);
-        logger.debug("Saved initial value for unit " + unitId +
-          ": " + param.getName() + " = " + currentValue);
+        logger.debug("Сохранено начальное значение parameter для сечения '" + unitId +
+          "': " + param.getName() + " = " + currentValue);
       }
     }
   }
@@ -706,8 +700,8 @@ public class BatchAggregator {
       for (Topology topology : unitDto.getTopologyList()) {
         double currentValue = topology.getValue();
         previousTopologyValues.put(topology.getId(), currentValue);
-        logger.debug("Saved initial topology value for unit " + unitId +
-          ": " + topology.getName() + " = " + currentValue);
+        logger.debug("Сохранено начальное значение topology для сечения '" + unitId +
+          "': " + topology.getName() + " = " + currentValue);
       }
     }
   }
@@ -722,8 +716,8 @@ public class BatchAggregator {
       for (Element element : unitDto.getElements()) {
         double currentValue = element.getValue();
         previousElementValues.put(element.getId(), currentValue);
-        logger.debug("Saved initial element value for unit " + unitId +
-          ": " + element.getName() + " = " + currentValue);
+        logger.debug("Сохранено начальное значение element для сечения '" + unitId +
+          "': " + element.getName() + " = " + currentValue);
       }
     }
   }
@@ -738,8 +732,8 @@ public class BatchAggregator {
       for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
         double currentValue = influencingFactor.getValue();
         previousInfluencingFactorValues.put(influencingFactor.getId(), currentValue);
-        logger.debug("Saved initial influencingFactor value for unit " + unitId +
-          ": " + influencingFactor.getName() + " = " + currentValue);
+        logger.debug("Сохранено начальное значение influencingFactor для сечения '" + unitId +
+          "': " + influencingFactor.getName() + " = " + currentValue);
       }
     }
   }
