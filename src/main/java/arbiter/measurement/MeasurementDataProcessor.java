@@ -40,8 +40,6 @@ public class MeasurementDataProcessor {
    * Основной метод обработки полученных данных измерений
    */
   public void onDataReceived(MeasurementList list) {
-    logger.debug("Processing measurement list with size: " + list.size());
-
     try {
       StoreData result = processMeasurementsToStoreData(list);
 

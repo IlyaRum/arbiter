@@ -6,6 +6,9 @@ import arbiter.data.dto.FilteredUnitDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
+import arbiter.measurement.state.ConsistencyCheckResult;
+import arbiter.measurement.state.ConsistencyStatus;
+import arbiter.measurement.state.UnitState;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 
@@ -15,7 +18,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
- * Отвечает за сбор, фильтрацию и группировку изменений измерений для каждого сечения, перед отправкой в расчетный сервис
+ * Отвечает за сбор, фильтрацию и группировку изменений измерений для каждого сечения,
+ * перед отправкой в расчетный сервис
  */
 
 public class BatchAggregator {
@@ -55,238 +59,311 @@ public class BatchAggregator {
   }
 
   /**
-   * Агрегатор данных для каждого сечения отдельно
+   * Агрегатор данных измерений сечений
    */
   public void aggregateData(List<Measurement> measurements, StoreData result) {
-    logger.debug("Получено measurements: " + measurements.size());
-    logger.debug("Количество сечений в StoreData: " + result.getUnitDataList().size());
-
+    logger.debug("Получено новых измерений: " + measurements.size());
+    logger.debug("Количество сечений с новыми измерениями в StoreData: " + result.getUnitDataList().size());
     logger.debug(String.format("Входные параметры: %s", result));
+
+    Map<String, Measurement> measurementsByUid = createMeasurementsMap(measurements);
+    processAllUnits(result, measurementsByUid);
+  }
+
+  private static Map<String, Measurement> createMeasurementsMap(List<Measurement> measurements) {
     Map<String, Measurement> measurementsByUid = new HashMap<>();
     for (Measurement measurement : measurements) {
       measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
     }
+    return measurementsByUid;
+  }
 
-    logger.debug("Измерения сгруппированы по UID. Уникальных UID: " + measurementsByUid.size());
-
+  private void processAllUnits(StoreData result, Map<String, Measurement> measurementsByUid) {
     int unitProcessedCount = 0;
     for (UnitDto unitDto : result.getUnitDataList()) {
-      String unitId = getUnitIdentifier(unitDto);
       unitProcessedCount++;
-      logger.info(String.format("[%d/%d] Обработка сечения: %s",
-        unitProcessedCount, result.getUnitDataList().size(), unitId));
-      Unit unit = findUnitByName(unitId);
+      processSingleUnit(result, unitDto, unitProcessedCount, measurementsByUid);
+    }
+  }
 
-      if (unit == null) {
-        logger.warn("Сечение " + unitId + " не найдено!");
-        continue;
-      }
+  private void processSingleUnit(StoreData result, UnitDto unitDto, int unitProcessedCount, Map<String, Measurement> measurementsByUid) {
+    String unitId = getUnitIdentifier(unitDto);
+    int totalCount = result.getUnitDataList().size();
+    logger.info(String.format("[%d/%d] Обработка сечения: %s", unitProcessedCount, totalCount, unitId));
+    Unit unit = findUnitByName(unitId);
 
-      Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
-      logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
-      logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
+    if (unit == null) {
+      logger.warn("Сечение " + unitId + " не найдено!");
+      return;
+    }
 
-      if (targetUids.isEmpty()) {
-        logger.warn("Нет target UID для сечения: " + unitId);
-        continue;
-      }
+    Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
+    logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
+    logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
 
-      // Получаем UID "Номер цикла расчета СМЗУ" для этого сечения
-      String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
-      logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения " + unitId + ": " + cycleNumberUid);
+    if (targetUids.isEmpty()) {
+      logger.warn("Нет target UID для сечения: " + unitId);
+      return;
+    }
 
-      initializeUnitStateStructures(unitId);
-      logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
+    // Получаем UID "Номер цикла расчета СМЗУ" для этого сечения
+    String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
+    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения " + unitId + ": " + cycleNumberUid);
 
-      Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
-      Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
-      boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+    initializeUnitStateStructures(unitId);
+    logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
 
-      logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
-        unitId, dataBuffer.size(), initialDataLoaded));
+    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
+    Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
+    boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
 
-      Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
-      Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
-      Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
-      Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+    logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
+      unitId, dataBuffer.size(), initialDataLoaded));
 
-      Set<String> receivedUids = new HashSet<>();
-      boolean hasCycleNumberInCurrentBatch = false;
-      Instant cycleTimestamp = null;
-      int measurementsFound = 0;
+    UnitState unitState = getUnitState(unitId);
+    processReceivedMeasurements(cycleNumberUid, measurementsByUid, targetUids, unitId, dataBuffer, lastTimeStamps);
+    checkAndProcessConsistency(result, unitId, initialDataLoaded, unitState, cycleNumberUid, targetUids,  dataBuffer);
+  }
 
-      logger.debug("Проверка полученных измерений в текущей пачке...");
+  private UnitState getUnitState(String unitId) {
+    return new UnitState(
+      unitAccumulatedChanges.get(unitId),
+      unitAccumulatedTopologyChanges.get(unitId),
+      unitAccumulatedElementChanges.get(unitId),
+      unitAccumulatedFactorChanges.get(unitId)
+    );
+  }
 
-      // Проверяем, есть ли в текущей пачке UID цикла
-      if (cycleNumberUid != null && measurementsByUid.containsKey(cycleNumberUid)) {
-        hasCycleNumberInCurrentBatch = true;
-        Measurement cycleMeasurement = measurementsByUid.get(cycleNumberUid);
-        cycleTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
-        logger.debug(String.format("В текущей пачке получен UID цикла: %s с timestamp: %s",
-          cycleNumberUid, cycleTimestamp));
-      }
+  private void processReceivedMeasurements(String cycleNumberUid, Map<String, Measurement> measurementsByUid,
+                                           Set<String> targetUids, String unitId, Map<String, Measurement> dataBuffer,
+                                           Map<String, Instant> lastTimeStamps) {
+    Set<String> receivedUids = new HashSet<>();
+    boolean hasCycleNumberInCurrentBatch = false;
+    Instant cycleTimestamp = null;
+    int measurementsFound = 0;
 
-      // Собираем все полученные UID из текущей пачки
-      for (String targetUid : targetUids) {
-        Measurement measurement = measurementsByUid.get(targetUid);
-        if (measurement != null) {
-          measurementsFound++;
-          receivedUids.add(targetUid);
+    logger.debug("Проверка полученных измерений в текущей пачке...");
 
-          if (cycleNumberUid != null && targetUid.equals(cycleNumberUid)) {
-            logger.debug(String.format("Получен UID цикла: %s, value=%s, timestamp=%s",
-              targetUid, measurement.getValue(), measurement.getTimeStamp()));
-          }
-        }
-      }
+    // Проверяем, есть ли в текущей пачке UID цикла
+    if (cycleNumberUid != null && measurementsByUid.containsKey(cycleNumberUid)) {
+      hasCycleNumberInCurrentBatch = true;
+      Measurement cycleMeasurement = measurementsByUid.get(cycleNumberUid);
+      cycleTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
+      logger.debug(String.format("В текущей пачке получен UID цикла: %s с timestamp: %s",
+        cycleNumberUid, cycleTimestamp));
+    }
 
-      logger.debug(String.format("Для сечения %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
-        unitId, measurementsFound, targetUids.size(), hasCycleNumberInCurrentBatch));
+    // Собираем все полученные UID из текущей пачки
+    for (String targetUid : targetUids) {
+      Measurement measurement = measurementsByUid.get(targetUid);
+      if (measurement != null) {
+        measurementsFound++;
+        receivedUids.add(targetUid);
 
-      // Обновляем dataBuffer для полученных UID
-      if (!receivedUids.isEmpty()) {
-        logger.debug("Обновление dataBuffer для полученных UID...");
-        for (String receivedUid : receivedUids) {
-          Measurement measurement = measurementsByUid.get(receivedUid);
-          if (measurement != null) {
-            dataBuffer.put(receivedUid, measurement);
-            lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-            logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid +
-              ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
-          }
-        }
-        logger.debug(String.format("Buffer обновлен. Текущий размер buffer=%d для сечения '%s'",
-          dataBuffer.size(), unitId));
-      }
-
-      boolean canCheckConsistency = false;
-      Instant referenceTimestamp = null;
-
-      if (cycleNumberUid != null) {
-        Measurement cycleMeasurement = dataBuffer.get(cycleNumberUid);
-        if (cycleMeasurement != null) {
-          referenceTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
-          logger.debug(String.format("Используем timestamp из буфера для UID цикла %s: %s",
-            cycleNumberUid, referenceTimestamp));
-
-          // Проверяем, есть ли полный набор данных
-          boolean allTargetsHaveData = true;
-          boolean allTimestampsMatch = true;
-
-          for (String targetUid : targetUids) {
-            Measurement bufferedMeasurement = dataBuffer.get(targetUid);
-            if (bufferedMeasurement == null) {
-              allTargetsHaveData = false;
-              logger.debug("Missing data in buffer for unit " + unitId + ", uid " + targetUid);
-              break;
-            }
-
-            Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
-            if (!referenceTimestamp.equals(bufferedTimestamp)) {
-              allTimestampsMatch = false;
-              logger.debug("Buffer timestamp mismatch for unit " + unitId +
-                ": reference=" + referenceTimestamp + ", actual=" + bufferedTimestamp +
-                " для UID: " + targetUid);
-              break;
-            }
-          }
-
-          canCheckConsistency = allTargetsHaveData && allTimestampsMatch;
-          logger.debug(String.format("Проверка согласованности для сечения %s: canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
-            unitId, canCheckConsistency, allTargetsHaveData, allTimestampsMatch));
-        } else {
-          logger.debug("UID цикла еще не получен, откладываем проверку согласованности");
-        }
-      }
-
-      // Если у нас есть полный набор данных с одинаковым timestamp
-      if (canCheckConsistency && referenceTimestamp != null) {
-        // Проверяем, изменился ли timestamp с последнего раза
-        Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
-        boolean timeStampChanged = previousTimestamp == null ||
-          !previousTimestamp.equals(referenceTimestamp);
-
-        logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
-          previousTimestamp, referenceTimestamp, timeStampChanged));
-
-        if (timeStampChanged) {
-          logger.debug("Timestamp изменился для сечения " + unitId +
-            ": " + previousTimestamp + " -> " + referenceTimestamp);
-          unitCurrentTimestamps.put(unitId, referenceTimestamp);
-
-          if (!initialDataLoaded) {
-            logger.debug("Первичная загрузка данных для сечения " + unitId);
-            unitInitialDataLoaded.put(unitId, true);
-            saveCurrentParameterValues(unitId, result);
-            saveCurrentTopologyValues(unitId, result);
-            saveCurrentElementValues(unitId, result);
-            saveCurrentInfluencingFactorValues(unitId, result);
-            logger.debug("Начальные данные загружены для сечения " + unitId);
-          } else {
-            logger.debug("Накопление изменений для сечения " + unitId);
-            accumulateChanges(unitId, result);
-            accumulateTopologyChanges(unitId, result);
-            accumulateElementChanges(unitId, result);
-            accumulateInfluencingFactorChanges(unitId, result);
-
-            int paramChanges = accumulatedChanges.size();
-            int topologyChanges = accumulatedTopologyChanges.size();
-            int elementChanges = accumulatedElementChanges.size();
-            int factorChanges = accumulatedInfluencingFactorChanges.size();
-
-            logger.info(String.format("Накопленные изменения для сечения %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
-              unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
-
-            if (!accumulatedChanges.isEmpty() ||
-              !accumulatedTopologyChanges.isEmpty() ||
-              !accumulatedElementChanges.isEmpty() ||
-              !accumulatedInfluencingFactorChanges.isEmpty()) {
-
-              StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
-
-              if (accumulatedResult != null && accumulatedResult.size() > 0) {
-                logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
-
-                singleThreadExecutor.submit(() -> {
-                  try {
-                    if (dataReadyCallback != null) {
-                      logger.info("Отправка всех накопленных изменений в расчетный сервис для сечения: " + unitId);
-                      dataReadyCallback.onDataReady(accumulatedResult, unitId);
-                    }
-                  } catch (Exception e) {
-                    logger.error("Ошибка при обработке данных в callback", e);
-                  }
-                });
-
-                saveCurrentParameterValuesFromAccumulated(unitId);
-                saveCurrentTopologyValuesFromAccumulated(unitId);
-                saveCurrentElementValuesFromAccumulated(unitId);
-                saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
-                logger.info("Текущие значения сохранены как предыдущие");
-
-                accumulatedChanges.clear();
-                accumulatedTopologyChanges.clear();
-                accumulatedElementChanges.clear();
-                accumulatedInfluencingFactorChanges.clear();
-                logger.info("Накопленные изменения очищены \n");
-              }
-            } else {
-              logger.debug("Нет накопленных изменений для отправки");
-            }
-          }
-        } else {
-          logger.debug("Timestamp: " + referenceTimestamp + " не изменился для сечения: " + unitId);
-        }
-      } else {
-        if (cycleNumberUid == null) {
-          logger.debug("UID цикла не определен для сечения: " + unitId);
-        } else if (dataBuffer.get(cycleNumberUid) == null) {
-          logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
-        } else {
-          logger.debug("Неполный набор данных или несовпадение timestamp для сечения: " + unitId);
+        if (cycleNumberUid != null && targetUid.equals(cycleNumberUid)) {
+          logger.debug(String.format("Получен UID цикла: %s, value=%s, timestamp=%s",
+            targetUid, measurement.getValue(), measurement.getTimeStamp()));
         }
       }
     }
+
+    logger.debug(String.format("Для сечения %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
+      unitId, measurementsFound, targetUids.size(), hasCycleNumberInCurrentBatch));
+
+    if (!receivedUids.isEmpty()) {
+      updateDataBuffer(receivedUids, measurementsByUid, dataBuffer, lastTimeStamps, unitId);
+    }
+  }
+
+  private static void updateDataBuffer(Set<String> receivedUids, Map<String, Measurement> measurementsByUid,
+                                       Map<String, Measurement> dataBuffer, Map<String, Instant> lastTimeStamps, String unitId) {
+    logger.debug("Обновление dataBuffer для полученных UID...");
+    for (String receivedUid : receivedUids) {
+      Measurement measurement = measurementsByUid.get(receivedUid);
+      if (measurement != null) {
+        dataBuffer.put(receivedUid, measurement);
+        lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
+        logger.debug("Updated buffer for unit=" + unitId + ", receivedUid=" + receivedUid +
+          ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
+      }
+    }
+    logger.debug(String.format("Buffer обновлен. Текущий размер buffer=%d для сечения '%s'",
+      dataBuffer.size(), unitId));
+  }
+
+  private ConsistencyCheckResult checkDataConsistency(String unitId, String cycleNumberUid,
+                                                      Set<String> targetUids, Map<String, Measurement> dataBuffer) {
+
+    boolean canCheckConsistency = false;
+    Instant referenceTimestamp = null;
+
+    if (cycleNumberUid != null) {
+      Measurement cycleMeasurement = dataBuffer.get(cycleNumberUid);
+      if (cycleMeasurement != null) {
+        referenceTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
+        logger.debug(String.format("Используем timestamp из буфера для UID цикла %s: %s",
+          cycleNumberUid, referenceTimestamp));
+
+        ConsistencyStatus status = checkAllTargetsHaveConsistentData(unitId, targetUids, dataBuffer, referenceTimestamp);
+
+        canCheckConsistency = status.isAllTargetsHaveData() && status.isAllTimestampsMatch();
+
+        logger.debug(String.format("Проверка согласованности для сечения '%s': canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
+          unitId, canCheckConsistency, status.isAllTargetsHaveData(), status.isAllTimestampsMatch()));
+      } else {
+        logger.debug("UID цикла еще не получен, откладываем проверку согласованности");
+      }
+    }
+
+    return new ConsistencyCheckResult(canCheckConsistency, referenceTimestamp);
+  }
+
+  private static ConsistencyStatus checkAllTargetsHaveConsistentData(String unitId, Set<String> targetUids,
+                                                                     Map<String, Measurement> dataBuffer, Instant referenceTimestamp) {
+    // Проверяем, есть ли полный набор данных
+    boolean allTargetsHaveData = true;
+    boolean allTimestampsMatch = true;
+
+    for (String targetUid : targetUids) {
+      Measurement bufferedMeasurement = dataBuffer.get(targetUid);
+      if (bufferedMeasurement == null) {
+        allTargetsHaveData = false;
+        logger.debug("Missing data in buffer for unit " + unitId + ", uid " + targetUid);
+        break;
+      }
+
+      Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
+      if (!referenceTimestamp.equals(bufferedTimestamp)) {
+        allTimestampsMatch = false;
+        logger.debug("Buffer timestamp mismatch for unit " + unitId +
+          ": reference=" + referenceTimestamp + ", actual=" + bufferedTimestamp +
+          " для UID: " + targetUid);
+        break;
+      }
+    }
+
+    return new ConsistencyStatus(allTargetsHaveData, allTimestampsMatch);
+  }
+
+  private void checkAndProcessConsistency(StoreData result, String unitId,
+                                          boolean initialDataLoaded, UnitState unitState, String cycleNumberUid, Set<String> targetUids,
+                                          Map<String, Measurement> dataBuffer) {
+    // Если у нас есть полный набор данных с одинаковым timestamp
+    ConsistencyCheckResult consistencyResult = checkDataConsistency(unitId, cycleNumberUid, targetUids, dataBuffer);
+
+    if (consistencyResult.isCanCheckConsistency() && consistencyResult.getReferenceTimestamp() != null) {
+      processConsistentData(result, unitId, consistencyResult.getReferenceTimestamp(), initialDataLoaded, unitState);
+    } else {
+      logConsistencyCheckFailure(cycleNumberUid, unitId, dataBuffer);
+    }
+  }
+
+  private static void logConsistencyCheckFailure(String cycleNumberUid, String unitId, Map<String, Measurement> dataBuffer) {
+    if (cycleNumberUid == null) {
+      logger.debug("UID цикла не определен для сечения: " + unitId);
+    } else if (dataBuffer.get(cycleNumberUid) == null) {
+      logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
+    } else {
+      logger.debug("Неполный набор данных или несовпадение timestamp для сечения: " + unitId);
+    }
+  }
+
+  private void processConsistentData(StoreData result, String unitId, Instant referenceTimestamp,  boolean initialDataLoaded,
+                                      UnitState unitState) {
+    // Проверяем, изменился ли timestamp с последнего раза
+    Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
+    boolean timeStampChanged = previousTimestamp == null ||
+      !previousTimestamp.equals(referenceTimestamp);
+
+    logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
+      previousTimestamp, referenceTimestamp, timeStampChanged));
+
+    if (timeStampChanged) {
+      logger.debug("Timestamp изменился для сечения " + unitId +
+        ": " + previousTimestamp + " -> " + referenceTimestamp);
+      unitCurrentTimestamps.put(unitId, referenceTimestamp);
+
+      if (!initialDataLoaded) {
+        processInitialDataLoad(result, unitId);
+      } else
+        processAccumulatedChanges(result, unitId, unitState);
+    } else {
+      logger.debug("Timestamp: " + referenceTimestamp + " не изменился для сечения: " + unitId);
+    }
+  }
+
+  private void processInitialDataLoad(StoreData result, String unitId) {
+    logger.debug("Первичная загрузка данных для сечения " + unitId);
+    unitInitialDataLoaded.put(unitId, true);
+    saveCurrentParameterValues(unitId, result);
+    saveCurrentTopologyValues(unitId, result);
+    saveCurrentElementValues(unitId, result);
+    saveCurrentInfluencingFactorValues(unitId, result);
+    logger.debug("Начальные данные загружены для сечения " + unitId);
+  }
+
+  private void processAccumulatedChanges(StoreData result, String unitId, UnitState unitState) {
+    logger.debug("Накопление изменений для сечения " + unitId);
+    accumulateChanges(unitId, result);
+    accumulateTopologyChanges(unitId, result);
+    accumulateElementChanges(unitId, result);
+    accumulateInfluencingFactorChanges(unitId, result);
+
+    int paramChanges = unitState.getAccumulatedChanges().size();
+    int topologyChanges = unitState.getAccumulatedTopologyChanges().size();
+    int elementChanges = unitState.getAccumulatedElementChanges().size();
+    int factorChanges = unitState.getAccumulatedInfluencingFactorChanges().size();
+
+    logger.info(String.format("Накопленные изменения для сечения %s: Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+      unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
+
+    if (!unitState.getAccumulatedChanges().isEmpty() ||
+      !unitState.getAccumulatedTopologyChanges().isEmpty() ||
+      !unitState.getAccumulatedElementChanges().isEmpty() ||
+      !unitState.getAccumulatedInfluencingFactorChanges().isEmpty()) {
+
+      sendAccumlatedChanges(unitId, unitState);
+    } else {
+      logger.debug("Нет накопленных изменений для отправки");
+    }
+  }
+
+  private void sendAccumlatedChanges(String unitId, UnitState unitState) {
+    StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
+
+    if (accumulatedResult != null && accumulatedResult.size() > 0) {
+      logger.debug(String.format("StoreData создан успешно. Размер: %d", accumulatedResult.size()));
+
+      singleThreadExecutor.submit(() -> {
+        try {
+          if (dataReadyCallback != null) {
+            logger.info("Отправка всех накопленных изменений в расчетный сервис для сечения: " + unitId);
+            dataReadyCallback.onDataReady(accumulatedResult, unitId);
+          }
+        } catch (Exception e) {
+          logger.error("Ошибка при обработке данных в callback", e);
+        }
+      });
+
+      saveCurrentValuesFromAccumulated(unitId);
+      clearAccumulatedChanges(unitState);
+    }
+  }
+
+  private static void clearAccumulatedChanges(UnitState unitState) {
+    unitState.getAccumulatedChanges().clear();
+    unitState.getAccumulatedTopologyChanges().clear();
+    unitState.getAccumulatedElementChanges().clear();
+    unitState.getAccumulatedInfluencingFactorChanges().clear();
+    logger.info("Накопленные изменения очищены \n");
+  }
+
+  private void saveCurrentValuesFromAccumulated(String unitId) {
+    saveCurrentParameterValuesFromAccumulated(unitId);
+    saveCurrentTopologyValuesFromAccumulated(unitId);
+    saveCurrentElementValuesFromAccumulated(unitId);
+    saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+    logger.info("Текущие значения сохранены как предыдущие");
   }
 
   /**
