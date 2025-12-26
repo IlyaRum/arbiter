@@ -148,7 +148,7 @@ public class HandleDataService extends ABaseService{
    */
   private void handleProcessedData(StoreData data, String unitId) {
     if (data != null && data.size() > 0) {
-      // Конвертируем данные в JSON
+
       String jsonData = convertStoreDataToJson(Collections.singletonList(data.getUnitDataList()));
 
       if (firstTime) {
