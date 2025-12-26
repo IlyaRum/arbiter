@@ -44,13 +44,13 @@ public class MeasurementDataProcessor {
       StoreData result = processMeasurementsToStoreData(list);
 
       if (firstTime && dataReadyCallback != null) {
-        logger.info("Первичная отправка всех изменений в расчетный сервис. Размер: " + result.size());
+        logger.info("Данные всех измерений подготовлены в StoreData. Размер: " + result.size());
         firstTime = false;
         singleThreadExecutor.submit(() -> {
           try {
             dataReadyCallback.onDataReady(result, null);
           } catch (Exception e) {
-            logger.error("Ошибка при обработке первоначальных данных", e);
+            logger.error("Ошибка при вызове callback для отправки первоначальных данных", e);
           }
         });
       }

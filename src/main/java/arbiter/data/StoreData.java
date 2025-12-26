@@ -4,10 +4,7 @@ import arbiter.data.dto.UnitDto;
 import arbiter.data.model.RepairGroupValue;
 import arbiter.data.model.Unit;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.StringJoiner;
+import java.util.*;
 
 public class StoreData {
   private final List<UnitDto> unitDtoList;
@@ -27,11 +24,19 @@ public class StoreData {
   public int size() {
     return unitDtoList.stream()
       .mapToInt(unitDto -> {
-        int sizeCompositionIds = unitDto.getRepairSchema().getRepairGroupValues().stream()
-          .map(RepairGroupValue::getValues)
-          .flatMap(Collection::stream)
-          .toList()
-          .size();
+        int sizeCompositionIds = 0;
+
+        if (unitDto.getRepairSchema() != null &&
+          unitDto.getRepairSchema().getRepairGroupValues() != null) {
+          sizeCompositionIds = unitDto.getRepairSchema()
+            .getRepairGroupValues().stream()
+            .map(RepairGroupValue::getValues)
+            .filter(Objects::nonNull) // дополнительная проверка
+            .flatMap(Collection::stream)
+            .filter(Objects::nonNull) // проверка элементов
+            .toList()
+            .size();
+        }
 
         return unitDto.getParameters().size() +
           unitDto.getTopologyList().size() +

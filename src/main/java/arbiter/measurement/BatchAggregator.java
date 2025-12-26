@@ -108,7 +108,7 @@ public class BatchAggregator {
 
     // Получаем UID "Номер цикла расчета СМЗУ" для этого сечения
     String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
-    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения " + unitId + ": " + cycleNumberUid);
+    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения '" + unitId + "': " + cycleNumberUid);
 
     initializeUnitStateStructures(unitId);
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
@@ -215,7 +215,6 @@ public class BatchAggregator {
 
   private static ConsistencyStatus checkAllTargetsHaveConsistentData(String unitId, Set<String> targetUids,
                                                                      Map<String, Measurement> dataBuffer, Instant referenceTimestamp) {
-    // Проверяем, есть ли полный набор данных
     boolean allTargetsHaveData = true;
     boolean allTimestampsMatch = true;
 
@@ -243,7 +242,6 @@ public class BatchAggregator {
   private void checkAndProcessConsistency(StoreData result, String unitId,
                                           boolean initialDataLoaded, UnitState unitState, String cycleNumberUid, Set<String> targetUids,
                                           Map<String, Measurement> dataBuffer) {
-    // Если у нас есть полный набор данных с одинаковым timestamp
     ConsistencyCheckResult consistencyResult = checkDataConsistency(unitId, cycleNumberUid, targetUids, dataBuffer);
 
     if (consistencyResult.isCanCheckConsistency() && consistencyResult.getReferenceTimestamp() != null) {
@@ -265,7 +263,6 @@ public class BatchAggregator {
 
   private void processConsistentData(StoreData result, String unitId, Instant referenceTimestamp,  boolean initialDataLoaded,
                                       UnitState unitState) {
-    // Проверяем, изменился ли timestamp с последнего раза
     Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
     boolean timeStampChanged = previousTimestamp == null ||
       !previousTimestamp.equals(referenceTimestamp);
@@ -328,16 +325,20 @@ public class BatchAggregator {
 
     if (accumulatedResult != null && accumulatedResult.size() > 0) {
 
-      singleThreadExecutor.submit(() -> {
-        try {
-          if (dataReadyCallback != null) {
-            logger.info("Отправка всех накопленных изменений в расчетный сервис для сечения: '" + unitId + "'");
+      if (dataReadyCallback != null) {
+        singleThreadExecutor.submit(() -> {
+          try {
+
             dataReadyCallback.onDataReady(accumulatedResult, unitId);
+            logger.info("Вызов dataReadyCallback для сечения: '" + unitId + "'");
+
+          } catch (Exception e) {
+            logger.error("Ошибка при вызове dataReadyCallback для сечения: '" + unitId + "': ", e);
           }
-        } catch (Exception e) {
-          logger.error("Ошибка при обработке данных в callback", e);
-        }
-      });
+        });
+      } else {
+        logger.error("DataReadyCallback = null. CallBack не был вызван!");
+      }
 
       saveCurrentValuesFromAccumulated(unitId);
       clearAccumulatedChanges(unitState);
@@ -360,9 +361,6 @@ public class BatchAggregator {
     logger.info("Текущие значения сохранены как предыдущие");
   }
 
-  /**
-   * Ленивая инициализация структур состояния для юнита
-   */
   private void initializeUnitStateStructures(String unitId) {
     unitDataBuffers.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitLastTimeStamps.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
@@ -386,7 +384,6 @@ public class BatchAggregator {
    */
   private void accumulateChanges(String unitId, StoreData result) {
     Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
-    // Находим UnitDto для этого юнита
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -656,21 +653,6 @@ public class BatchAggregator {
     //TODO [IER] Используем ту же логику, что и в UnitDto
     // Нужно отрефакторить, чтобы использовать один метод
     return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(param.getName(), param.getId());
-  }
-
-  /**
-   * Находит юнит для параметра
-   */
-  private Unit findUnitForParameter(Parameter param) {
-    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
-    for (Unit unit : units) {
-      for (Parameter unitParam : unit.getParameters()) {
-        if (unitParam.getId().equals(param.getId())) {
-          return unit;
-        }
-      }
-    }
-    return null;
   }
 
   /**
