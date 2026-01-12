@@ -23,6 +23,15 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class MeasurementDataProcessorTest {
 
+  private static final String UNIT_NAME = "unit name";
+  private static final String PARAM_ID = "parameterId";
+  private static final String PARAM_NAME = "param name";
+  private static final String TOPOLOGY_ID = "test-topology-id";
+  private static final String ELEMENT_ID = "test-element-id";
+  private static final String FACTOR_ID = "test-factor-id";
+  private static final String COMPOSITION_ID = "test-composition-id";
+  private static final int Q_CODE = 1879048194;
+
   @Mock
   private DependencyInjector dependencyInjector;
 
@@ -33,11 +42,13 @@ class MeasurementDataProcessorTest {
   private UnitCollection mockUnitCollection;
 
   private MeasurementDataProcessor processor;
+  private Instant currentTime;
 
   @BeforeEach
   void setUp() {
     processor = new MeasurementDataProcessor(dependencyInjector);
     processor.setDataReadyCallback(dataReadyCallback);
+    currentTime = Instant.now();
   }
 
   @Test
@@ -60,62 +71,50 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesParameters() {
-    String paramId = "parameterId";
-    String paramName = "param name";
     double paramValue = 42.5;
-    Instant paramTime = Instant.now();
-    int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(paramId, paramValue, paramTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
+    MeasurementList list = createMeasurementList(measurement);
 
-    Unit unit = mock(Unit.class);
-    when(unit.getName()).thenReturn("unit name");
+    Unit unit = createMockUnit();
 
-    Parameter parameter = mock(Parameter.class);
-    when(parameter.getId()).thenReturn(paramId);
-    when(parameter.getName()).thenReturn(paramName);
-    when(parameter.isDataDifferent(eq(paramValue), eq(paramTime))).thenReturn(true);
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
 
     List<Parameter> parameters = new ArrayList<>();
     parameters.add(parameter);
 
-    when(unit.getParameters()).thenReturn(parameters);
-    when(unit.getTopologies()).thenReturn(Collections.emptyList());
-    when(unit.getElements()).thenReturn(Collections.emptyList());
-    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
-    when(unit.getRepairSchema()).thenReturn(null);
+    setupUnitWithParameters(unit, parameters);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
 
-    when(mockUnitCollection.getUnits()).thenReturn(units);
-    when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
+    setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
 
-    verify(parameter).setData(eq(paramValue), eq(paramTime), eq(qCode));
+    verify(parameter).setData(eq(paramValue), eq(currentTime), eq(Q_CODE));
     verify(dataReadyCallback, timeout(1000)).onDataReady(any(StoreData.class), isNull());
   }
+
+
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesTopologies() {
     String topologyId = "test-topology-id";
     double topologyValue = 1.0;
-    Instant topologyTime = Instant.now();
+//    Instant topologyTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(topologyId, topologyValue, topologyTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(topologyId, topologyValue, currentTime, qCode);
+    MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
     Topology topology = mock(Topology.class);
 
     when(topology.getId()).thenReturn(topologyId);
-    when(topology.isDataDifferent(eq(topologyValue), eq(topologyTime))).thenReturn(true);
+    when(topology.isDataDifferent(eq(topologyValue), eq(currentTime))).thenReturn(true);
 
     List<Topology> topologies = new ArrayList<>();
     topologies.add(topology);
@@ -129,12 +128,11 @@ class MeasurementDataProcessorTest {
     List<Unit> units = new ArrayList<>();
     units.add(unit);
 
-    when(mockUnitCollection.getUnits()).thenReturn(units);
-    when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
+    setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
 
-    verify(topology).setData(eq(topologyValue), eq(topologyTime), eq(qCode));
+    verify(topology).setData(eq(topologyValue), eq(currentTime), eq(qCode));
   }
 
   @Test
@@ -144,16 +142,15 @@ class MeasurementDataProcessorTest {
     Instant elementTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(elementId, elementValue, elementTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(elementId, elementValue, currentTime, qCode);
+    MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
     Element element = mock(Element.class);
 
     when(element.getId()).thenReturn(elementId);
-    when(element.isDataDifferent(eq(elementValue), eq(elementTime))).thenReturn(true);
+    when(element.isDataDifferent(eq(elementValue), eq(currentTime))).thenReturn(true);
 
     List<Element> elements = new ArrayList<>();
     elements.add(element);
@@ -172,7 +169,7 @@ class MeasurementDataProcessorTest {
 
     processor.onDataReceived(list);
 
-    verify(element).setData(eq(elementValue), eq(elementTime), eq(qCode));
+    verify(element).setData(eq(elementValue), eq(currentTime), eq(qCode));
   }
 
   @Test
@@ -182,16 +179,15 @@ class MeasurementDataProcessorTest {
     Instant factorTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(factorId, factorValue, factorTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(factorId, factorValue, currentTime, qCode);
+    MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
 
     InfluencingFactor factor = mock(InfluencingFactor.class);
     when(factor.getId()).thenReturn(factorId);
-    when(factor.isDataDifferent(eq(factorValue), eq(factorTime))).thenReturn(true);
+    when(factor.isDataDifferent(eq(factorValue), eq(currentTime))).thenReturn(true);
 
     List<InfluencingFactor> factors = new ArrayList<>();
     factors.add(factor);
@@ -210,7 +206,7 @@ class MeasurementDataProcessorTest {
 
     processor.onDataReceived(list);
 
-    verify(factor).setData(eq(factorValue), eq(factorTime), eq(qCode));
+    verify(factor).setData(eq(factorValue), eq(currentTime), eq(qCode));
   }
 
   @Test
@@ -221,9 +217,8 @@ class MeasurementDataProcessorTest {
     Instant compositionTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(compositionId, compositionValue, compositionTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(compositionId, compositionValue, currentTime, qCode);
+    MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
@@ -232,7 +227,7 @@ class MeasurementDataProcessorTest {
     Composition composition = mock(Composition.class);
 
     when(composition.getId()).thenReturn(compositionId);
-    when(composition.isDataDifferent(eq(compositionValue), eq(compositionTime))).thenReturn(true);
+    when(composition.isDataDifferent(eq(compositionValue), eq(currentTime))).thenReturn(true);
 
     List<Composition> compositions = new ArrayList<>();
     compositions.add(composition);
@@ -258,25 +253,24 @@ class MeasurementDataProcessorTest {
 
     processor.onDataReceived(list);
 
-    verify(composition).setData(eq(compositionValue), eq(compositionTime), eq(qCode));
+    verify(composition).setData(eq(compositionValue), eq(currentTime), eq(qCode));
   }
 
   @Test
   void testOnDataReceived_DataNotDifferent_DoesNotUpdate() {
     String paramId = "test-param-id";
     double paramValue = 42.5;
-    Instant paramTime = Instant.now();
+//    Instant paramTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(paramId, paramValue, paramTime, qCode);
-    MeasurementList list = new MeasurementList();
-    list.add(measurement);
+    Measurement measurement = createMeasurement(paramId, paramValue, currentTime, qCode);
+    MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = mock(Unit.class);
     Parameter parameter = mock(Parameter.class);
 
     when(parameter.getId()).thenReturn(paramId);
-    when(parameter.isDataDifferent(eq(paramValue), eq(paramTime))).thenReturn(false); // Data hasn't changed
+    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(false); // Data hasn't changed
 
     List<Parameter> parameters = new ArrayList<>();
     parameters.add(parameter);
@@ -300,8 +294,7 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_ExceptionInProcessing_LogsError() {
-    MeasurementList list = new MeasurementList();
-    list.add(createMeasurement("test-id", 1.0, Instant.now(), 1));
+    MeasurementList list = createMeasurementList(createMeasurement("test-id", 1.0, Instant.now(), 1));
 
     when(dependencyInjector.getUnitCollection()).thenThrow(new RuntimeException("Test exception"));
 
@@ -317,19 +310,18 @@ class MeasurementDataProcessorTest {
     String paramId = "parameterId";
     String paramName = "param name";
     double paramValue = 42.5;
-    Instant paramTime = Instant.now();
+//    Instant paramTime = Instant.now();
+    Instant secondTime = Instant.now();
     int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(paramId, paramValue, paramTime, qCode);
+    Measurement measurement = createMeasurement(paramId, paramValue, currentTime, qCode);
     firstList.add(measurement);
 
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
 
-    Parameter parameter = mock(Parameter.class);
-    when(parameter.getId()).thenReturn(paramId);
-    when(parameter.getName()).thenReturn(paramName);
-    when(parameter.isDataDifferent(eq(paramValue), eq(paramTime))).thenReturn(true);
+    Parameter parameter = createMockParameter(paramId, paramName);
+    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
 
     List<Parameter> parameters = new ArrayList<>();
     parameters.add(parameter);
@@ -354,11 +346,11 @@ class MeasurementDataProcessorTest {
 
     MeasurementList secondList = new MeasurementList();
     double paramValue2 = 50.0;
-    Instant paramTime2 = Instant.now();
+//    Instant paramTime2 = Instant.now();
     int qCode2 = 1879048194;
 
-    secondList.add(createMeasurement(paramId, paramValue2, paramTime2, qCode2));
-    when(parameter.isDataDifferent(eq(paramValue2), eq(paramTime2))).thenReturn(true);
+    secondList.add(createMeasurement(paramId, paramValue2, secondTime, qCode2));
+    when(parameter.isDataDifferent(eq(paramValue2), eq(secondTime))).thenReturn(true);
 
     processor.onDataReceived(secondList);
 
@@ -385,5 +377,69 @@ class MeasurementDataProcessorTest {
       node.put("value", value);
       return node;
     }
+  }
+
+  private void setupDependencyInjectorWithUnits(List<Unit> units) {
+    when(mockUnitCollection.getUnits()).thenReturn(units);
+    when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
+  }
+
+  private static Parameter createMockParameter(String paramId, String paramName) {
+    Parameter parameter = mock(Parameter.class);
+    when(parameter.getId()).thenReturn(paramId);
+    when(parameter.getName()).thenReturn(paramName);
+    return parameter;
+  }
+
+  private static Unit createMockUnit() {
+    Unit unit = mock(Unit.class);
+    when(unit.getName()).thenReturn(UNIT_NAME);
+    return unit;
+  }
+
+  private static MeasurementList createMeasurementList(Measurement measurement) {
+    MeasurementList list = new MeasurementList();
+    list.add(measurement);
+    return list;
+  }
+
+  private void setupUnitWithParameters(Unit unit, List<Parameter> parameters) {
+    when(unit.getParameters()).thenReturn(parameters);
+    when(unit.getTopologies()).thenReturn(Collections.emptyList());
+    when(unit.getElements()).thenReturn(Collections.emptyList());
+    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
+    when(unit.getRepairSchema()).thenReturn(null);
+  }
+
+  private void setupUnitWithTopologies(Unit unit, List<Topology> topologies) {
+    when(unit.getParameters()).thenReturn(Collections.emptyList());
+    when(unit.getTopologies()).thenReturn(topologies);
+    when(unit.getElements()).thenReturn(Collections.emptyList());
+    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
+    when(unit.getRepairSchema()).thenReturn(null);
+  }
+
+  private void setupUnitWithElements(Unit unit, List<Element> elements) {
+    when(unit.getParameters()).thenReturn(Collections.emptyList());
+    when(unit.getTopologies()).thenReturn(Collections.emptyList());
+    when(unit.getElements()).thenReturn(elements);
+    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
+    when(unit.getRepairSchema()).thenReturn(null);
+  }
+
+  private void setupUnitWithInfluencingFactors(Unit unit, List<InfluencingFactor> factors) {
+    when(unit.getParameters()).thenReturn(Collections.emptyList());
+    when(unit.getTopologies()).thenReturn(Collections.emptyList());
+    when(unit.getElements()).thenReturn(Collections.emptyList());
+    when(unit.getInfluencingFactors()).thenReturn(factors);
+    when(unit.getRepairSchema()).thenReturn(null);
+  }
+
+  private void setupUnitWithRepairSchema(Unit unit, RepairSchema repairSchema) {
+    when(unit.getParameters()).thenReturn(Collections.emptyList());
+    when(unit.getTopologies()).thenReturn(Collections.emptyList());
+    when(unit.getElements()).thenReturn(Collections.emptyList());
+    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
+    when(unit.getRepairSchema()).thenReturn(repairSchema);
   }
 }
