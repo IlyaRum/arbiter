@@ -73,7 +73,7 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesParameters() {
-    String paramId = "df092d1f-b435-4873-85af-39fa675b611e";
+    String paramId = "parameterId";
     String paramName = "param name";
     double paramValue = 42.5;
     Instant paramTime = Instant.now();
@@ -359,18 +359,53 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_SecondTime_CreatesBatchAggregator() {
-    MeasurementList list = createTestMeasurementList();
+    MeasurementList firstList = new MeasurementList();
+
+    String paramId = "parameterId";
+    String paramName = "param name";
+    double paramValue = 42.5;
+    Instant paramTime = Instant.now();
+    int qCode = 1879048194;
+
+    Measurement measurement = createMeasurement(paramId, paramValue, paramTime, qCode);
+    firstList.add(measurement);
+
+    Unit unit = mock(Unit.class);
+    when(unit.getName()).thenReturn("unit name");
+
+    Parameter parameter = mock(Parameter.class);
+    when(parameter.getId()).thenReturn(paramId);
+    when(parameter.getName()).thenReturn(paramName);
+    when(parameter.isDataDifferent(eq(paramValue), eq(paramTime))).thenReturn(true);
+
+    List<Parameter> parameters = new ArrayList<>();
+    parameters.add(parameter);
+
+    when(unit.getParameters()).thenReturn(parameters);
+    when(unit.getTopologies()).thenReturn(Collections.emptyList());
+    when(unit.getElements()).thenReturn(Collections.emptyList());
+    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
+    when(unit.getRepairSchema()).thenReturn(null);
+
+    List<Unit> units = new ArrayList<>();
+    units.add(unit);
 
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
-    when(mockUnitCollection.getUnits()).thenReturn(Collections.emptyList());
+    when(mockUnitCollection.getUnits()).thenReturn(units);
 
-    processor.onDataReceived(list);
+    processor.onDataReceived(firstList);
 
+    verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), isNull());
     reset(dataReadyCallback);
-    processor.setDataReadyCallback(dataReadyCallback);
+    verify(dataReadyCallback, times(0)).onDataReady(any(StoreData.class), isNull());
 
     MeasurementList secondList = new MeasurementList();
-    secondList.add(createMeasurement("test-id-2", 2.0, Instant.now(), 1));
+    double paramValue2 = 50.0;
+    Instant paramTime2 = Instant.now();
+    int qCode2 = 1879048194;
+
+    secondList.add(createMeasurement(paramId, paramValue2, paramTime2, qCode2));
+    when(parameter.isDataDifferent(eq(paramValue2), eq(paramTime2))).thenReturn(true);
 
     processor.onDataReceived(secondList);
 
