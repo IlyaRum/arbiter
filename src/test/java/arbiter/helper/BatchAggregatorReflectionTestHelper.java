@@ -17,11 +17,11 @@ import java.util.Set;
 /**
  * Класс для тестирования приватных методов
  */
-public class ReflectionTestHelper {
+public class BatchAggregatorReflectionTestHelper {
 
   private final BatchAggregator batchAggregator;
 
-  public ReflectionTestHelper(BatchAggregator batchAggregator) {
+  public BatchAggregatorReflectionTestHelper(BatchAggregator batchAggregator) {
     this.batchAggregator = batchAggregator;
   }
 

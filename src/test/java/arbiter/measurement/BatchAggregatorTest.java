@@ -6,7 +6,7 @@ import arbiter.data.UnitCollection;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
-import arbiter.helper.ReflectionTestHelper;
+import arbiter.helper.BatchAggregatorReflectionTestHelper;
 import arbiter.measurement.state.ConsistencyStatus;
 import arbiter.measurement.state.UnitState;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,12 +54,12 @@ public class BatchAggregatorTest {
   private BatchAggregator batchAggregator;
   private Map<String, Unit> mockUnits;
   private Instant testTimestamp;
-  private ReflectionTestHelper reflectionTestHelper;
+  private BatchAggregatorReflectionTestHelper batchAggregatorReflectionTestHelper;
 
   @BeforeEach
   void setUp() {
     batchAggregator = new BatchAggregator(dependencyInjector, dataReadyCallback, singleThreadExecutor);
-    reflectionTestHelper = new ReflectionTestHelper(batchAggregator);
+    batchAggregatorReflectionTestHelper = new BatchAggregatorReflectionTestHelper(batchAggregator);
     mockUnits = new HashMap<>();
     testTimestamp = Instant.now();
     when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
@@ -86,14 +86,14 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(measurements, storeData);
 
-    Map<String, Measurement> dataBuffer = reflectionTestHelper.getUnitDataBuffers().get(config.getUnitName());
+    Map<String, Measurement> dataBuffer = batchAggregatorReflectionTestHelper.getUnitDataBuffers().get(config.getUnitName());
     assertNotNull(dataBuffer);
     assertEquals(4, dataBuffer.size());
 
-    Boolean initialDataLoaded = reflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
+    Boolean initialDataLoaded = batchAggregatorReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
     assertTrue(initialDataLoaded);
 
-    Map<String, Double> previousValues = reflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
+    Map<String, Double> previousValues = batchAggregatorReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
     assertNotNull(previousValues);
   }
 
@@ -118,10 +118,10 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(firstMeasurements, firstStoreData);
 
-    Boolean initialDataLoader = reflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
+    Boolean initialDataLoader = batchAggregatorReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
     assertTrue(initialDataLoader, "Initial data should be loaded after first call");
 
-    Map<String, Double> previousValuesFirst  = reflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
+    Map<String, Double> previousValuesFirst  = batchAggregatorReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
     assertNotNull(previousValuesFirst, "Previous values should be saved");
     assertEquals(config.getDp1Value(), previousValuesFirst.get(config.getDp1Uid()), 0.001, "Previous value for param1 should be " + config.getDp1Value());
     assertEquals(config.getDp2Value(), previousValuesFirst.get(config.getDp2Uid()), 0.001, "Previous value for param2 should be " + config.getDp2Value());
@@ -151,16 +151,16 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(secondMeasurements, secondStoreData);
 
-    Map<String, Double> previousValuesSecond  = reflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
+    Map<String, Double> previousValuesSecond  = batchAggregatorReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
     assertNotNull(previousValuesSecond, "Previous values should be saved");
     assertEquals(newConfig.getDp1Value(), previousValuesFirst.get(newConfig.getDp1Uid()), 0.001, "Previous value for param1 should be " + newConfig.getDp1Value());
     assertEquals(newConfig.getDp2Value(), previousValuesFirst.get(newConfig.getDp2Uid()), 0.001, "Previous value for param2 should be " + newConfig.getDp2Value());
     assertEquals(newConfig.getDp3Value(), previousValuesFirst.get(newConfig.getDp3Uid()), 0.001, "Previous value for param3 should be " + newConfig.getDp3Value());
 
-    Instant currentTimestamp = reflectionTestHelper.getUnitCurrentTimestamps().get(config.getUnitName());
+    Instant currentTimestamp = batchAggregatorReflectionTestHelper.getUnitCurrentTimestamps().get(config.getUnitName());
     assertEquals(secondTimestamp, currentTimestamp, "Timestamp should be updated");
 
-    Map<String, Parameter> accumulatedChanges = reflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName());
+    Map<String, Parameter> accumulatedChanges = batchAggregatorReflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName());
     assertTrue(accumulatedChanges == null || accumulatedChanges.isEmpty(),
       "Accumulated changes should be cleared after sending");
 
@@ -188,11 +188,11 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(measurements, storeData);
 
-    Map<String, Measurement> dataBuffer = reflectionTestHelper.getUnitDataBuffers().get(config.getUnitName());
+    Map<String, Measurement> dataBuffer = batchAggregatorReflectionTestHelper.getUnitDataBuffers().get(config.getUnitName());
     assertNotNull(dataBuffer);
     assertEquals(2, dataBuffer.size());
 
-    Boolean initialDataLoaded = reflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
+    Boolean initialDataLoaded = batchAggregatorReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
     assertFalse(initialDataLoaded);
   }
 
@@ -226,11 +226,11 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(measurements, storeData);
 
-    assertTrue(reflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit1Config.getUnitName()));
-    assertTrue(reflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit2Config.getUnitName()));
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit1Config.getUnitName()));
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit2Config.getUnitName()));
 
-    Map<String, Measurement> buffer1 = reflectionTestHelper.getUnitDataBuffers().get(unit1Config.getUnitName());
-    Map<String, Measurement> buffer2 = reflectionTestHelper.getUnitDataBuffers().get(unit2Config.getUnitName());
+    Map<String, Measurement> buffer1 = batchAggregatorReflectionTestHelper.getUnitDataBuffers().get(unit1Config.getUnitName());
+    Map<String, Measurement> buffer2 = batchAggregatorReflectionTestHelper.getUnitDataBuffers().get(unit2Config.getUnitName());
 
     assertEquals(4, buffer1.size());
     assertEquals(4, buffer2.size());
@@ -281,11 +281,11 @@ public class BatchAggregatorTest {
 
     batchAggregator.aggregateData(secondMeasurements, secondStoreData);
 
-    Map<String, Parameter> accumulatedChanges = reflectionTestHelper.getUnitAccumulatedChanges().get(newConfig.getUnitName());
+    Map<String, Parameter> accumulatedChanges = batchAggregatorReflectionTestHelper.getUnitAccumulatedChanges().get(newConfig.getUnitName());
     assertTrue(accumulatedChanges == null || accumulatedChanges.isEmpty(),
       "Accumulated changes should be cleared after sending");
 
-    Map<String, Double> previousValues  = reflectionTestHelper.getUnitPreviousParameterValues().get(newConfig.getUnitName());
+    Map<String, Double> previousValues  = batchAggregatorReflectionTestHelper.getUnitPreviousParameterValues().get(newConfig.getUnitName());
     assertNotNull(previousValues, "Previous values should be saved");
     assertEquals(99999.0, previousValues.get(newConfig.getDp1Uid()), 0.001, "Previous value for param1 should be 99999.0");
 
@@ -309,7 +309,7 @@ public class BatchAggregatorTest {
       createMeasurement(config.getDp3Uid(), config.getDp3Value(), testTimestamp)
     );
 
-    Map<String, Measurement> result = reflectionTestHelper.invokeCreateMeasurementsMap(measurements);
+    Map<String, Measurement> result = batchAggregatorReflectionTestHelper.invokeCreateMeasurementsMap(measurements);
 
     assertNotNull(result);
     assertEquals(3, result.size());
@@ -329,7 +329,7 @@ public class BatchAggregatorTest {
     Instant referenceTimestamp = testTimestamp.plusSeconds(2);
     dataBuffer.put(config.getCycleUid(), createMeasurement(config.getCycleUid(), config.getCycleValue(), referenceTimestamp));
 
-    ConsistencyStatus status = reflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, referenceTimestamp);
+    ConsistencyStatus status = batchAggregatorReflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, referenceTimestamp);
 
     assertTrue(status.isAllTargetsHaveData());
     assertFalse(status.isAllTimestampsMatch());
@@ -343,7 +343,7 @@ public class BatchAggregatorTest {
     dataBuffer.put(config.getDp1Uid(), createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp));
     dataBuffer.put(config.getDp2Uid(), createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp));
 
-    ConsistencyStatus status = reflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, testTimestamp);
+    ConsistencyStatus status = batchAggregatorReflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, testTimestamp);
 
     assertFalse(status.isAllTargetsHaveData());
   }
@@ -360,17 +360,17 @@ public class BatchAggregatorTest {
     Map<String, Element> accumulatedElementChanges = new ConcurrentHashMap<>();
     Map<String, InfluencingFactor> accumulatedFactorChanges = new ConcurrentHashMap<>();
 
-    reflectionTestHelper.getUnitAccumulatedChanges().put(config.getUnitName(), accumulatedChanges);
-    reflectionTestHelper.getUnitAccumulatedTopologyChanges().put(config.getUnitName(), accumulatedTopologyChanges);
-    reflectionTestHelper.getUnitAccumulatedElementChanges().put(config.getUnitName(), accumulatedElementChanges);
-    reflectionTestHelper.getUnitAccumulatedFactorChanges().put(config.getUnitName(), accumulatedFactorChanges);
+    batchAggregatorReflectionTestHelper.getUnitAccumulatedChanges().put(config.getUnitName(), accumulatedChanges);
+    batchAggregatorReflectionTestHelper.getUnitAccumulatedTopologyChanges().put(config.getUnitName(), accumulatedTopologyChanges);
+    batchAggregatorReflectionTestHelper.getUnitAccumulatedElementChanges().put(config.getUnitName(), accumulatedElementChanges);
+    batchAggregatorReflectionTestHelper.getUnitAccumulatedFactorChanges().put(config.getUnitName(), accumulatedFactorChanges);
 
     Map<String, Double> previousParameterValues = new ConcurrentHashMap<>();
     previousParameterValues.put(config.getDp1Uid(), config.getDp1Value());
     previousParameterValues.put(config.getDp2Uid(), config.getDp2Value());
     previousParameterValues.put(config.getDp3Uid(), config.getDp3Value());
 
-    reflectionTestHelper.getUnitPreviousParameterValues().put(config.getUnitName(), previousParameterValues);
+    batchAggregatorReflectionTestHelper.getUnitPreviousParameterValues().put(config.getUnitName(), previousParameterValues);
 
     doThrow(new RuntimeException("Test callback exception"))
       .when(dataReadyCallback).onDataReady(any(StoreData.class), anyString());
@@ -381,15 +381,15 @@ public class BatchAggregatorTest {
       return null;
     }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    reflectionTestHelper.invokeSendAccumulatedChanges(config.getUnitName(), createUnitState(accumulatedChanges, accumulatedTopologyChanges,accumulatedElementChanges,accumulatedFactorChanges));
+    batchAggregatorReflectionTestHelper.invokeSendAccumulatedChanges(config.getUnitName(), createUnitState(accumulatedChanges, accumulatedTopologyChanges,accumulatedElementChanges,accumulatedFactorChanges));
 
     verify(singleThreadExecutor, times(1)).submit(any(Runnable.class));
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
 
-    assertTrue(reflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName()).isEmpty(),"Accumulated parameter changes should be cleared even when executor throws exception");
-    assertTrue(reflectionTestHelper.getUnitAccumulatedTopologyChanges().get(config.getUnitName()).isEmpty(),"Accumulated topology changes should be cleared even when executor throws exception");
-    assertTrue(reflectionTestHelper.getUnitAccumulatedElementChanges().get(config.getUnitName()).isEmpty(),"Accumulated elements changes should be cleared even when executor throws exception");
-    assertTrue(reflectionTestHelper.getUnitAccumulatedFactorChanges().get(config.getUnitName()).isEmpty(),"Accumulated influencing factor changes should be cleared even when executor throws exception");
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName()).isEmpty(),"Accumulated parameter changes should be cleared even when executor throws exception");
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitAccumulatedTopologyChanges().get(config.getUnitName()).isEmpty(),"Accumulated topology changes should be cleared even when executor throws exception");
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitAccumulatedElementChanges().get(config.getUnitName()).isEmpty(),"Accumulated elements changes should be cleared even when executor throws exception");
+    assertTrue(batchAggregatorReflectionTestHelper.getUnitAccumulatedFactorChanges().get(config.getUnitName()).isEmpty(),"Accumulated influencing factor changes should be cleared even when executor throws exception");
   }
 
   public static TestDataConfig createUnit1Config(Instant timestamp){
