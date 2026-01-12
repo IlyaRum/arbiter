@@ -24,8 +24,8 @@ import static org.mockito.Mockito.*;
 class MeasurementDataProcessorTest {
 
   private static final String UNIT_NAME = "unit name";
-  private static final String PARAM_ID = "parameterId";
   private static final String PARAM_NAME = "param name";
+  private static final String PARAM_ID = "test-parameter-id";
   private static final String TOPOLOGY_ID = "test-topology-id";
   private static final String ELEMENT_ID = "test-element-id";
   private static final String FACTOR_ID = "test-factor-id";
@@ -149,7 +149,6 @@ class MeasurementDataProcessorTest {
     verify(element).setData(eq(elementValue), eq(currentTime), eq(Q_CODE));
   }
 
-
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesInfluencingFactors() {
     double factorValue = 5.5;
@@ -176,7 +175,6 @@ class MeasurementDataProcessorTest {
 
     verify(factor).setData(eq(factorValue), eq(currentTime), eq(Q_CODE));
   }
-
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesRepairSchema() {
@@ -242,38 +240,28 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_SecondTime_CreatesBatchAggregator() {
-    MeasurementList firstList = new MeasurementList();
-
-    String paramId = "parameterId";
-    String paramName = "param name";
-    double paramValue = 42.5;
-//    Instant paramTime = Instant.now();
+    double firstValue = 42.5;
+    double secondValue = 50.0;
     Instant secondTime = Instant.now();
-    int qCode = 1879048194;
 
-    Measurement measurement = createMeasurement(paramId, paramValue, currentTime, qCode);
-    firstList.add(measurement);
+    Measurement measurement = createMeasurement(PARAM_ID, firstValue, currentTime, Q_CODE);
+    MeasurementList firstList = createMeasurementList(measurement);
 
-    Unit unit = mock(Unit.class);
-    when(unit.getName()).thenReturn("unit name");
+    Unit unit = createMockUnit();
 
-    Parameter parameter = createMockParameter(paramId, paramName);
-    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(eq(firstValue), eq(currentTime))).thenReturn(true);
+    when(parameter.isDataDifferent(eq(secondValue), eq(secondTime))).thenReturn(true);
 
     List<Parameter> parameters = new ArrayList<>();
     parameters.add(parameter);
 
-    when(unit.getParameters()).thenReturn(parameters);
-    when(unit.getTopologies()).thenReturn(Collections.emptyList());
-    when(unit.getElements()).thenReturn(Collections.emptyList());
-    when(unit.getInfluencingFactors()).thenReturn(Collections.emptyList());
-    when(unit.getRepairSchema()).thenReturn(null);
+    setupUnitWithParameters(unit,parameters);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
 
-    when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
-    when(mockUnitCollection.getUnits()).thenReturn(units);
+    setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(firstList);
 
@@ -281,13 +269,8 @@ class MeasurementDataProcessorTest {
     reset(dataReadyCallback);
     verify(dataReadyCallback, times(0)).onDataReady(any(StoreData.class), isNull());
 
-    MeasurementList secondList = new MeasurementList();
-    double paramValue2 = 50.0;
-//    Instant paramTime2 = Instant.now();
-    int qCode2 = 1879048194;
-
-    secondList.add(createMeasurement(paramId, paramValue2, secondTime, qCode2));
-    when(parameter.isDataDifferent(eq(paramValue2), eq(secondTime))).thenReturn(true);
+    Measurement secondMeasurement = createMeasurement(PARAM_ID, secondValue, secondTime, Q_CODE);
+    MeasurementList secondList = createMeasurementList(secondMeasurement);
 
     processor.onDataReceived(secondList);
 
