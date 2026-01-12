@@ -102,7 +102,6 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesTopologies() {
-    // Arrange
     String topologyId = "test-topology-id";
     double topologyValue = 1.0;
     Instant topologyTime = Instant.now();
@@ -134,19 +133,13 @@ class MeasurementDataProcessorTest {
     when(mockUnitCollection.getUnits()).thenReturn(units);
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
 
-//    when(dependencyInjector.getUnitCollection()).thenReturn(realUnitCollection);
-//    when(realUnitCollection.getUnits()).thenReturn(units);
-
-    // Act
     processor.onDataReceived(list);
 
-    // Assert
     verify(topology).setData(eq(topologyValue), eq(topologyTime), eq(qCode));
   }
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesElements() {
-    // Arrange
     String elementId = "test-element-id";
     double elementValue = 10.5;
     Instant elementTime = Instant.now();
@@ -156,7 +149,6 @@ class MeasurementDataProcessorTest {
     MeasurementList list = new MeasurementList();
     list.add(measurement);
 
-    // Create mock unit with element
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
     Element element = mock(Element.class);
@@ -179,16 +171,13 @@ class MeasurementDataProcessorTest {
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
     when(mockUnitCollection.getUnits()).thenReturn(units);
 
-    // Act
     processor.onDataReceived(list);
 
-    // Assert
     verify(element).setData(eq(elementValue), eq(elementTime), eq(qCode));
   }
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesInfluencingFactors() {
-    // Arrange
     String factorId = "test-factor-id";
     double factorValue = 5.5;
     Instant factorTime = Instant.now();
@@ -198,26 +187,15 @@ class MeasurementDataProcessorTest {
     MeasurementList list = new MeasurementList();
     list.add(measurement);
 
-    // Create mock unit with influencing factor
-//    Unit unit = createTestUnit();
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
-
-
-//    InfluencingFactor factor = new InfluencingFactor(factorId, "Test Factor");
-//    factor.setData(factorValue - 1.0, factorTime.minusSeconds(1), 0);
 
     InfluencingFactor factor = mock(InfluencingFactor.class);
     when(factor.getId()).thenReturn(factorId);
     when(factor.isDataDifferent(eq(factorValue), eq(factorTime))).thenReturn(true);
 
-//    when(factor.getId()).thenReturn(factorId);
-//    when(factor.isDataDifferent(eq(factorValue), eq(factorTime))).thenReturn(true);
-
     List<InfluencingFactor> factors = new ArrayList<>();
     factors.add(factor);
-
-    //reflectionTestHelper.setField(unit, "influencingFactors", factors);
 
     when(unit.getParameters()).thenReturn(Collections.emptyList());
     when(unit.getTopologies()).thenReturn(Collections.emptyList());
@@ -231,13 +209,8 @@ class MeasurementDataProcessorTest {
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
     when(mockUnitCollection.getUnits()).thenReturn(units);
 
-    // Act
     processor.onDataReceived(list);
 
-    // Assert
-//    assertEquals(factorValue, factor.getValue(), 0.001);
-//    assertEquals(factorTime, factor.getTime());
-//    assertEquals(qCode, factor.getqCode());
     verify(factor).setData(eq(factorValue), eq(factorTime), eq(qCode));
   }
 
@@ -253,7 +226,6 @@ class MeasurementDataProcessorTest {
     MeasurementList list = new MeasurementList();
     list.add(measurement);
 
-    // Create mock unit with repair schema
     Unit unit = mock(Unit.class);
     when(unit.getName()).thenReturn("unit name");
     RepairSchema repairSchema = mock(RepairSchema.class);
@@ -285,10 +257,8 @@ class MeasurementDataProcessorTest {
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
     when(mockUnitCollection.getUnits()).thenReturn(units);
 
-    // Act
     processor.onDataReceived(list);
 
-    // Assert
     verify(composition).setData(eq(compositionValue), eq(compositionTime), eq(qCode));
   }
 
