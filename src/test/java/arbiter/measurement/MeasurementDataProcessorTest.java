@@ -38,7 +38,6 @@ class MeasurementDataProcessorTest {
   void setUp() {
     processor = new MeasurementDataProcessor(dependencyInjector);
     processor.setDataReadyCallback(dataReadyCallback);
-
   }
 
   @Test
@@ -370,7 +369,7 @@ class MeasurementDataProcessorTest {
     return new Measurement(uid, value, time, qCode);
   }
 
-  // Helper class to create Measurement instances for testing
+  // Helper class for testing
   private static class Measurement extends arbiter.measurement.Measurement {
     public Measurement(String uid, double value, Instant time, int qCode) {
       super(createJsonNode(uid, value, time, qCode));
