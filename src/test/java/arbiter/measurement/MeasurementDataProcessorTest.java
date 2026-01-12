@@ -1,33 +1,27 @@
 package arbiter.measurement;
 
-import arbiter.config.TestUnitCollection;
-import arbiter.data.*;
-import arbiter.data.dto.UnitDto;
+import arbiter.data.StoreData;
+import arbiter.data.UnitCollection;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
-import arbiter.helper.MeasurementDataReflectionTestHelper;
 import io.vertx.core.Vertx;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-/**
- * Unit tests for MeasurementDataProcessor
- */
 @ExtendWith(MockitoExtension.class)
 class MeasurementDataProcessorTest {
 
@@ -38,12 +32,8 @@ class MeasurementDataProcessorTest {
   private DataReadyCallback dataReadyCallback;
 
   @Mock
-  private ExecutorService singleThreadExecutor;
-
-  @Mock
   private UnitCollection mockUnitCollection;
 
-  private Vertx vertx;
   private MeasurementDataProcessor processor;
 
   @BeforeEach
@@ -103,15 +93,11 @@ class MeasurementDataProcessorTest {
     List<Unit> units = new ArrayList<>();
     units.add(unit);
 
-    //на моках test проходит
     when(mockUnitCollection.getUnits()).thenReturn(units);
     when(dependencyInjector.getUnitCollection()).thenReturn(mockUnitCollection);
 
     processor.onDataReceived(list);
 
-//    assertEquals(paramValue, parameter.getValue(), 0.001);
-//    assertEquals(paramTime, parameter.getTime());
-//    assertEquals(qCode, parameter.getQCode());
     verify(parameter).setData(eq(paramValue), eq(paramTime), eq(qCode));
     verify(dataReadyCallback, timeout(1000)).onDataReady(any(StoreData.class), isNull());
   }
@@ -412,163 +398,9 @@ class MeasurementDataProcessorTest {
     verify(dataReadyCallback, never()).onDataReady(any(StoreData.class), eq(null));
   }
 
-//  @Test
-//  void testFindUnitForParameter_ReturnsCorrectUnit() {
-//    // Arrange
-//    String paramId = "test-param-id";
-//
-//    Unit unit1 = mock(Unit.class);
-//    Unit unit2 = mock(Unit.class);
-//
-//    Parameter param1 = mock(Parameter.class);
-//    Parameter param2 = mock(Parameter.class);
-//
-//    when(param1.getId()).thenReturn(paramId);
-//    when(param2.getId()).thenReturn("other-param-id");
-//
-//    List<Parameter> params1 = Collections.singletonList(param1);
-//    List<Parameter> params2 = Collections.singletonList(param2);
-//
-//    when(unit1.getParameters()).thenReturn(params1);
-//    when(unit2.getParameters()).thenReturn(params2);
-//
-//    List<Unit> units = Arrays.asList(unit1, unit2);
-//    when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
-//    when(unitCollection.getUnits()).thenReturn(units);
-//
-//    Parameter searchParam = mock(Parameter.class);
-//    when(searchParam.getId()).thenReturn(paramId);
-//
-//    // Act
-//    Unit result = processor.findUnitForParameter(searchParam);
-//
-//    // Assert
-//    assertEquals(unit1, result);
-//  }
-
-//  @Test
-//  void testFindUnitForParameter_NotFound_ReturnsNull() {
-//    // Arrange
-//    String paramId = "non-existent-param";
-//
-//    Unit unit = mock(Unit.class);
-//    Parameter param = mock(Parameter.class);
-//
-//    when(param.getId()).thenReturn("different-param");
-//    List<Parameter> params = Collections.singletonList(param);
-//    when(unit.getParameters()).thenReturn(params);
-//
-//    List<Unit> units = Collections.singletonList(unit);
-//    when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
-//    when(unitCollection.getUnits()).thenReturn(units);
-//
-//    Parameter searchParam = mock(Parameter.class);
-//    when(searchParam.getId()).thenReturn(paramId);
-//
-//    // Act
-//    Unit result = processor.findUnitForParameter(searchParam);
-//
-//    // Assert
-//    assertNull(result);
-//  }
-
-
-//  @Test
-//  void testCreateMemoryData_ValidMeasurement_CreatesCorrectMemoryData() {
-//    // Arrange
-//    String id = "test-id";
-//    double value = 123.45;
-//    Instant time = Instant.now();
-//    int qCode = 1879048194;
-//
-//    Measurement measurement = createMeasurement(id, value, time, qCode);
-//
-//    // Act
-//    MemoryData memoryData = processor.createMemoryData(measurement);
-//
-//    // Assert
-//    assertEquals(id, memoryData.getId());
-//    assertEquals(value, memoryData.getValue(), 0.001);
-//    assertEquals(time, memoryData.getTime());
-//    assertEquals(qCode, memoryData.getQCode());
-//  }
-
-//  @Test
-//  void testProcessMeasurementsToStoreData_EmptyList_ReturnsEmptyStoreData() {
-//    // Arrange
-//    MeasurementList emptyList = new MeasurementList();
-//
-//    when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
-//    when(unitCollection.getUnits()).thenReturn(Collections.emptyList());
-//
-//    // Act
-//    StoreData result = processor.processMeasurementsToStoreData(emptyList);
-//
-//    // Assert
-//    assertNotNull(result);
-//    assertEquals(0, result.size());
-//  }
-
-  // Helper methods
-  private MeasurementList createTestMeasurementList() {
-    MeasurementList list = new MeasurementList();
-    list.add(createMeasurement("test-id-1", 100.0, Instant.now(), 1879048194));
-    list.add(createMeasurement("test-id-2", 200.0, Instant.now(), 1879048194));
-    return list;
-  }
-
   private Measurement createMeasurement(String uid, double value, Instant time, int qCode) {
     return new Measurement(uid, value, time, qCode);
   }
-
-  private StoreData createTestStoreData() {
-    StoreData storeData = new StoreData();
-
-    // Create a real Unit instance
-    Unit unit = createTestUnit("Test Unit");
-
-    // Create UnitDto from the real unit
-    UnitDto unitDto = new UnitDto(unit);
-
-    // Add to StoreData
-    storeData.addUnitData(unitDto);
-
-    return storeData;
-  }
-
-  private Unit createTestUnit() {
-    return createTestUnit("Test Unit");
-  }
-
-  private Unit createTestUnit(String name) {
-    JsonObject config = new JsonObject();
-    config.put("наименование", name);
-    config.put("группа", "Test Group");
-    config.put("направление", 1);
-    config.put("в работе", "да");
-    config.put("проверять и МДП и АДП", "нет");
-    config.put("Дельта ТИ", 10);
-
-    JsonObject paramJson = new JsonObject()
-      .put("name", "param1")
-      .put("uuid", "df092d1f-b435-4873-85af-39fa675b611e");
-    JsonArray parameters = new JsonArray().add(paramJson);
-
-    config.put("исходные данные", parameters);
-    config.put("Влияющие ТИ", new io.vertx.core.json.JsonArray());
-    config.put("топология", new io.vertx.core.json.JsonArray());
-    config.put("ТС элементов", new io.vertx.core.json.JsonArray());
-
-    return new Unit(0, config);
-  }
-
-  private List<Unit> createTestUnits() {
-    List<Unit> units = new ArrayList<>();
-    units.add(createTestUnit("Unit 1"));
-    units.add(createTestUnit("Unit 2"));
-    return units;
-  }
-
 
   // Helper class to create Measurement instances for testing
   private static class Measurement extends arbiter.measurement.Measurement {
@@ -586,116 +418,5 @@ class MeasurementDataProcessorTest {
       node.put("value", value);
       return node;
     }
-  }
-
-  private UnitCollection createTestUnitCollection() {
-    // Create test configuration
-    JsonObject config = createTestConfig();
-
-    // Create UnitCollection with test config
-    return new TestUnitCollection(vertx, config);
-  }
-
-  private JsonObject createTestConfig() {
-    JsonObject config = new JsonObject();
-
-    // OIK settings
-    JsonObject oik = new JsonObject();
-    oik.put("адрес", "test-oik-address");
-    oik.put("пользователь", "test-user");
-    oik.put("отладка", "нет");
-    config.put("ОИК", oik);
-
-    config.put("запись в ОИК", "нет");
-    config.put("изменение критерия МДП СМЗУ", "");
-    config.put("запись критерия МДП СМЗУ", "");
-
-    // Create units array
-    JsonArray unitsArray = new JsonArray();
-    unitsArray.add(createUnitConfig("Test Unit", 0));
-
-    config.put("сечение", unitsArray);
-
-    return config;
-  }
-
-  private JsonObject createUnitConfig(String unitName, int index) {
-    JsonObject unitConfig = new JsonObject();
-    unitConfig.put("наименование", unitName);
-    unitConfig.put("группа", "Test Group");
-    unitConfig.put("направление", 1);
-    unitConfig.put("в работе", "да");
-    unitConfig.put("проверять и МДП и АДП", "нет");
-    unitConfig.put("Дельта ТИ", 10);
-
-    // Parameters
-    JsonArray paramsArray = new JsonArray();
-
-    JsonObject param1 = new JsonObject();
-    param1.put("имя", "param1");
-    param1.put("id", "df092d1f-b435-4873-85af-39fa675b611e");
-    param1.put("min", 0);
-    param1.put("max", 100);
-    paramsArray.add(param1);
-
-    JsonObject param2 = new JsonObject();
-    param2.put("имя", "Test Parameter 2");
-    param2.put("id", "param-id-2");
-    paramsArray.add(param2);
-
-    unitConfig.put("исходные данные", paramsArray);
-
-    // Topologies
-    JsonArray topologyArray = new JsonArray();
-
-    JsonObject topology1 = new JsonObject();
-    topology1.put("id", "topology-id-1");
-    topology1.put("имя", "Test Topology 1");
-    topologyArray.add(topology1);
-
-    unitConfig.put("топология", topologyArray);
-
-    // Elements
-    JsonArray elementArray = new JsonArray();
-
-    JsonObject element1 = new JsonObject();
-    element1.put("id", "element-id-1");
-    element1.put("имя", "Test Element 1");
-    elementArray.add(element1);
-
-    unitConfig.put("ТС элементов", elementArray);
-
-    // Influencing Factors
-    JsonArray factorArray = new JsonArray();
-
-    JsonObject factor1 = new JsonObject();
-    factor1.put("id", "factor-id-1");
-    factor1.put("имя", "Test Factor 1");
-    factorArray.add(factor1);
-
-    unitConfig.put("Влияющие ТИ", factorArray);
-
-    // Repair Schema
-    JsonObject repairSchema = new JsonObject();
-    repairSchema.put("проверка", "test-formula");
-
-    JsonArray tvSignals = new JsonArray();
-    JsonObject signal = new JsonObject();
-    signal.put("группа", 1);
-    signal.put("операция", "test-operation");
-
-    JsonArray composition = new JsonArray();
-    JsonObject composition1 = new JsonObject();
-    composition1.put("id", "composition-id-1");
-    composition1.put("имя", "Test Composition 1");
-    composition.add(composition1);
-
-    signal.put("состав", composition);
-    tvSignals.add(signal);
-    repairSchema.put("телесигналы", tvSignals);
-
-    unitConfig.put("ремонтная схема", repairSchema);
-
-    return unitConfig;
   }
 }

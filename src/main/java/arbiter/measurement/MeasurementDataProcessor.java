@@ -43,19 +43,20 @@ public class MeasurementDataProcessor {
     try {
       StoreData result = processMeasurementsToStoreData(list);
 
-      if (firstTime && dataReadyCallback != null) {
-        logger.info("Данные всех измерений подготовлены в StoreData. Размер: " + result.size());
-        firstTime = false;
-        singleThreadExecutor.submit(() -> {
-          try {
-            dataReadyCallback.onDataReady(result, null);
-          } catch (Exception e) {
-            logger.error("Ошибка при вызове callback для отправки первоначальных данных", e);
-          }
-        });
-      }
-
       if (result.size() > 0) {
+        if (firstTime && dataReadyCallback != null) {
+          logger.info("Данные всех измерений подготовлены в StoreData. Размер: " + result.size());
+          firstTime = false;
+          singleThreadExecutor.submit(() -> {
+            try {
+              dataReadyCallback.onDataReady(result, null);
+            } catch (Exception e) {
+              logger.error("Ошибка при вызове callback для отправки первоначальных данных", e);
+            }
+          });
+        }
+
+
         if (batchAggregator == null && dataReadyCallback != null) {
           batchAggregator = new BatchAggregator(dependencyInjector, dataReadyCallback, singleThreadExecutor);
         }
@@ -101,21 +102,6 @@ public class MeasurementDataProcessor {
    */
   public void setDataReadyCallback(DataReadyCallback callback) {
     this.dataReadyCallback = callback;
-  }
-
-  /**
-   * Находит юнит для параметра
-   */
-  private Unit findUnitForParameter(Parameter param) {
-    List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
-    for (Unit unit : units) {
-      for (Parameter unitParam : unit.getParameters()) {
-        if (unitParam.getId().equals(param.getId())) {
-          return unit;
-        }
-      }
-    }
-    return null;
   }
 
   private MemoryData createMemoryData(Measurement measurement) {
