@@ -33,21 +33,18 @@ import java.util.concurrent.Executors;
 
 public class HandleDataService extends ABaseService{
 
-  private boolean firstTime = true;
   private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
-  private final Map<String, MemoryData> store = new HashMap<>();
+
+  private boolean firstTime = true;
   private String currentChannelId;
-  private final DependencyInjector dependencyInjector;
-  private final MeasurementDataProcessor dataProcessor;
+  private MeasurementDataProcessor measurementDataProcessor;
 
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
-    this.dependencyInjector = dependencyInjector;
-    this.dataProcessor = new MeasurementDataProcessor(dependencyInjector);
-
-    this.dataProcessor.setDataReadyCallback(this::handleProcessedData);
+    this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector);
+    this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
   }
 
   public Handler<String> handleTextMessage(Promise<JsonObject> promise) {
@@ -106,23 +103,14 @@ public class HandleDataService extends ABaseService{
     JsonObject data = new JsonObject(jsonStr);
     JsonArray dataArray = data.getJsonArray("data");
     MeasurementList measurementList = new MeasurementList();
-//    StringBuilder result = new StringBuilder();
+
     for (int i = 0; i < dataArray.size(); i++) {
       JsonObject item = dataArray.getJsonObject(i);
       JsonNode jsonNode = item.mapTo(JsonNode.class);
       measurementList.add(jsonNode);
-//      String uid = item.getString("uid");
-//      double value = item.getDouble("value");
-//
-//      if (i > 0) {
-//        result.append("; ");
-//      }
-//      result.append(String.format("%s = %f", uid, value));
     }
 
-    dataProcessor.onDataReceived(measurementList);
-    //TODO[IER]
-    //logAsync("Result: " + result);
+    measurementDataProcessor.onDataReceived(measurementList);
   }
 
   private void handleRTEvents(CloudEvent event) {
@@ -137,30 +125,26 @@ public class HandleDataService extends ABaseService{
     currentChannelId = event.getSubject();
   }
 
-  // Конвертация CloudEvent в строку JSON
   public static String cloudEventToString(CloudEvent event) {
     byte[] bytes = JSON_FORMAT.serialize(event);
     return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
   }
 
-  /**
-   * Обработчик готовых данных от MeasurementDataProcessor
-   */
   private void handleProcessedData(StoreData data, String unitId) {
     if (data != null && data.size() > 0) {
 
       String jsonData = convertStoreDataToJson(Collections.singletonList(data.getUnitDataList()));
 
-      if (firstTime) {
+      if (isFirstTime()) {
         sendPostRequestAsync(jsonData);
-        firstTime = false;
+        setFirstTime(false);
       } else {
         sendPutRequestAsync(jsonData, unitId);
       }
     }
   }
 
-  private void sendPostRequestAsync(String jsonData) {
+  public void sendPostRequestAsync(String jsonData) {
     executor.submit(() -> {
       try {
         sendPostRequest(jsonData);
@@ -170,7 +154,7 @@ public class HandleDataService extends ABaseService{
     });
   }
 
-  private void sendPutRequestAsync(String jsonData, String unitId) {
+  public void sendPutRequestAsync(String jsonData, String unitId) {
     executor.submit(() -> {
       try {
         sendPutRequest(jsonData, unitId);
@@ -228,12 +212,6 @@ public class HandleDataService extends ABaseService{
       mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
       mapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-//      CloudEvent cloudEvent = CloudEventBuilder.v1()
-//        .withId(UUID.randomUUID().toString())
-//        .withSource(URI.create("urn:store:data"))
-//        .withType("StoreDataEvent")
-//        .withData(mapper.writeValueAsBytes(result))
-//        .build();
       return mapper.writeValueAsString(objects);
 
     } catch (Exception e) {
@@ -253,5 +231,21 @@ public class HandleDataService extends ABaseService{
       .onFailure(err -> {
         System.err.println("Logging failed: " + err.getMessage());
       });
+  }
+
+  public String getCurrentChannelId() {
+    return currentChannelId;
+  }
+
+  public boolean isFirstTime() {
+    return firstTime;
+  }
+
+  public void setFirstTime(boolean firstTime) {
+    this.firstTime = firstTime;
+  }
+
+  public void setMeasurementDataProcessor(MeasurementDataProcessor measurementDataProcessor) {
+    this.measurementDataProcessor = measurementDataProcessor;
   }
 }
