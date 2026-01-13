@@ -1,5 +1,6 @@
 package arbiter.service;
 
+import arbiter.config.AppConfig;
 import arbiter.data.StoreData;
 import arbiter.data.dto.UnitDto;
 import arbiter.di.DependencyInjector;
@@ -16,8 +17,6 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientAgent;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
@@ -25,12 +24,14 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URI;
@@ -58,21 +59,31 @@ class HandleDataServiceTest {
   private WebClient webClient;
 
     @Mock
-  private HttpRequest<Buffer> httpRequest;
+  private HttpRequest<Buffer> mockHttpRequest;
 
   @Mock
-  private HttpResponse<Buffer> httpResponse;
+  private HttpResponse<Buffer> mockHttpResponse;
 
   @InjectMocks
   private HandleDataService handleDataService;
 
   private ObjectMapper objectMapper;
 
+  private MockedStatic<AppConfig> mockedAppConfig;
+
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper();
-    handleDataService = spy(new HandleDataService(vertx, dependencyInjector));
+    handleDataService = spy(new HandleDataService(vertx, dependencyInjector, webClient));
     handleDataService.setMeasurementDataProcessor(measurementDataProcessor);
+    mockedAppConfig = Mockito.mockStatic(AppConfig.class);
+  }
+
+  @AfterEach
+  void tearDown() {
+    if (mockedAppConfig != null) {
+      mockedAppConfig.close();
+    }
   }
 
   @Test
@@ -233,46 +244,6 @@ class HandleDataServiceTest {
     assertTrue(result.contains("test.type"));
   }
 
-  @Disabled
-  @Test
-  void testSendPutRequest_Success(VertxTestContext testContext) {
-    String jsonData = "{\"test\": \"data\"}";
-    String unitId = "unit-123";
-
-    //when(vertx.createHttpClient()).thenReturn((HttpClientAgent) mock(HttpClient.class));
-
-    when(WebClient.create(vertx)).thenReturn(webClient);
-    when(webClient.putAbs(anyString())).thenReturn(httpRequest);
-    when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
-    when(httpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(httpResponse));
-    when(httpResponse.statusCode()).thenReturn(200);
-    when(httpResponse.bodyAsString()).thenReturn("OK");
-
-//    handleDataService.sendPutRequest(jsonData, unitId);
-    invokeSendPutRequest(jsonData, unitId);
-
-    vertx.setTimer(100, id -> testContext.completeNow());
-  }
-
-  @Disabled
-  @Test
-  void testSendPostRequest_Success(VertxTestContext testContext) {
-    String jsonData = "{\"test\": \"data\"}";
-
-    when(vertx.createHttpClient()).thenReturn((HttpClientAgent) mock(HttpClient.class));
-    when(WebClient.create(vertx)).thenReturn(webClient);
-    when(webClient.postAbs(anyString())).thenReturn(httpRequest);
-    when(httpRequest.putHeader(anyString(), anyString())).thenReturn(httpRequest);
-    when(httpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(httpResponse));
-    when(httpResponse.statusCode()).thenReturn(201);
-    when(httpResponse.bodyAsString()).thenReturn("Created");
-
-//    handleDataService.sendPostRequest(jsonData);
-    invokeSendPostRequest(jsonData);
-
-    vertx.setTimer(100, id -> testContext.completeNow());
-  }
-
   @Test
   void testConvertStoreDataToJson() {
     Map<String, Object> testData = new HashMap<>();
@@ -333,6 +304,42 @@ class HandleDataServiceTest {
     verify(handleDataService, never()).sendPutRequestAsync(anyString(), anyString());
   }
 
+  @Test
+  void sendPostRequest_SuccessfulResponse_ShouldSendRequest() {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.bodyAsString()).thenReturn("Success");
+
+    invokeSendPostRequest( jsonData);
+
+    verify(webClient).postAbs(testUrl);
+    verify(mockHttpRequest).putHeader("Content-Type", "application/json");
+    verify(mockHttpRequest).sendBuffer(Buffer.buffer(jsonData));
+  }
+
+  @Test
+  void sendPostRequest_ClientError_ShouldLogError() throws Exception {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+    RuntimeException exception = new RuntimeException("Connection failed");
+
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
+
+    invokeSendPostRequest( jsonData);
+
+    verify(webClient).postAbs(testUrl);
+    verify(mockHttpRequest).sendBuffer(any());
+  }
+
   public void invokeHandleMeasurementData(CloudEvent event) {
     try {
       java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
@@ -387,6 +394,8 @@ class HandleDataServiceTest {
       throw new RuntimeException(e);
     }
   }
+
+
 
   public void invokeSendPostRequest(String jsonData) {
     try {

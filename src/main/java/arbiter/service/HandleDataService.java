@@ -37,15 +37,22 @@ public class HandleDataService extends ABaseService{
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
 
+  private final WebClient webClient;
   private boolean firstTime = true;
   private String currentChannelId;
   private MeasurementDataProcessor measurementDataProcessor;
 
-  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
+  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector, WebClient webClient) {
     super(vertx);
     this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector);
+    this.webClient = webClient;
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
   }
+
+  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
+    this(vertx, dependencyInjector, WebClient.create(vertx));
+  }
+
 
   public Handler<String> handleTextMessage(Promise<JsonObject> promise) {
     return message -> {
@@ -165,11 +172,9 @@ public class HandleDataService extends ABaseService{
   }
 
   private void sendPutRequest(String jsonData, String unitId) {
-    WebClient client = WebClient.create(vertx);
-
     logger.debug(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
 
-    client.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
+    webClient.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
@@ -185,11 +190,9 @@ public class HandleDataService extends ABaseService{
   }
 
   private void sendPostRequest(String jsonData) {
-    WebClient client = WebClient.create(vertx);
-
     logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData);
 
-    client.postAbs(AppConfig.getCalcSrvAbsoluteUrl())
+    webClient.postAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
