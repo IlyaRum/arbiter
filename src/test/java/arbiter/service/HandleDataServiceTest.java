@@ -28,16 +28,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -338,6 +336,38 @@ class HandleDataServiceTest {
 
     verify(webClient).postAbs(testUrl);
     verify(mockHttpRequest).sendBuffer(any());
+  }
+
+  @Test
+  void sendPostRequest_FailedResponseWithStatusCode400_ShouldLogError() throws Exception {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpResponse.statusCode()).thenReturn(400);
+    when(mockHttpResponse.bodyAsString()).thenReturn("Bad Request: Invalid data");
+
+    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeFunctionCaptor =
+      ArgumentCaptor.forClass(Function.class);
+
+    @SuppressWarnings("unchecked")
+    Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(mockFuture);
+    when(mockFuture.compose(composeFunctionCaptor.capture())).thenReturn(Future.succeededFuture());
+
+    invokeSendPostRequest( jsonData);
+
+    verify(webClient).postAbs(testUrl);
+
+    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeFunctionCaptor.getValue();
+    Future<?> resultFuture = composeFunction.apply(mockHttpResponse);
+
+    assertTrue(resultFuture.failed());
+    resultFuture.onFailure(error -> {
+      assertTrue(error.getMessage().contains("HTTP error: 400"));
+      assertTrue(error.getMessage().contains("Bad Request"));
+    });
   }
 
   public void invokeHandleMeasurementData(CloudEvent event) {
