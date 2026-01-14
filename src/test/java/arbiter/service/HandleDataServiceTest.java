@@ -178,8 +178,8 @@ class HandleDataServiceTest {
       .withData("application/json", "{\"event\": \"test\"}".getBytes())
       .build();
 
-    byte[] eventBytes = io.cloudevents.core.provider.EventFormatProvider.getInstance()
-      .resolveFormat(io.cloudevents.jackson.JsonFormat.CONTENT_TYPE)
+    byte[] eventBytes = Objects.requireNonNull(EventFormatProvider.getInstance()
+        .resolveFormat(JsonFormat.CONTENT_TYPE))
       .serialize(event);
     String message = new String(eventBytes, StandardCharsets.UTF_8);
 
@@ -359,6 +359,74 @@ class HandleDataServiceTest {
     invokeSendPostRequest( jsonData);
 
     verify(webClient).postAbs(testUrl);
+
+    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeFunctionCaptor.getValue();
+    Future<?> resultFuture = composeFunction.apply(mockHttpResponse);
+
+    assertTrue(resultFuture.failed());
+    resultFuture.onFailure(error -> {
+      assertTrue(error.getMessage().contains("HTTP error: 400"));
+      assertTrue(error.getMessage().contains("Bad Request"));
+    });
+  }
+
+  @Test
+  void sendPutRequest_SuccessfulResponse_ShouldSendRequest() {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
+    when(mockHttpResponse.statusCode()).thenReturn(200);
+    when(mockHttpResponse.bodyAsString()).thenReturn("Success");
+
+    invokeSendPutRequest(jsonData, "unitId");
+
+    verify(webClient).putAbs(testUrl);
+    verify(mockHttpRequest).putHeader("Content-Type", "application/json");
+    verify(mockHttpRequest).sendBuffer(Buffer.buffer(jsonData));
+  }
+
+  @Test
+  void sendPutRequest_ClientError_ShouldLogError() throws Exception {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+    RuntimeException exception = new RuntimeException("Connection failed");
+
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
+
+    invokeSendPutRequest( jsonData, "unitId");
+
+    verify(webClient).putAbs(testUrl);
+    verify(mockHttpRequest).sendBuffer(any());
+  }
+
+  @Test
+  void sendPutRequest_FailedResponseWithStatusCode400_ShouldLogError() throws Exception {
+    String jsonData = "{\"test\": \"data\"}";
+    String testUrl = "http://localhost:8080/api/calculate";
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpResponse.statusCode()).thenReturn(400);
+    when(mockHttpResponse.bodyAsString()).thenReturn("Bad Request: Invalid data");
+
+    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeFunctionCaptor =
+      ArgumentCaptor.forClass(Function.class);
+
+    @SuppressWarnings("unchecked")
+    Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(mockFuture);
+    when(mockFuture.compose(composeFunctionCaptor.capture())).thenReturn(Future.succeededFuture());
+
+    invokeSendPutRequest( jsonData, "unitId");
+
+    verify(webClient).putAbs(testUrl);
 
     Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeFunctionCaptor.getValue();
     Future<?> resultFuture = composeFunction.apply(mockHttpResponse);

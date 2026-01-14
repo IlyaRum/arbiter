@@ -330,7 +330,7 @@ public class BatchAggregator {
           try {
 
             dataReadyCallback.onDataReady(accumulatedResult, unitId);
-            logger.info("Вызов dataReadyCallback для сечения: '" + unitId + "'");
+            logger.debug("Вызов dataReadyCallback для сечения: '" + unitId + "'");
 
           } catch (Exception e) {
             logger.error("Ошибка при вызове dataReadyCallback для сечения: '" + unitId + "': ", e);

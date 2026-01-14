@@ -172,7 +172,7 @@ public class HandleDataService extends ABaseService{
   }
 
   private void sendPutRequest(String jsonData, String unitId) {
-    logger.debug(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
+    logger.info(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
 
     webClient.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
