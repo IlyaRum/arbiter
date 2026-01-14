@@ -450,6 +450,17 @@ class HandleDataServiceTest {
     verify(spyExecutor, timeout(1000).times(1)).submit(any(Runnable.class));
   }
 
+  @Test
+  void sendPutRequestAsync_shouldSubmitTaskToExecutor() throws Exception {
+
+    String testJson = "{\"test\": \"data\"}";
+    ExecutorService spyExecutor = setExecutorField(handleDataService);
+
+    invokeSendPutRequestAsync(testJson, "unitId");
+
+    verify(spyExecutor, timeout(1000).times(1)).submit(any(Runnable.class));
+  }
+
   private static ExecutorService setExecutorField(HandleDataService service) throws NoSuchFieldException, IllegalAccessException {
     java.lang.reflect.Field executorField = HandleDataService.class.getDeclaredField("executor");
     executorField.setAccessible(true);
@@ -509,6 +520,17 @@ class HandleDataServiceTest {
         "sendPostRequestAsync", String.class);
       method.setAccessible(true);
       method.invoke(handleDataService, jsonData);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public void invokeSendPutRequestAsync(String jsonData, String unitId) {
+    try {
+      java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
+        "sendPutRequestAsync", String.class, String.class);
+      method.setAccessible(true);
+      method.invoke(handleDataService, jsonData, unitId);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
