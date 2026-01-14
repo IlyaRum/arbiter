@@ -35,6 +35,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -438,6 +439,26 @@ class HandleDataServiceTest {
     });
   }
 
+  @Test
+  void sendPostRequestAsync_shouldSubmitTaskToExecutor() throws Exception {
+
+    String testJson = "{\"test\": \"data\"}";
+    ExecutorService spyExecutor = setExecutorField(handleDataService);
+
+    invokeSendPostRequestAsync(testJson);
+
+    verify(spyExecutor, timeout(1000).times(1)).submit(any(Runnable.class));
+  }
+
+  private static ExecutorService setExecutorField(HandleDataService service) throws NoSuchFieldException, IllegalAccessException {
+    java.lang.reflect.Field executorField = HandleDataService.class.getDeclaredField("executor");
+    executorField.setAccessible(true);
+
+    ExecutorService spyExecutor = spy((ExecutorService) executorField.get(service));
+    executorField.set(service, spyExecutor);
+    return spyExecutor;
+  }
+
   public void invokeHandleMeasurementData(CloudEvent event) {
     try {
       java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
@@ -492,8 +513,6 @@ class HandleDataServiceTest {
       throw new RuntimeException(e);
     }
   }
-
-
 
   public void invokeSendPostRequest(String jsonData) {
     try {
