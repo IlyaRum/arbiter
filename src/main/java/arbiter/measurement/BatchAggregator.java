@@ -90,39 +90,13 @@ public class BatchAggregator {
     String unitId = getUnitIdentifier(unitDto);
     int totalCount = result.getUnitDataList().size();
     logger.info(String.format("[%d/%d] Обработка сечения: %s", unitProcessedCount, totalCount, unitId));
-    Unit unit = findUnitByName(unitId);
-
-    if (unit == null) {
-      logger.warn("Сечение " + unitId + " не найдено!");
-      return;
-    }
-
-    //Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
-//    logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
-//    logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
-
-//    if (targetUids.isEmpty()) {
-//      logger.warn("Нет target UID для сечения: " + unitId);
-//      return;
-//    }
-
-    // Получаем UID "Номер цикла расчета СМЗУ" для этого сечения
-   // String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
-//    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения '" + unitId + "': " + cycleNumberUid);
 
     initializeUnitStateStructures(unitId);
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
 
-//    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
-    //Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
     boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
-
-//    logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
-//      unitId, dataBuffer.size(), initialDataLoaded));
-
     UnitState unitState = getUnitState(unitId);
-    //processReceivedMeasurements(cycleNumberUid, measurementsByUid, targetUids, unitId, dataBuffer, lastTimeStamps);
-    checkAndProcessConsistency(result, unitId, initialDataLoaded, unitState);
+    processConsistentData(result, unitId, initialDataLoaded, unitState);
   }
 
   private UnitState getUnitState(String unitId) {
@@ -239,36 +213,12 @@ public class BatchAggregator {
     return new ConsistencyStatus(allTargetsHaveData, allTimestampsMatch);
   }
 
-  private void checkAndProcessConsistency(StoreData result, String unitId,
-                                          boolean initialDataLoaded, UnitState unitState) {
-//    ConsistencyCheckResult consistencyResult = checkDataConsistency(unitId, cycleNumberUid, targetUids, dataBuffer);
-
-//    if (consistencyResult.isCanCheckConsistency() && consistencyResult.getReferenceTimestamp() != null) {
-      processConsistentData(result, unitId, initialDataLoaded, unitState);
-//    } else {
-//      logConsistencyCheckFailure(cycleNumberUid, unitId, dataBuffer);
-//    }
-  }
-
-  private static void logConsistencyCheckFailure(String cycleNumberUid, String unitId, Map<String, Measurement> dataBuffer) {
-    if (cycleNumberUid == null) {
-      logger.debug("UID цикла не определен для сечения: '" + unitId + "'");
-    } else if (dataBuffer.get(cycleNumberUid) == null) {
-      logger.debug("Ожидаем получение UID цикла для проверки согласованности: " + cycleNumberUid);
-    } else {
-      logger.info("Неполный набор данных или несовпадение timestamp для сечения: '" + unitId + "'");
-    }
-  }
-
   private void processConsistentData(StoreData result, String unitId,  boolean initialDataLoaded,
                                       UnitState unitState) {
-
-
       if (!initialDataLoaded) {
         processInitialDataLoad(result, unitId);
       } else
         processAccumulatedChanges(result, unitId, unitState);
-//    }
   }
 
   private void processInitialDataLoad(StoreData result, String unitId) {
