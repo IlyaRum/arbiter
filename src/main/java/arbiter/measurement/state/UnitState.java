@@ -11,34 +11,34 @@ import java.util.Map;
  * Состояние сечения
  */
 public class UnitState {
-  final Map<String, Parameter> accumulatedChanges;
-  final Map<String, Topology> accumulatedTopologyChanges;
-  final Map<String, Element> accumulatedElementChanges;
-  final Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges;
+  final Map<String, Parameter> trackedChanges;
+  final Map<String, Topology> trackedTopologyChanges;
+  final Map<String, Element> trackedElementChanges;
+  final Map<String, InfluencingFactor> trackedInfluencingFactorChanges;
 
-  public UnitState(Map<String, Parameter> accumulatedChanges,
-            Map<String, Topology> accumulatedTopologyChanges,
-            Map<String, Element> accumulatedElementChanges,
-            Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges) {
-    this.accumulatedChanges = accumulatedChanges;
-    this.accumulatedTopologyChanges = accumulatedTopologyChanges;
-    this.accumulatedElementChanges = accumulatedElementChanges;
-    this.accumulatedInfluencingFactorChanges = accumulatedInfluencingFactorChanges;
+  public UnitState(Map<String, Parameter> trackedChanges,
+            Map<String, Topology> trackedTopologyChanges,
+            Map<String, Element> trackedElementChanges,
+            Map<String, InfluencingFactor> trackedInfluencingFactorChanges) {
+    this.trackedChanges = trackedChanges;
+    this.trackedTopologyChanges = trackedTopologyChanges;
+    this.trackedElementChanges = trackedElementChanges;
+    this.trackedInfluencingFactorChanges = trackedInfluencingFactorChanges;
   }
 
-  public Map<String, Parameter> getAccumulatedChanges() {
-    return accumulatedChanges;
+  public Map<String, Parameter> getTrackedChanges() {
+    return trackedChanges;
   }
 
-  public Map<String, Topology> getAccumulatedTopologyChanges() {
-    return accumulatedTopologyChanges;
+  public Map<String, Topology> getTrackedTopologyChanges() {
+    return trackedTopologyChanges;
   }
 
-  public Map<String, Element> getAccumulatedElementChanges() {
-    return accumulatedElementChanges;
+  public Map<String, Element> getTrackedElementChanges() {
+    return trackedElementChanges;
   }
 
-  public Map<String, InfluencingFactor> getAccumulatedInfluencingFactorChanges() {
-    return accumulatedInfluencingFactorChanges;
+  public Map<String, InfluencingFactor> getTrackedInfluencingFactorChanges() {
+    return trackedInfluencingFactorChanges;
   }
 }

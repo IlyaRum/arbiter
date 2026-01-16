@@ -18,23 +18,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
- * Отвечает за сбор, фильтрацию и группировку изменений измерений для каждого сечения,
- * перед отправкой в расчетный сервис
+ * Отвечает за сбор, фильтрацию и группировку изменений измерений для каждого сечения
  */
 
-public class BatchAggregator {
+public class MeasurementChangeTracker {
 
-  private static final Logger logger = LoggerFactory.getLogger(BatchAggregator.class);
+  private static final Logger logger = LoggerFactory.getLogger(MeasurementChangeTracker.class);
 
   private final DependencyInjector dependencyInjector;
   private final DataReadyCallback dataReadyCallback;
   private final ExecutorService singleThreadExecutor;
 
   // Состояние для каждого сечения
-  private final Map<String, Map<String, Measurement>> unitDataBuffers = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Instant>> unitLastTimeStamps = new ConcurrentHashMap<>();
   private final Map<String, Boolean> unitInitialDataLoaded = new ConcurrentHashMap<>();
-  private final Map<String, Instant> unitCurrentTimestamps = new ConcurrentHashMap<>();
 
   private final Map<String, Map<String, Double>> unitPreviousParameterValues = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Double>> unitPreviousTopologyValues = new ConcurrentHashMap<>();
@@ -43,31 +39,31 @@ public class BatchAggregator {
   private final Map<String, Map<String, Double>> unitPreviousRepairValues = new ConcurrentHashMap<>();
 
   // Мапы для накопления изменений типов данных для каждого сечения
-  private final Map<String, Map<String, Parameter>> unitAccumulatedChanges = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Topology>> unitAccumulatedTopologyChanges = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Element>> unitAccumulatedElementChanges = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, InfluencingFactor>> unitAccumulatedFactorChanges = new ConcurrentHashMap<>();
-  private final Map<String, Map<String, Composition>> unitAccumulatedRepairChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Parameter>> unitTrackedParameterChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Topology>> unitTrackedTopologyChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Element>> unitTrackedElementChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, InfluencingFactor>> unitTrackedFactorChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Composition>> unitTrackedRepairChanges = new ConcurrentHashMap<>();
 
 
-  public BatchAggregator(DependencyInjector dependencyInjector,
-                         DataReadyCallback dataReadyCallback,
-                         ExecutorService singleThreadExecutor) {
+  public MeasurementChangeTracker(DependencyInjector dependencyInjector,
+                                  DataReadyCallback dataReadyCallback,
+                                  ExecutorService singleThreadExecutor) {
     this.dependencyInjector = dependencyInjector;
     this.dataReadyCallback = dataReadyCallback;
     this.singleThreadExecutor = singleThreadExecutor;
   }
 
   /**
-   * Агрегатор данных измерений сечений
+   * Метод отслеживает изменение данных измерений сечений
    */
-  public void aggregateData(List<Measurement> measurements, StoreData result) {
+  public void trackAndProcessChanges(List<Measurement> measurements, StoreData result) {
     logger.debug("Получено новых измерений: " + measurements.size());
     logger.debug("Количество сечений с новыми измерениями в StoreData: " + result.getUnitDataList().size());
     logger.debug(String.format("Входные параметры: %s", result));
 
     Map<String, Measurement> measurementsByUid = createMeasurementsMap(measurements);
-    processAllUnits(result, measurementsByUid);
+    trackChangesForAllUnits(result, measurementsByUid);
   }
 
   private static Map<String, Measurement> createMeasurementsMap(List<Measurement> measurements) {
@@ -78,15 +74,15 @@ public class BatchAggregator {
     return measurementsByUid;
   }
 
-  private void processAllUnits(StoreData result, Map<String, Measurement> measurementsByUid) {
+  private void trackChangesForAllUnits(StoreData result, Map<String, Measurement> measurementsByUid) {
     int unitProcessedCount = 0;
     for (UnitDto unitDto : result.getUnitDataList()) {
       unitProcessedCount++;
-      processSingleUnit(result, unitDto, unitProcessedCount, measurementsByUid);
+      trackChangesForUnit(result, unitDto, unitProcessedCount, measurementsByUid);
     }
   }
 
-  private void processSingleUnit(StoreData result, UnitDto unitDto, int unitProcessedCount, Map<String, Measurement> measurementsByUid) {
+  private void trackChangesForUnit(StoreData result, UnitDto unitDto, int unitProcessedCount, Map<String, Measurement> measurementsByUid) {
     String unitId = getUnitIdentifier(unitDto);
     int totalCount = result.getUnitDataList().size();
     logger.info(String.format("[%d/%d] Обработка сечения: %s", unitProcessedCount, totalCount, unitId));
@@ -96,132 +92,27 @@ public class BatchAggregator {
 
     boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
     UnitState unitState = getUnitState(unitId);
-    processConsistentData(result, unitId, initialDataLoaded, unitState);
+    processTrackedChanges(result, unitId, initialDataLoaded, unitState);
   }
 
   private UnitState getUnitState(String unitId) {
     return new UnitState(
-      unitAccumulatedChanges.get(unitId),
-      unitAccumulatedTopologyChanges.get(unitId),
-      unitAccumulatedElementChanges.get(unitId),
-      unitAccumulatedFactorChanges.get(unitId)
+      unitTrackedParameterChanges.get(unitId),
+      unitTrackedTopologyChanges.get(unitId),
+      unitTrackedElementChanges.get(unitId),
+      unitTrackedFactorChanges.get(unitId)
     );
   }
 
-  private void processReceivedMeasurements(String cycleNumberUid, Map<String, Measurement> measurementsByUid,
-                                           Set<String> targetUids, String unitId, Map<String, Measurement> dataBuffer,
-                                           Map<String, Instant> lastTimeStamps) {
-    Set<String> receivedUids = new HashSet<>();
-    boolean hasCycleNumberInCurrentBatch = false;
-    Instant cycleTimestamp = null;
-    int measurementsFound = 0;
-
-    logger.debug("Проверка полученных измерений в текущей пачке...");
-
-    // Проверяем, есть ли в текущей пачке UID цикла
-    if (cycleNumberUid != null && measurementsByUid.containsKey(cycleNumberUid)) {
-      hasCycleNumberInCurrentBatch = true;
-      Measurement cycleMeasurement = measurementsByUid.get(cycleNumberUid);
-      cycleTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
-      logger.debug(String.format("В текущей пачке получен UID цикла: %s с timestamp: %s",
-        cycleNumberUid, cycleTimestamp));
-    }
-
-    // Собираем все полученные UID из текущей пачки
-    for (String targetUid : targetUids) {
-      Measurement measurement = measurementsByUid.get(targetUid);
-      if (measurement != null) {
-        measurementsFound++;
-        receivedUids.add(targetUid);
-
-      }
-    }
-
-    logger.debug(String.format("Для сечения %s найдено measurements: %d из %d targetUids, hasCycleNumberInCurrentBatch=%s",
-      unitId, measurementsFound, targetUids.size(), hasCycleNumberInCurrentBatch));
-
-    if (!receivedUids.isEmpty()) {
-      updateDataBuffer(receivedUids, measurementsByUid, dataBuffer, lastTimeStamps, unitId);
-    }
-  }
-
-  private static void updateDataBuffer(Set<String> receivedUids, Map<String, Measurement> measurementsByUid,
-                                       Map<String, Measurement> dataBuffer, Map<String, Instant> lastTimeStamps, String unitId) {
-    logger.debug("Обновляем буфер для полученных UID...");
-    for (String receivedUid : receivedUids) {
-      Measurement measurement = measurementsByUid.get(receivedUid);
-      if (measurement != null) {
-        dataBuffer.put(receivedUid, measurement);
-        lastTimeStamps.put(receivedUid, Instant.parse(measurement.getTimeStamp()));
-        logger.debug("Буфер обновлен для сечения '" + unitId + "', receivedUid=" + receivedUid +
-          ", value=" + measurement.getValue() + ", timestamp=" + measurement.getTimeStamp());
-      }
-    }
-    logger.debug(String.format("Буфер обновлен для сечения '%s'. Текущий размер=%d ", unitId, dataBuffer.size()));
-  }
-
-  private ConsistencyCheckResult checkDataConsistency(String unitId, String cycleNumberUid,
-                                                      Set<String> targetUids, Map<String, Measurement> dataBuffer) {
-
-    boolean canCheckConsistency = false;
-    Instant referenceTimestamp = null;
-
-    if (cycleNumberUid != null) {
-      Measurement cycleMeasurement = dataBuffer.get(cycleNumberUid);
-      if (cycleMeasurement != null) {
-        referenceTimestamp = Instant.parse(cycleMeasurement.getTimeStamp());
-        logger.debug(String.format("Используем timestamp из буфера для UID цикла %s: %s",
-          cycleNumberUid, referenceTimestamp));
-
-        ConsistencyStatus status = checkAllTargetsHaveConsistentData(unitId, targetUids, dataBuffer, referenceTimestamp);
-
-        canCheckConsistency = status.isAllTargetsHaveData() && status.isAllTimestampsMatch();
-
-        logger.debug(String.format("Проверка согласованности для сечения '%s': canCheckConsistency=%s, allTargetsHaveData=%s, allTimestampsMatch=%s",
-          unitId, canCheckConsistency, status.isAllTargetsHaveData(), status.isAllTimestampsMatch()));
-      } else {
-        logger.debug("UID цикла еще не получен, откладываем проверку согласованности");
-      }
-    }
-
-    return new ConsistencyCheckResult(canCheckConsistency, referenceTimestamp);
-  }
-
-  private static ConsistencyStatus checkAllTargetsHaveConsistentData(String unitId, Set<String> targetUids,
-                                                                     Map<String, Measurement> dataBuffer, Instant referenceTimestamp) {
-    boolean allTargetsHaveData = true;
-    boolean allTimestampsMatch = true;
-
-    for (String targetUid : targetUids) {
-      Measurement bufferedMeasurement = dataBuffer.get(targetUid);
-      if (bufferedMeasurement == null) {
-        allTargetsHaveData = false;
-        logger.debug("Отсутствуют данные в буфере для сечения '" + unitId + "'/" + targetUid);
-        break;
-      }
-
-      Instant bufferedTimestamp = Instant.parse(bufferedMeasurement.getTimeStamp());
-      if (!referenceTimestamp.equals(bufferedTimestamp)) {
-        allTimestampsMatch = false;
-        logger.debug("Несовпадение временных меток в буфере для сечения '" + unitId +
-          "'/" + targetUid +
-          ": ожидалось=" + referenceTimestamp + ", получено=" + bufferedTimestamp);
-        break;
-      }
-    }
-
-    return new ConsistencyStatus(allTargetsHaveData, allTimestampsMatch);
-  }
-
-  private void processConsistentData(StoreData result, String unitId,  boolean initialDataLoaded,
-                                      UnitState unitState) {
+  private void processTrackedChanges(StoreData result, String unitId, boolean initialDataLoaded,
+                                     UnitState unitState) {
       if (!initialDataLoaded) {
-        processInitialDataLoad(result, unitId);
+        loadInitialValues(result, unitId);
       } else
-        processAccumulatedChanges(result, unitId, unitState);
+        accumulateAndProcessChanges(result, unitId, unitState);
   }
 
-  private void processInitialDataLoad(StoreData result, String unitId) {
+  private void loadInitialValues(StoreData result, String unitId) {
     logger.debug("Первичная загрузка данных для сечения '" + unitId + "'");
     unitInitialDataLoaded.put(unitId, true);
     saveCurrentParameterValues(unitId, result);
@@ -231,42 +122,42 @@ public class BatchAggregator {
     logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
-  private void processAccumulatedChanges(StoreData result, String unitId, UnitState unitState) {
+  private void accumulateAndProcessChanges(StoreData result, String unitId, UnitState unitState) {
     logger.debug("Накопление изменений для сечения '" + unitId + "'");
-    accumulateChanges(unitId, result);
-    accumulateTopologyChanges(unitId, result);
-    accumulateElementChanges(unitId, result);
-    accumulateInfluencingFactorChanges(unitId, result);
+    trackParameterChanges(unitId, result);
+    trackTopologyChanges(unitId, result);
+    trackElementChanges(unitId, result);
+    trackInfluencingFactorChanges(unitId, result);
 
-    int paramChanges = unitState.getAccumulatedChanges().size();
-    int topologyChanges = unitState.getAccumulatedTopologyChanges().size();
-    int elementChanges = unitState.getAccumulatedElementChanges().size();
-    int factorChanges = unitState.getAccumulatedInfluencingFactorChanges().size();
+    int paramChanges = unitState.getTrackedChanges().size();
+    int topologyChanges = unitState.getTrackedTopologyChanges().size();
+    int elementChanges = unitState.getTrackedElementChanges().size();
+    int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
 
     logger.info(String.format("Накопленные изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d",
       unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
 
-    if (!unitState.getAccumulatedChanges().isEmpty() ||
-      !unitState.getAccumulatedTopologyChanges().isEmpty() ||
-      !unitState.getAccumulatedElementChanges().isEmpty() ||
-      !unitState.getAccumulatedInfluencingFactorChanges().isEmpty()) {
+    if (!unitState.getTrackedChanges().isEmpty() ||
+      !unitState.getTrackedTopologyChanges().isEmpty() ||
+      !unitState.getTrackedElementChanges().isEmpty() ||
+      !unitState.getTrackedInfluencingFactorChanges().isEmpty()) {
 
-      sendAccumulatedChanges(unitId, unitState);
+      sendTrackedChanges(unitId, unitState);
     } else {
       logger.debug("Нет накопленных изменений для отправки");
     }
   }
 
-  private void sendAccumulatedChanges(String unitId, UnitState unitState) {
-    StoreData accumulatedResult = createStoreDataFromAccumulatedChanges(unitId);
+  private void sendTrackedChanges(String unitId, UnitState unitState) {
+    StoreData trackedResult = createStoreDataFromTrackedChanges(unitId);
 
-    if (accumulatedResult != null && accumulatedResult.size() > 0) {
+    if (trackedResult != null && trackedResult.size() > 0) {
 
       if (dataReadyCallback != null) {
         singleThreadExecutor.submit(() -> {
           try {
 
-            dataReadyCallback.onDataReady(accumulatedResult, unitId);
+            dataReadyCallback.onDataReady(trackedResult, unitId);
             logger.debug("Вызов dataReadyCallback для сечения: '" + unitId + "'");
 
           } catch (Exception e) {
@@ -277,50 +168,46 @@ public class BatchAggregator {
         logger.error("DataReadyCallback = null. CallBack не был вызван!");
       }
 
-      saveCurrentValuesFromAccumulated(unitId);
-      clearAccumulatedChanges(unitState);
+      saveCurrentValuesFromTracked(unitId);
+      clearTrackedChanges(unitState);
     }
   }
 
-  private static void clearAccumulatedChanges(UnitState unitState) {
-    unitState.getAccumulatedChanges().clear();
-    unitState.getAccumulatedTopologyChanges().clear();
-    unitState.getAccumulatedElementChanges().clear();
-    unitState.getAccumulatedInfluencingFactorChanges().clear();
+  private static void clearTrackedChanges(UnitState unitState) {
+    unitState.getTrackedChanges().clear();
+    unitState.getTrackedTopologyChanges().clear();
+    unitState.getTrackedElementChanges().clear();
+    unitState.getTrackedInfluencingFactorChanges().clear();
     logger.info("Накопленные изменения очищены \n");
   }
 
-  private void saveCurrentValuesFromAccumulated(String unitId) {
-    saveCurrentParameterValuesFromAccumulated(unitId);
-    saveCurrentTopologyValuesFromAccumulated(unitId);
-    saveCurrentElementValuesFromAccumulated(unitId);
-    saveCurrentInfluencingFactorValuesFromAccumulated(unitId);
+  private void saveCurrentValuesFromTracked(String unitId) {
+    saveCurrentParameterValuesFromTracked(unitId);
+    saveCurrentTopologyValuesFromTracked(unitId);
+    saveCurrentElementValuesFromTracked(unitId);
+    saveCurrentInfluencingFactorValuesFromTracked(unitId);
     logger.info("Текущие значения сохранены как предыдущие");
   }
 
   private void initializeUnitStateStructures(String unitId) {
-    unitDataBuffers.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    unitLastTimeStamps.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitInitialDataLoaded.putIfAbsent(unitId, false);
-    unitCurrentTimestamps.putIfAbsent(unitId, Instant.MIN);
 
     unitPreviousParameterValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousTopologyValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousElementValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousFactorValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
 
-
-    unitAccumulatedChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    unitAccumulatedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    unitAccumulatedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    unitAccumulatedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedParameterChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
   }
 
   /**
    * Накапливает изменения параметров для конкретного юнита
    */
-  private void accumulateChanges(String unitId, StoreData result) {
-    Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
+  private void trackParameterChanges(String unitId, StoreData result) {
+    Map<String, Parameter> TrackedChanges = unitTrackedParameterChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -328,8 +215,8 @@ public class BatchAggregator {
       String paramId = param.getId();
       double currentValue = param.getValue();
 
-      if (hasParameterValueChanged(unitId, paramId, currentValue)) {
-        accumulatedChanges.put(paramId, param);
+      if (isParameterChanged(unitId, paramId, currentValue)) {
+        TrackedChanges.put(paramId, param);
         logger.debug("Parameter изменен для сечения '" + unitId + "': " +
           param.getName() + " = " + currentValue);
       }
@@ -339,8 +226,8 @@ public class BatchAggregator {
   /**
    * Накапливает изменения топологий для конкретного юнита
    */
-  private void accumulateTopologyChanges(String unitId, StoreData result) {
-    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
+  private void trackTopologyChanges(String unitId, StoreData result) {
+    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -348,8 +235,8 @@ public class BatchAggregator {
       String topologyId = topology.getId();
       double currentValue = topology.getValue();
 
-      if (hasTopologyValueChanged(unitId, topologyId, currentValue)) {
-        accumulatedTopologyChanges.put(topologyId, topology);
+      if (isTopologyChanged(unitId, topologyId, currentValue)) {
+        TrackedTopologyChanges.put(topologyId, topology);
         logger.debug("Topology изменен для сечения '" + unitId + "': " +
           topology.getName() + " = " + currentValue);
       }
@@ -359,8 +246,8 @@ public class BatchAggregator {
   /**
    * Накапливает изменения элементов для конкретного юнита
    */
-  private void accumulateElementChanges(String unitId, StoreData result) {
-    Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
+  private void trackElementChanges(String unitId, StoreData result) {
+    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -368,8 +255,8 @@ public class BatchAggregator {
       String elementId = element.getId();
       double currentValue = element.getValue();
 
-      if (hasElementValueChanged(unitId, elementId, currentValue)) {
-        accumulatedElementChanges.put(elementId, element);
+      if (isElementChanged(unitId, elementId, currentValue)) {
+        TrackedElementChanges.put(elementId, element);
         logger.debug("Element изменен для сечения '" + unitId + "': " +
           element.getName() + " = " + currentValue);
       }
@@ -379,8 +266,8 @@ public class BatchAggregator {
   /**
    * Накапливает изменения элементов для конкретного юнита
    */
-  private void accumulateInfluencingFactorChanges(String unitId, StoreData result) {
-    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+  private void trackInfluencingFactorChanges(String unitId, StoreData result) {
+    Map<String, InfluencingFactor> TrackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -388,8 +275,8 @@ public class BatchAggregator {
       String influencingFactorId = influencingFactor.getId();
       double currentValue = influencingFactor.getValue();
 
-      if (hasFactorValueChanged(unitId, influencingFactorId, currentValue)) {
-        accumulatedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
+      if (isFactorChanged(unitId, influencingFactorId, currentValue)) {
+        TrackedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
         logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
           influencingFactor.getName() + " = " + currentValue);
       }
@@ -400,17 +287,17 @@ public class BatchAggregator {
    * Создает StoreData из накопленных изменений, когда все условия выполнены:
    * все targetUids получены, одинаковый timestamp, initialDataLoaded, hasConsistentTimestamp
    */
-  private StoreData createStoreDataFromAccumulatedChanges(String unitId) {
-    StoreData accumulatedResult = new StoreData();
-    Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
-    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
-    Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
-    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+  private StoreData createStoreDataFromTrackedChanges(String unitId) {
+    StoreData TrackedResult = new StoreData();
+    Map<String, Parameter> TrackedChanges = unitTrackedParameterChanges.get(unitId);
+    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
+    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
+    Map<String, InfluencingFactor> TrackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
 
-    if (!accumulatedChanges.isEmpty() ||
-      !accumulatedTopologyChanges.isEmpty() ||
-      !accumulatedElementChanges.isEmpty() ||
-      !accumulatedInfluencingFactorChanges.isEmpty()) {
+    if (!TrackedChanges.isEmpty() ||
+      !TrackedTopologyChanges.isEmpty() ||
+      !TrackedElementChanges.isEmpty() ||
+      !TrackedInfluencingFactorChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
         Map<String, Parameter> parameterChangesForUnit = new HashMap<>();
@@ -418,25 +305,25 @@ public class BatchAggregator {
         Map<String, Element> elementChangesForUnit = new HashMap<>();
         Map<String, InfluencingFactor> influencingFactorChangesForUnit = new HashMap<>();
 
-        for (Parameter param : accumulatedChanges.values()) {
+        for (Parameter param : TrackedChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
             parameterChangesForUnit.put(getMappedParameterKey(param), param);
           }
         }
 
-        for (Topology topology : accumulatedTopologyChanges.values()) {
+        for (Topology topology : TrackedTopologyChanges.values()) {
           if (isTopologyBelongsToUnit(unit, topology)) {
             topologyChangesForUnit.put(topology.getId(), topology);
           }
         }
 
-        for (Element element : accumulatedElementChanges.values()) {
+        for (Element element : TrackedElementChanges.values()) {
           if (isElementBelongsToUnit(unit, element)) {
             elementChangesForUnit.put(element.getId(), element);
           }
         }
 
-        for (InfluencingFactor influencingFactor : accumulatedInfluencingFactorChanges.values()) {
+        for (InfluencingFactor influencingFactor : TrackedInfluencingFactorChanges.values()) {
           if (isInfluencingFactorBelongsToUnit(unit, influencingFactor)) {
             influencingFactorChangesForUnit.put(influencingFactor.getId(), influencingFactor);
           }
@@ -452,7 +339,7 @@ public class BatchAggregator {
             topologyChangesForUnit,
             elementChangesForUnit,
             influencingFactorChangesForUnit);
-          accumulatedResult.addUnitData(unitDto);
+          TrackedResult.addUnitData(unitDto);
 
           logger.debug("Создан StoreData для сечения '" + unitId + "' с количеством изменений: " +
             " parameters=" + parameterChangesForUnit.size() +
@@ -463,7 +350,7 @@ public class BatchAggregator {
       }
     }
 
-    return accumulatedResult;
+    return TrackedResult;
   }
 
   /**
@@ -530,10 +417,10 @@ public class BatchAggregator {
   /**
    * Сохраняем текущие значения как предыдущие для следующего сравнения для конкретного юнита
    */
-  private void saveCurrentParameterValuesFromAccumulated(String unitId) {
-    Map<String, Parameter> accumulatedChanges = unitAccumulatedChanges.get(unitId);
+  private void saveCurrentParameterValuesFromTracked(String unitId) {
+    Map<String, Parameter> TrackedChanges = unitTrackedParameterChanges.get(unitId);
     Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
-    for (Parameter param : accumulatedChanges.values()) {
+    for (Parameter param : TrackedChanges.values()) {
       previousParameterValues.put(param.getId(), param.getValue());
       logger.info("Предыдущие значения parameter обновлены для сечения '" + unitId +
         "': " + param.getName() + "/" + param.getId() + " = " + param.getValue() +
@@ -544,11 +431,11 @@ public class BatchAggregator {
   /**
    * Сохраняет текущие значения топологий из накопленных изменений
    */
-  private void saveCurrentTopologyValuesFromAccumulated(String unitId) {
-    Map<String, Topology> accumulatedTopologyChanges = unitAccumulatedTopologyChanges.get(unitId);
+  private void saveCurrentTopologyValuesFromTracked(String unitId) {
+    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
     Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
 
-    for (Topology topology : accumulatedTopologyChanges.values()) {
+    for (Topology topology : TrackedTopologyChanges.values()) {
       previousTopologyValues.put(topology.getId(), topology.getValue());
       logger.debug("Предыдущие значения topology обновлены для сечения '" + unitId +
         "': " + topology.getName() + " = " + topology.getValue());
@@ -558,11 +445,11 @@ public class BatchAggregator {
   /**
    * Сохраняет текущие значения элементов из накопленных изменений
    */
-  private void saveCurrentElementValuesFromAccumulated(String unitId) {
-    Map<String, Element> accumulatedElementChanges = unitAccumulatedElementChanges.get(unitId);
+  private void saveCurrentElementValuesFromTracked(String unitId) {
+    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
     Map<String, Double> previousElementValues = unitPreviousElementValues.get(unitId);
 
-    for (Element element : accumulatedElementChanges.values()) {
+    for (Element element : TrackedElementChanges.values()) {
       previousElementValues.put(element.getId(), element.getValue());
       logger.debug("Предыдущие значения element обновлены для сечения '" + unitId +
         "': " + element.getName() + " = " + element.getValue());
@@ -572,11 +459,11 @@ public class BatchAggregator {
   /**
    * Сохраняет текущие значения InfluencingFactor из накопленных изменений
    */
-  private void saveCurrentInfluencingFactorValuesFromAccumulated(String unitId) {
-    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges = unitAccumulatedFactorChanges.get(unitId);
+  private void saveCurrentInfluencingFactorValuesFromTracked(String unitId) {
+    Map<String, InfluencingFactor> TrackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
     Map<String, Double> previousInfluencingFactorValues = unitPreviousFactorValues.get(unitId);
 
-    for (InfluencingFactor influencingFactor : accumulatedInfluencingFactorChanges.values()) {
+    for (InfluencingFactor influencingFactor : TrackedInfluencingFactorChanges.values()) {
       previousInfluencingFactorValues.put(influencingFactor.getId(), influencingFactor.getValue());
       logger.debug("Предыдущие значения influencingFactor обновлены для сечения '" + unitId +
         "': " + influencingFactor.getName() + " = " + influencingFactor.getValue());
@@ -661,7 +548,7 @@ public class BatchAggregator {
    * Проверяет, изменилось ли значение параметра.
    * Сравнивает текущее значение с предыдущим сохраненным значением
    */
-  private boolean hasParameterValueChanged(String unitId, String paramId, double currentValue) {
+  private boolean isParameterChanged(String unitId, String paramId, double currentValue) {
     Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
     Double previousValue = previousParameterValues.get(paramId);
     // Если предыдущего значения нет - считаем что изменилось (первый раз)
@@ -683,7 +570,7 @@ public class BatchAggregator {
   /**
    * Проверяет, изменилось ли значение топологии
    */
-  private boolean hasTopologyValueChanged(String unitId, String topologyId, double currentValue) {
+  private boolean isTopologyChanged(String unitId, String topologyId, double currentValue) {
     Map<String, Double> previousTopologyValues = unitPreviousTopologyValues.get(unitId);
     Double previousValue = previousTopologyValues.get(topologyId);
 
@@ -697,7 +584,7 @@ public class BatchAggregator {
   /**
    * Проверяет, изменилось ли значение элемента
    */
-  private boolean hasElementValueChanged(String unitId, String elementId, double currentValue) {
+  private boolean isElementChanged(String unitId, String elementId, double currentValue) {
     Map<String, Double> previousElementValues = unitPreviousElementValues.get(unitId);
     Double previousValue = previousElementValues.get(elementId);
 
@@ -711,7 +598,7 @@ public class BatchAggregator {
   /**
    * Проверяет, изменилось ли значение InfluencingFactor
    */
-  private boolean hasFactorValueChanged(String unitId, String elementId, double currentValue) {
+  private boolean isFactorChanged(String unitId, String elementId, double currentValue) {
     Map<String, Double> previousFactorValues = unitPreviousFactorValues.get(unitId);
     Double previousValue = previousFactorValues.get(elementId);
 

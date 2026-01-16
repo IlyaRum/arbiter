@@ -10,7 +10,6 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Отвечает за базовую обработку измерений
@@ -23,7 +22,7 @@ public class MeasurementDataProcessor {
   private boolean firstTime = true;
   private DataReadyCallback dataReadyCallback;
   private final DependencyInjector dependencyInjector;
-  private BatchAggregator batchAggregator;
+  private MeasurementChangeTracker measurementChangeTracker;
 
   private final ExecutorService singleThreadExecutor;
 
@@ -53,12 +52,12 @@ public class MeasurementDataProcessor {
           });
         }
 
-        if (batchAggregator == null && dataReadyCallback != null) {
-          batchAggregator = new BatchAggregator(dependencyInjector, dataReadyCallback, singleThreadExecutor);
+        if (measurementChangeTracker == null && dataReadyCallback != null) {
+          measurementChangeTracker = new MeasurementChangeTracker(dependencyInjector, dataReadyCallback, singleThreadExecutor);
         }
 
-        if (batchAggregator != null) {
-          batchAggregator.aggregateData(list.getMeasurements(), result);
+        if (measurementChangeTracker != null) {
+          measurementChangeTracker.trackAndProcessChanges(list.getMeasurements(), result);
         }
       }
 
