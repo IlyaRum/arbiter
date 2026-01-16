@@ -203,4 +203,8 @@ public class HandleDataService extends ABaseService {
   public void setMeasurementDataProcessor(MeasurementDataProcessor measurementDataProcessor) {
     this.measurementDataProcessor = measurementDataProcessor;
   }
+
+  public CalculationServiceClient getCalculationClient() {
+    return calculationClient;
+  }
 }

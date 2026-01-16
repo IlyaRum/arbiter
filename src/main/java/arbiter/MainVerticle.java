@@ -156,6 +156,14 @@ public class MainVerticle extends AbstractVerticle {
 
   @Override
   public void stop(Promise<Void> stopPromise) {
+
+    ShutdownManager shutdownManager = new ShutdownManager(
+      dependencyInjector.getHandleDataService().getCalculationClient(),
+      dependencyInjector.getWebSocketManager()
+    );
+
+    shutdownManager.shutdown();
+
     if (httpServer != null) {
       httpServer.close()
         .onSuccess(v -> stopPromise.complete())
