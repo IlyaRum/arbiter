@@ -1,7 +1,5 @@
 package arbiter.service;
 
-
-import arbiter.config.AppConfig;
 import arbiter.data.StoreData;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.MeasurementDataProcessor;
@@ -15,11 +13,9 @@ import io.cloudevents.CloudEventData;
 import io.cloudevents.core.format.EventFormat;
 import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.jackson.JsonFormat;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
@@ -27,22 +23,30 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class HandleDataService extends ABaseService {
 
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
 
-  private final WebClient webClient;
   private boolean firstTime = true;
   private String currentChannelId;
   private MeasurementDataProcessor measurementDataProcessor;
+  private final ExecutorService executor;
+  private final CalculationServiceClient calculationClient;
 
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector, WebClient webClient) {
     super(vertx);
-    this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector);
-    this.webClient = webClient;
+    this.executor = Executors.newSingleThreadExecutor(r -> {
+      Thread t = new Thread(r, "Data-Processing-Executor");
+      t.setDaemon(true);
+      return t;
+    });
+
+    this.calculationClient = new CalculationServiceClient(webClient, executor);
+    this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, executor);
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
   }
 
@@ -135,54 +139,24 @@ public class HandleDataService extends ABaseService {
   }
 
   private void handleProcessedData(StoreData storeData, String unitId) {
-    if (storeData.size() == 0) {
+    if (storeData == null || storeData.size() == 0) {
       return;
     }
 
-    String jsonData = convertStoreDataToJson(Collections.singletonList(storeData.getUnitDataList()));
+    executor.submit(() -> {
+      try {
+        String jsonData = convertStoreDataToJson(storeData);
 
-    if (isFirstTime()) {
-      sendPostRequest(jsonData);
-      setFirstTime(false);
-    } else {
-      sendPutRequest(jsonData, unitId);
-    }
-  }
-
-  private void sendPutRequest(String jsonData, String unitId) {
-    logger.info(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
-
-    webClient.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
-      .putHeader("Content-Type", "application/json")
-      .sendBuffer(Buffer.buffer(jsonData))
-      .compose(response -> {
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-          logger.debug("Данные успешно обновлены. Ответ: " + response.bodyAsString());
-          return Future.succeededFuture();
-        } else {
-          return Future.failedFuture("HTTP error: " + response.statusCode() + " - " + response.bodyAsString());
+        if (firstTime) {
+          calculationClient.sendPostRequestAsync(jsonData);
+          firstTime = false;
+        } else if (unitId != null) {
+          calculationClient.sendPutRequestAsync(jsonData, unitId);
         }
-      })
-      .onSuccess(v -> logger.debug("PUT запрос выполнен успешно"))
-      .onFailure(err -> logger.error("Ошибка при отправке PUT запроса: " + err.getMessage()));
-  }
-
-  private void sendPostRequest(String jsonData) {
-    logger.info("Отправляем POST запрос в арбитр расчетов с данными: " + jsonData);
-
-    webClient.postAbs(AppConfig.getCalcSrvAbsoluteUrl())
-      .putHeader("Content-Type", "application/json")
-      .sendBuffer(Buffer.buffer(jsonData))
-      .compose(response -> {
-        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-          logger.debug("Данные успешно отправлены. Ответ: " + response.bodyAsString());
-          return Future.succeededFuture();
-        } else {
-          return Future.failedFuture("HTTP error: " + response.statusCode() + " - " + response.bodyAsString());
-        }
-      })
-      .onSuccess(v -> logger.debug("POST запрос выполнен успешно"))
-      .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
+      } catch (Exception e) {
+        logger.error("Ошибка при обработке данных для отправки", e);
+      }
+    });
   }
 
   private String convertStoreDataToJson(Object objects) {

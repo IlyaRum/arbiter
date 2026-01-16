@@ -25,15 +25,12 @@ public class MeasurementDataProcessor {
   private final DependencyInjector dependencyInjector;
   private BatchAggregator batchAggregator;
 
-  private final ExecutorService singleThreadExecutor = Executors.newSingleThreadExecutor(r -> {
-    Thread t = new Thread(r, "Callback-Processor");
-    t.setDaemon(true);
-    return t;
-  });
+  private final ExecutorService singleThreadExecutor;
 
 
-  public MeasurementDataProcessor(DependencyInjector dependencyInjector) {
+  public MeasurementDataProcessor(DependencyInjector dependencyInjector, ExecutorService executor) {
     this.dependencyInjector = dependencyInjector;
+    this.singleThreadExecutor = executor;
   }
 
   /**
@@ -55,7 +52,6 @@ public class MeasurementDataProcessor {
             }
           });
         }
-
 
         if (batchAggregator == null && dataReadyCallback != null) {
           batchAggregator = new BatchAggregator(dependencyInjector, dataReadyCallback, singleThreadExecutor);
