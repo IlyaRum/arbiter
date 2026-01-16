@@ -2,7 +2,7 @@ package arbiter.service;
 
 
 import arbiter.config.AppConfig;
-import arbiter.data.*;
+import arbiter.data.StoreData;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.MeasurementDataProcessor;
 import arbiter.measurement.MeasurementList;
@@ -27,13 +27,10 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Collections;
 
-public class HandleDataService extends ABaseService{
+public class HandleDataService extends ABaseService {
 
-  private final ExecutorService executor = Executors.newSingleThreadExecutor();
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
 
@@ -137,38 +134,19 @@ public class HandleDataService extends ABaseService{
     return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
   }
 
-  private void handleProcessedData(StoreData data, String unitId) {
-    if (data != null && data.size() > 0) {
-
-      String jsonData = convertStoreDataToJson(Collections.singletonList(data.getUnitDataList()));
-
-      if (isFirstTime()) {
-        sendPostRequestAsync(jsonData);
-        setFirstTime(false);
-      } else {
-        sendPutRequestAsync(jsonData, unitId);
-      }
+  private void handleProcessedData(StoreData storeData, String unitId) {
+    if (storeData.size() == 0) {
+      return;
     }
-  }
 
-  public void sendPostRequestAsync(String jsonData) {
-    executor.submit(() -> {
-      try {
-        sendPostRequest(jsonData);
-      } catch (Exception e) {
-        logger.error("Ошибка при асинхронной отправке данных", e);
-      }
-    });
-  }
+    String jsonData = convertStoreDataToJson(Collections.singletonList(storeData.getUnitDataList()));
 
-  public void sendPutRequestAsync(String jsonData, String unitId) {
-    executor.submit(() -> {
-      try {
-        sendPutRequest(jsonData, unitId);
-      } catch (Exception e) {
-        logger.error("Ошибка при асинхронной отправке PUT данных", e);
-      }
-    });
+    if (isFirstTime()) {
+      sendPostRequest(jsonData);
+      setFirstTime(false);
+    } else {
+      sendPutRequest(jsonData, unitId);
+    }
   }
 
   private void sendPutRequest(String jsonData, String unitId) {
