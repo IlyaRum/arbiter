@@ -97,32 +97,32 @@ public class BatchAggregator {
       return;
     }
 
-    Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
-    logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
-    logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
+    //Set<String> targetUids = dependencyInjector.getUnitCollection().getTargetUidsForUnit(unit);
+//    logger.debug(String.format("Юнит %s: targetUids count=%d", unitId, targetUids.size()));
+//    logger.debug("Unit=" + unitId + " targetUids=" + targetUids);
 
-    if (targetUids.isEmpty()) {
-      logger.warn("Нет target UID для сечения: " + unitId);
-      return;
-    }
+//    if (targetUids.isEmpty()) {
+//      logger.warn("Нет target UID для сечения: " + unitId);
+//      return;
+//    }
 
     // Получаем UID "Номер цикла расчета СМЗУ" для этого сечения
-    String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
-    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения '" + unitId + "': " + cycleNumberUid);
+   // String cycleNumberUid = dependencyInjector.getUnitCollection().getCycleNumberUidFromUnit(unit);
+//    logger.debug("UID 'Номер цикла расчета СМЗУ' для сечения '" + unitId + "': " + cycleNumberUid);
 
     initializeUnitStateStructures(unitId);
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
 
-    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
-    Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
+//    Map<String, Measurement> dataBuffer = unitDataBuffers.get(unitId);
+    //Map<String, Instant> lastTimeStamps = unitLastTimeStamps.get(unitId);
     boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
 
-    logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
-      unitId, dataBuffer.size(), initialDataLoaded));
+//    logger.debug(String.format("Состояние сечения %s: bufferSize=%d, initialDataLoaded=%s",
+//      unitId, dataBuffer.size(), initialDataLoaded));
 
     UnitState unitState = getUnitState(unitId);
-    processReceivedMeasurements(cycleNumberUid, measurementsByUid, targetUids, unitId, dataBuffer, lastTimeStamps);
-    checkAndProcessConsistency(result, unitId, initialDataLoaded, unitState, cycleNumberUid, targetUids,  dataBuffer);
+    //processReceivedMeasurements(cycleNumberUid, measurementsByUid, targetUids, unitId, dataBuffer, lastTimeStamps);
+    checkAndProcessConsistency(result, unitId, initialDataLoaded, unitState);
   }
 
   private UnitState getUnitState(String unitId) {
@@ -240,15 +240,14 @@ public class BatchAggregator {
   }
 
   private void checkAndProcessConsistency(StoreData result, String unitId,
-                                          boolean initialDataLoaded, UnitState unitState, String cycleNumberUid, Set<String> targetUids,
-                                          Map<String, Measurement> dataBuffer) {
-    ConsistencyCheckResult consistencyResult = checkDataConsistency(unitId, cycleNumberUid, targetUids, dataBuffer);
+                                          boolean initialDataLoaded, UnitState unitState) {
+//    ConsistencyCheckResult consistencyResult = checkDataConsistency(unitId, cycleNumberUid, targetUids, dataBuffer);
 
-    if (consistencyResult.isCanCheckConsistency() && consistencyResult.getReferenceTimestamp() != null) {
-      processConsistentData(result, unitId, consistencyResult.getReferenceTimestamp(), initialDataLoaded, unitState);
-    } else {
-      logConsistencyCheckFailure(cycleNumberUid, unitId, dataBuffer);
-    }
+//    if (consistencyResult.isCanCheckConsistency() && consistencyResult.getReferenceTimestamp() != null) {
+      processConsistentData(result, unitId, initialDataLoaded, unitState);
+//    } else {
+//      logConsistencyCheckFailure(cycleNumberUid, unitId, dataBuffer);
+//    }
   }
 
   private static void logConsistencyCheckFailure(String cycleNumberUid, String unitId, Map<String, Measurement> dataBuffer) {
@@ -261,27 +260,15 @@ public class BatchAggregator {
     }
   }
 
-  private void processConsistentData(StoreData result, String unitId, Instant referenceTimestamp,  boolean initialDataLoaded,
+  private void processConsistentData(StoreData result, String unitId,  boolean initialDataLoaded,
                                       UnitState unitState) {
-    Instant previousTimestamp = unitCurrentTimestamps.get(unitId);
-    boolean timeStampChanged = previousTimestamp == null ||
-      !previousTimestamp.equals(referenceTimestamp);
 
-    logger.debug(String.format("Сравнение timestamp: previous=%s, current=%s, changed=%s",
-      previousTimestamp, referenceTimestamp, timeStampChanged));
-
-    if (timeStampChanged) {
-      logger.debug("Timestamp изменился для сечения '" + unitId +
-        "': " + previousTimestamp + " -> " + referenceTimestamp);
-      unitCurrentTimestamps.put(unitId, referenceTimestamp);
 
       if (!initialDataLoaded) {
         processInitialDataLoad(result, unitId);
       } else
         processAccumulatedChanges(result, unitId, unitState);
-    } else {
-      logger.debug("Timestamp: " + referenceTimestamp + " не изменился для сечения: '" + unitId + "'");
-    }
+//    }
   }
 
   private void processInitialDataLoad(StoreData result, String unitId) {
