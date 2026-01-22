@@ -4,9 +4,11 @@ import arbiter.data.StoreData;
 import arbiter.data.UnitCollection;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
+import arbiter.service.HandleDataService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -14,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
@@ -41,12 +44,15 @@ class MeasurementDataProcessorTest {
   @Mock
   private UnitCollection mockUnitCollection;
 
+  @Mock
+  private ExecutorService executorMock;
+
   private MeasurementDataProcessor processor;
   private Instant currentTime;
 
   @BeforeEach
   void setUp() {
-    processor = new MeasurementDataProcessor(dependencyInjector);
+    processor = new MeasurementDataProcessor(dependencyInjector, executorMock);
     processor.setDataReadyCallback(dataReadyCallback);
     currentTime = Instant.now();
   }
@@ -90,6 +96,12 @@ class MeasurementDataProcessorTest {
     units.add(unit);
 
     setupDependencyInjectorWithUnits(units);
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run(); // Выполняем синхронно
+      return null;
+    }).when(executorMock).submit(any(Runnable.class));
 
     processor.onDataReceived(list);
 
@@ -262,6 +274,12 @@ class MeasurementDataProcessorTest {
     units.add(unit);
 
     setupDependencyInjectorWithUnits(units);
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run();
+      return null;
+    }).when(executorMock).submit(any(Runnable.class));
 
     processor.onDataReceived(firstList);
 
