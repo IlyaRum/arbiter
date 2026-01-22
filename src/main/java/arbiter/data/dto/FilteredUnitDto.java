@@ -1,9 +1,6 @@
 package arbiter.data.dto;
 
-import arbiter.data.model.Element;
-import arbiter.data.model.InfluencingFactor;
-import arbiter.data.model.Parameter;
-import arbiter.data.model.Topology;
+import arbiter.data.model.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,13 +16,15 @@ public class FilteredUnitDto extends UnitDto {
   private final List<Element> filteredElementList;
   private final Map<String, Element> filteredElements;
   private final List<InfluencingFactor> filteredInfuencingFactorList;
+  private final RepairSchema filteredRepairSchema;
   private final Map<String, InfluencingFactor> influencingFactories;
 
   public FilteredUnitDto(UnitDto original,
                          Map<String, Parameter> filteredParameters,
                          Map<String, Topology> filteredTopologies,
                          Map<String, Element> filteredElements,
-                         Map<String, InfluencingFactor> influencingFactories) {
+                         Map<String, InfluencingFactor> influencingFactories,
+                         RepairSchema filteredRepairSchema) {
     super(original.getUnit());
     this.filteredParameters = filteredParameters;
     this.filteredTopologies = filteredTopologies;
@@ -34,6 +33,7 @@ public class FilteredUnitDto extends UnitDto {
     this.influencingFactories = influencingFactories;
     this.filteredElementList = new ArrayList<>(filteredElements.values());
     this.filteredInfuencingFactorList = new ArrayList<>(influencingFactories.values());
+    this.filteredRepairSchema = filteredRepairSchema;;
   }
 
   @Override
@@ -53,5 +53,10 @@ public class FilteredUnitDto extends UnitDto {
   @Override
   public List<InfluencingFactor> getInfluencingFactors() {
     return filteredInfuencingFactorList;
+  }
+
+  @Override
+  public RepairSchema getRepairSchema() {
+    return filteredRepairSchema;
   }
 }

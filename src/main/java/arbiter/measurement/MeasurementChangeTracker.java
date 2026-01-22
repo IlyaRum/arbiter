@@ -93,7 +93,8 @@ public class MeasurementChangeTracker {
       unitTrackedParameterChanges.get(unitId),
       unitTrackedTopologyChanges.get(unitId),
       unitTrackedElementChanges.get(unitId),
-      unitTrackedFactorChanges.get(unitId)
+      unitTrackedFactorChanges.get(unitId),
+      unitTrackedRepairChanges.get(unitId)
     );
   }
 
@@ -113,6 +114,7 @@ public class MeasurementChangeTracker {
     saveCurrentTopologyValues(unitId, result);
     saveCurrentElementValues(unitId, result);
     saveCurrentInfluencingFactorValues(unitId, result);
+    saveCurrentRepairValues(unitId, result);
     logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
@@ -122,19 +124,22 @@ public class MeasurementChangeTracker {
     trackTopologyChanges(unitId, result);
     trackElementChanges(unitId, result);
     trackInfluencingFactorChanges(unitId, result);
+    trackRepairChanges(unitId, result);
 
-    int paramChanges = unitState.getTrackedChanges().size();
+    int paramChanges = unitState.getTrackedParameterChanges().size();
     int topologyChanges = unitState.getTrackedTopologyChanges().size();
     int elementChanges = unitState.getTrackedElementChanges().size();
     int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
+    int repairChanges = unitState.getTrackedRepairChanges().size();
 
-    if (!unitState.getTrackedChanges().isEmpty() ||
+    if (!unitState.getTrackedParameterChanges().isEmpty() ||
       !unitState.getTrackedTopologyChanges().isEmpty() ||
       !unitState.getTrackedElementChanges().isEmpty() ||
-      !unitState.getTrackedInfluencingFactorChanges().isEmpty()) {
+      !unitState.getTrackedInfluencingFactorChanges().isEmpty() ||
+      !unitState.getTrackedRepairChanges().isEmpty()) {
 
-      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d",
-        unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
+      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d",
+        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges));
 
       sendTrackedChanges(unitId, unitState);
     } else {
@@ -168,10 +173,11 @@ public class MeasurementChangeTracker {
   }
 
   private static void clearTrackedChanges(UnitState unitState) {
-    unitState.getTrackedChanges().clear();
+    unitState.getTrackedParameterChanges().clear();
     unitState.getTrackedTopologyChanges().clear();
     unitState.getTrackedElementChanges().clear();
     unitState.getTrackedInfluencingFactorChanges().clear();
+    unitState.getTrackedRepairChanges().clear();
     logger.info("Накопленные изменения очищены \n");
   }
 
@@ -180,6 +186,7 @@ public class MeasurementChangeTracker {
     saveCurrentTopologyValuesFromTracked(unitId);
     saveCurrentElementValuesFromTracked(unitId);
     saveCurrentInfluencingFactorValuesFromTracked(unitId);
+    saveCurrentRepairValuesFromTracked(unitId);
     logger.info("Текущие значения сохранены как предыдущие");
   }
 
@@ -190,11 +197,13 @@ public class MeasurementChangeTracker {
     unitPreviousTopologyValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousElementValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousFactorValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitPreviousRepairValues.computeIfAbsent(unitId, k-> new ConcurrentHashMap<>());
 
     unitTrackedParameterChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedRepairChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
   }
 
@@ -259,7 +268,7 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Отслеживает изменения элементов для конкретного сечения
+   * Отслеживает изменения влияющих факторов для конкретного сечения
    */
   private void trackInfluencingFactorChanges(String unitId, StoreData result) {
     Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
@@ -279,72 +288,185 @@ public class MeasurementChangeTracker {
   }
 
   /**
+   * Отслеживает изменения ремонтных схем для конкретного сечения
+   */
+  private void trackRepairChanges(String unitId, StoreData result) {
+    Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto == null) return;
+
+    RepairSchema repairSchema = unitDto.getRepairSchema();
+    if (repairSchema == null) return;
+
+    List<RepairGroupValue> repairGroupValues = repairSchema.getRepairGroupValues();
+    if (repairGroupValues == null || repairGroupValues.isEmpty()) return;
+
+    // Проходим по всем группам ремонтных работ и их значениям Composition
+    for (RepairGroupValue repairGroup : repairGroupValues) {
+      List<Composition> compositions = repairGroup.getValues();
+      if (compositions == null) continue;
+
+      for (Composition composition : compositions) {
+        String compositionId = composition.getId();
+        double currentValue = composition.getValue();
+
+        if (isRepairChanged(unitId, compositionId, currentValue)) {
+          trackedRepairChanges.put(compositionId, composition);
+          logger.debug("Repair (Composition) изменен для сечения '" + unitId + "': " +
+            composition.getName() + " = " + currentValue);
+        }
+      }
+    }
+  }
+
+  /**
    * Создает StoreData, состоящий только из новых изменений для конкретного сечения:
    */
   private StoreData createStoreDataFromTrackedChanges(String unitId) {
-    StoreData TrackedResult = new StoreData();
-    Map<String, Parameter> TrackedChanges = unitTrackedParameterChanges.get(unitId);
-    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
-    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
-    Map<String, InfluencingFactor> TrackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
+    StoreData trackedResult = new StoreData();
+    Map<String, Parameter> trackedParameterChanges = unitTrackedParameterChanges.get(unitId);
+    Map<String, Topology> trackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
+    Map<String, Element> trackedElementChanges = unitTrackedElementChanges.get(unitId);
+    Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
+    Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
 
-    if (!TrackedChanges.isEmpty() ||
-      !TrackedTopologyChanges.isEmpty() ||
-      !TrackedElementChanges.isEmpty() ||
-      !TrackedInfluencingFactorChanges.isEmpty()) {
+    if (!trackedParameterChanges.isEmpty() ||
+      !trackedTopologyChanges.isEmpty() ||
+      !trackedElementChanges.isEmpty() ||
+      !trackedInfluencingFactorChanges.isEmpty() ||
+      !trackedRepairChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
+
         Map<String, Parameter> parameterChangesForUnit = new HashMap<>();
         Map<String, Topology> topologyChangesForUnit = new HashMap<>();
         Map<String, Element> elementChangesForUnit = new HashMap<>();
         Map<String, InfluencingFactor> influencingFactorChangesForUnit = new HashMap<>();
+        Map<String, Composition> repairChangesForUnit = new HashMap<>();
 
-        for (Parameter param : TrackedChanges.values()) {
+        for (Parameter param : trackedParameterChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
             parameterChangesForUnit.put(getMappedParameterKey(param), param);
           }
         }
 
-        for (Topology topology : TrackedTopologyChanges.values()) {
+        for (Topology topology : trackedTopologyChanges.values()) {
           if (isTopologyBelongsToUnit(unit, topology)) {
             topologyChangesForUnit.put(topology.getId(), topology);
           }
         }
 
-        for (Element element : TrackedElementChanges.values()) {
+        for (Element element : trackedElementChanges.values()) {
           if (isElementBelongsToUnit(unit, element)) {
             elementChangesForUnit.put(element.getId(), element);
           }
         }
 
-        for (InfluencingFactor influencingFactor : TrackedInfluencingFactorChanges.values()) {
+        for (InfluencingFactor influencingFactor : trackedInfluencingFactorChanges.values()) {
           if (isInfluencingFactorBelongsToUnit(unit, influencingFactor)) {
             influencingFactorChangesForUnit.put(influencingFactor.getId(), influencingFactor);
+          }
+        }
+
+        for (Composition composition : trackedRepairChanges.values()) {
+          if (isCompositionBelongsToUnitRepairSchema(unit, composition)) {
+            repairChangesForUnit.put(composition.getId(), composition);
           }
         }
 
         if (!parameterChangesForUnit.isEmpty() ||
           !topologyChangesForUnit.isEmpty() ||
           !elementChangesForUnit.isEmpty() ||
-          !influencingFactorChangesForUnit.isEmpty()) {
+          !influencingFactorChangesForUnit.isEmpty() ||
+          !repairChangesForUnit.isEmpty()) {
+
+          RepairSchema filteredRepairSchema = null;
+          if (!repairChangesForUnit.isEmpty()) {
+            filteredRepairSchema = createFilteredRepairSchema(unit.getRepairSchema(), repairChangesForUnit);
+          }
 
           FilteredUnitDto unitDto = new FilteredUnitDto(new UnitDto(unit),
             parameterChangesForUnit,
             topologyChangesForUnit,
             elementChangesForUnit,
-            influencingFactorChangesForUnit);
-          TrackedResult.addUnitData(unitDto);
+            influencingFactorChangesForUnit,
+            filteredRepairSchema);
+
+          trackedResult.addUnitData(unitDto);
 
           logger.debug("Создан StoreData для сечения '" + unitId + "' с количеством изменений: " +
             " parameters=" + parameterChangesForUnit.size() +
             ", elements=" + elementChangesForUnit.size() +
             ", topologies=" + topologyChangesForUnit.size() +
-            ", influencingFactor=" + influencingFactorChangesForUnit.size());
+            ", influencingFactor=" + influencingFactorChangesForUnit.size() +
+            ", repairs=" + repairChangesForUnit.size());
         }
       }
     }
 
-    return TrackedResult;
+    return trackedResult;
+  }
+
+  /**
+   * Создает отфильтрованную ремонтную схему с только изменившимися значениями Composition
+   */
+  private RepairSchema createFilteredRepairSchema(RepairSchema originalRepairSchema, Map<String, Composition> changedCompositions) {
+    if (originalRepairSchema == null || changedCompositions.isEmpty()) {
+      return null;
+    }
+
+    RepairSchema filteredRepairSchema = new RepairSchema();
+    filteredRepairSchema.setCheckFormula(originalRepairSchema.getCheckFormula());
+
+    List<RepairGroupValue> filteredRepairGroupValues = new ArrayList<>();
+
+    if (originalRepairSchema.getRepairGroupValues() != null) {
+      for (RepairGroupValue originalGroup : originalRepairSchema.getRepairGroupValues()) {
+        RepairGroupValue filteredGroup = new RepairGroupValue();
+        filteredGroup.setGroup(originalGroup.getGroup());
+        filteredGroup.setOperation(originalGroup.getOperation());
+
+        List<Composition> filteredCompositions = new ArrayList<>();
+
+        if (originalGroup.getValues() != null) {
+          for (Composition composition : originalGroup.getValues()) {
+            if (changedCompositions.containsKey(composition.getId())) {
+              filteredCompositions.add(changedCompositions.get(composition.getId()));
+            }
+          }
+        }
+
+        if (!filteredCompositions.isEmpty()) {
+          filteredGroup.setValues(filteredCompositions);
+          filteredRepairGroupValues.add(filteredGroup);
+        }
+      }
+    }
+
+    filteredRepairSchema.setRepairGroupValues(filteredRepairGroupValues);
+    return filteredRepairGroupValues.isEmpty() ? null : filteredRepairSchema;
+  }
+
+  /**
+   * Проверяет принадлежность Composition к ремонтной схеме юнита
+   */
+  private boolean isCompositionBelongsToUnitRepairSchema(Unit unit, Composition composition) {
+    RepairSchema repairSchema = unit.getRepairSchema();
+    if (repairSchema == null || repairSchema.getRepairGroupValues() == null) {
+      return false;
+    }
+
+    for (RepairGroupValue repairGroup : repairSchema.getRepairGroupValues()) {
+      if (repairGroup.getValues() != null) {
+        for (Composition unitComposition : repairGroup.getValues()) {
+          if (unitComposition.getId().equals(composition.getId())) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -450,6 +572,17 @@ public class MeasurementChangeTracker {
     }
   }
 
+  private void saveCurrentRepairValuesFromTracked(String unitId) {
+    Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
+    Map<String, Double> previousRepairValues = unitPreviousRepairValues.get(unitId);
+
+    for (Composition composition : trackedRepairChanges.values()) {
+      previousRepairValues.put(composition.getId(), composition.getValue());
+      logger.debug("Предыдущие значения repair обновлены для сечения '" + unitId +
+        "': " + composition.getName() + " = " + composition.getValue());
+    }
+  }
+
   /**
    * Сохраняет текущие значения InfluencingFactor из накопленных изменений
    */
@@ -538,6 +671,26 @@ public class MeasurementChangeTracker {
     }
   }
 
+  private void saveCurrentRepairValues(String unitId, StoreData result) {
+    Map<String, Double> previousRepairValues = unitPreviousRepairValues.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto != null) {
+      RepairSchema repairSchema = unitDto.getRepairSchema();
+      if (repairSchema != null && repairSchema.getRepairGroupValues() != null) {
+        for (RepairGroupValue repairGroup : repairSchema.getRepairGroupValues()) {
+          if (repairGroup.getValues() != null) {
+            for (Composition composition : repairGroup.getValues()) {
+              double currentValue = composition.getValue();
+              previousRepairValues.put(composition.getId(), currentValue);
+              logger.debug("Сохранено начальное значение repair для сечения '" + unitId +
+                "': " + composition.getName() + " = " + currentValue);
+            }
+          }
+        }
+      }
+    }
+  }
+
   /**
    * Проверяет, изменилось ли значение параметра.
    * Сравнивает текущее значение с предыдущим сохраненным значением
@@ -589,6 +742,23 @@ public class MeasurementChangeTracker {
     Map<String, Double> previousFactorValues = unitPreviousFactorValues.get(unitId);
     Double previousValue = previousFactorValues.get(elementId);
 
+    if (previousValue == null) {
+      return true;
+    }
+
+    return Math.abs(currentValue - previousValue) > 1e-10;
+  }
+
+  /**
+   * Проверяет, изменилось ли значение ремонтной схемы (Composition)
+   */
+  private boolean isRepairChanged(String unitId, String compositionId, double currentValue) {
+    Map<String, Double> previousRepairValues = unitPreviousRepairValues.get(unitId);
+    if (previousRepairValues == null) {
+      return true;
+    }
+
+    Double previousValue = previousRepairValues.get(compositionId);
     if (previousValue == null) {
       return true;
     }
