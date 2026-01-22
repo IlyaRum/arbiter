@@ -1,9 +1,6 @@
 package arbiter.helper;
 
-import arbiter.data.model.Element;
-import arbiter.data.model.InfluencingFactor;
-import arbiter.data.model.Parameter;
-import arbiter.data.model.Topology;
+import arbiter.data.model.*;
 import arbiter.measurement.MeasurementChangeTracker;
 import arbiter.measurement.Measurement;
 import arbiter.measurement.state.ConsistencyStatus;
@@ -35,7 +32,7 @@ public class MeasurementChangeTrackerReflectionTestHelper {
     }
   }
 
-  public void invokeSendAccumulatedChanges(String unitId, UnitState unitState) {
+  public void invokeSendTrackedChanges(String unitId, UnitState unitState) {
     try {
       java.lang.reflect.Method method = MeasurementChangeTracker.class.getDeclaredMethod(
         "sendTrackedChanges", String.class, UnitState.class);
@@ -88,7 +85,7 @@ public class MeasurementChangeTrackerReflectionTestHelper {
     }
   }
 
-  public Map<String, Map<String, Parameter>> getUnitAccumulatedChanges() {
+  public Map<String, Map<String, Parameter>> getUnitTrackedChanges() {
     try {
       java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedParameterChanges");
       field.setAccessible(true);
@@ -98,7 +95,7 @@ public class MeasurementChangeTrackerReflectionTestHelper {
     }
   }
 
-  public Map<String, Map<String, Topology>> getUnitAccumulatedTopologyChanges() {
+  public Map<String, Map<String, Topology>> getUnitTrackedTopologyChanges() {
     try {
       java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedTopologyChanges");
       field.setAccessible(true);
@@ -108,7 +105,7 @@ public class MeasurementChangeTrackerReflectionTestHelper {
     }
   }
 
-  public Map<String, Map<String, Element>> getUnitAccumulatedElementChanges() {
+  public Map<String, Map<String, Element>> getUnitTrackedElementChanges() {
     try {
       java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedElementChanges");
       field.setAccessible(true);
@@ -118,11 +115,21 @@ public class MeasurementChangeTrackerReflectionTestHelper {
     }
   }
 
-  public Map<String, Map<String, InfluencingFactor>> getUnitAccumulatedFactorChanges() {
+  public Map<String, Map<String, InfluencingFactor>> getUnitTrackedFactorChanges() {
     try {
       java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedFactorChanges");
       field.setAccessible(true);
       return (Map<String, Map<String, InfluencingFactor>>) field.get(measurementChangeTracker);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  public Map<String, Map<String, Composition>> getUnitTrackedRepairChanges() {
+    try {
+      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedRepairChanges");
+      field.setAccessible(true);
+      return (Map<String, Map<String, Composition>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

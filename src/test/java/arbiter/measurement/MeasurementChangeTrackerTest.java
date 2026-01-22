@@ -152,9 +152,9 @@ public class MeasurementChangeTrackerTest {
     assertEquals(newConfig.getDp2Value(), previousValuesFirst.get(newConfig.getDp2Uid()), 0.001, "Previous value for param2 should be " + newConfig.getDp2Value());
     assertEquals(newConfig.getDp3Value(), previousValuesFirst.get(newConfig.getDp3Uid()), 0.001, "Previous value for param3 should be " + newConfig.getDp3Value());
 
-    Map<String, Parameter> accumulatedChanges = measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName());
-    assertTrue(accumulatedChanges == null || accumulatedChanges.isEmpty(),
-      "Accumulated changes should be cleared after sending");
+    Map<String, Parameter> trackedChanges = measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().get(config.getUnitName());
+    assertTrue(trackedChanges == null || trackedChanges.isEmpty(),
+      "Tracked changes should be cleared after sending");
 
     verify(singleThreadExecutor, times(1)).submit(any(Runnable.class));
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
@@ -279,15 +279,17 @@ public class MeasurementChangeTrackerTest {
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
 
-    Map<String, Parameter> accumulatedChanges = createParametersObj(config);
-    Map<String, Topology> accumulatedTopologyChanges = new ConcurrentHashMap<>();
-    Map<String, Element> accumulatedElementChanges = new ConcurrentHashMap<>();
-    Map<String, InfluencingFactor> accumulatedFactorChanges = new ConcurrentHashMap<>();
+    Map<String, Parameter> trackedChanges = createParametersObj(config);
+    Map<String, Topology> trackedTopologyChanges = new ConcurrentHashMap<>();
+    Map<String, Element> trackedElementChanges = new ConcurrentHashMap<>();
+    Map<String, InfluencingFactor> trackedFactorChanges = new ConcurrentHashMap<>();
+    Map<String, Composition> trackedCompositionChanges = new ConcurrentHashMap<>();
 
-    measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedChanges().put(config.getUnitName(), accumulatedChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedTopologyChanges().put(config.getUnitName(), accumulatedTopologyChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedElementChanges().put(config.getUnitName(), accumulatedElementChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedFactorChanges().put(config.getUnitName(), accumulatedFactorChanges);
+    measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().put(config.getUnitName(), trackedChanges);
+    measurementChangeTrackerReflectionTestHelper.getUnitTrackedTopologyChanges().put(config.getUnitName(), trackedTopologyChanges);
+    measurementChangeTrackerReflectionTestHelper.getUnitTrackedElementChanges().put(config.getUnitName(), trackedElementChanges);
+    measurementChangeTrackerReflectionTestHelper.getUnitTrackedFactorChanges().put(config.getUnitName(), trackedFactorChanges);
+    measurementChangeTrackerReflectionTestHelper.getUnitTrackedRepairChanges().put(config.getUnitName(), trackedCompositionChanges);
 
     Map<String, Double> previousParameterValues = new ConcurrentHashMap<>();
     previousParameterValues.put(config.getDp1Uid(), config.getDp1Value());
@@ -305,15 +307,15 @@ public class MeasurementChangeTrackerTest {
       return null;
     }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    measurementChangeTrackerReflectionTestHelper.invokeSendAccumulatedChanges(config.getUnitName(), createUnitState(accumulatedChanges, accumulatedTopologyChanges,accumulatedElementChanges,accumulatedFactorChanges));
+    measurementChangeTrackerReflectionTestHelper.invokeSendTrackedChanges(config.getUnitName(), createUnitState(trackedChanges, trackedTopologyChanges,trackedElementChanges,trackedFactorChanges, trackedCompositionChanges));
 
     verify(singleThreadExecutor, times(1)).submit(any(Runnable.class));
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
 
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedChanges().get(config.getUnitName()).isEmpty(),"Accumulated parameter changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedTopologyChanges().get(config.getUnitName()).isEmpty(),"Accumulated topology changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedElementChanges().get(config.getUnitName()).isEmpty(),"Accumulated elements changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitAccumulatedFactorChanges().get(config.getUnitName()).isEmpty(),"Accumulated influencing factor changes should be cleared even when executor throws exception");
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().get(config.getUnitName()).isEmpty(),"Tracked parameter changes should be cleared even when executor throws exception");
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedTopologyChanges().get(config.getUnitName()).isEmpty(),"Tracked topology changes should be cleared even when executor throws exception");
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedElementChanges().get(config.getUnitName()).isEmpty(),"Tracked elements changes should be cleared even when executor throws exception");
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedFactorChanges().get(config.getUnitName()).isEmpty(),"Tracked influencing factor changes should be cleared even when executor throws exception");
   }
 
   public static TestDataConfig createUnit1Config(Instant timestamp){
@@ -373,12 +375,13 @@ public class MeasurementChangeTrackerTest {
     return parameters;
   }
 
-  private UnitState createUnitState(Map<String, Parameter> accumulatedChanges,
-                                    Map<String, Topology> accumulatedTopologyChanges,
-                                    Map<String, Element> accumulatedElementChanges,
-                                    Map<String, InfluencingFactor> accumulatedInfluencingFactorChanges) {
-    return new UnitState(accumulatedChanges, accumulatedTopologyChanges,
-      accumulatedElementChanges, accumulatedInfluencingFactorChanges
+  private UnitState createUnitState(Map<String, Parameter> trackedChanges,
+                                    Map<String, Topology> trackedTopologyChanges,
+                                    Map<String, Element> trackedElementChanges,
+                                    Map<String, InfluencingFactor> trackedInfluencingFactorChanges,
+                                    Map<String, Composition> trackedRepairChanges) {
+    return new UnitState(trackedChanges, trackedTopologyChanges,
+      trackedElementChanges, trackedInfluencingFactorChanges,trackedRepairChanges
     );
   }
 
