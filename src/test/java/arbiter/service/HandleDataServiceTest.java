@@ -2,6 +2,7 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.data.StoreData;
+import arbiter.data.dto.UnitDto;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.MeasurementDataProcessor;
 import arbiter.measurement.MeasurementList;
@@ -31,10 +32,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -56,25 +55,29 @@ class HandleDataServiceTest {
   @Mock
   private WebClient webClient;
 
+  @Mock
+  private ExecutorService executorMock;
+
+  @Mock
+  private CalculationServiceClient calculationServiceClient;
+
   @InjectMocks
   private HandleDataService handleDataService;
 
   private ObjectMapper objectMapper;
-
-  private MockedStatic<AppConfig> mockedAppConfig;
 
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper();
     handleDataService = spy(new HandleDataService(vertx, dependencyInjector, webClient));
     handleDataService.setMeasurementDataProcessor(measurementDataProcessor);
+    setExecutorField();
   }
 
   @Test
   void testHandleTextMessage_ChannelOpenedEvent(VertxTestContext testContext) {
     Promise<JsonObject> promise = Promise.promise();
     Handler<String> handler = handleDataService.handleTextMessage(promise);
-
 
     Promise<Object> executeBlockingPromise = Promise.promise();
     Future<Object> mockFuture = executeBlockingPromise.future();
@@ -242,6 +245,66 @@ class HandleDataServiceTest {
     assertTrue(result.contains("123"));
   }
 
+  @Test
+  void testHandleProcessedData_FirstTime() {
+    handleDataService.setFirstTime(true);
+    handleDataService.setCalculationClient(calculationServiceClient);
+    StoreData storeData = mock(StoreData.class);
+    UnitDto unitDto = mock(UnitDto.class);
+
+    when(storeData.size()).thenReturn(1);
+    when(storeData.getUnitDataList()).thenReturn(List.of(unitDto));
+
+    doNothing().when(calculationServiceClient).sendPostRequestAsync(anyString());
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run();
+      return null;
+    }).when(executorMock).submit(any(Runnable.class));
+
+    invokeHandleProcessedData(storeData, "unit-123");
+
+    verify(calculationServiceClient, times(1)).sendPostRequestAsync(anyString());
+    verify(calculationServiceClient, never()).sendPutRequestAsync(anyString(), anyString());
+    assertFalse(handleDataService.isFirstTime());
+  }
+
+  @Test
+  void testHandleProcessedData_NotFirstTime() {
+    handleDataService.setFirstTime(false);
+    handleDataService.setCalculationClient(calculationServiceClient);
+    StoreData storeData = mock(StoreData.class);
+    UnitDto unitDto = mock(UnitDto.class);
+
+    when(storeData.size()).thenReturn(1);
+    when(storeData.getUnitDataList()).thenReturn(List.of(unitDto));
+
+    doNothing().when(calculationServiceClient).sendPutRequestAsync(anyString(), anyString());
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run();
+      return null;
+    }).when(executorMock).submit(any(Runnable.class));
+
+    invokeHandleProcessedData(storeData, "unit-123");
+
+    verify(calculationServiceClient, times(1)).sendPutRequestAsync(anyString(), eq("unit-123"));
+    verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
+  }
+
+  @Test
+  void testHandleProcessedData_EmptyData() {
+    StoreData storeData = mock(StoreData.class);
+    when(storeData.size()).thenReturn(0);
+
+    invokeHandleProcessedData(storeData, "unit-123");
+
+    verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
+    verify(calculationServiceClient, never()).sendPutRequestAsync(anyString(), anyString());
+  }
+
   public void invokeHandleMeasurementData(CloudEvent event) {
     try {
       java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
@@ -282,6 +345,16 @@ class HandleDataServiceTest {
       method.setAccessible(true);
       return (String) method.invoke(handleDataService, objects);
     } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void setExecutorField() {
+    try {
+      java.lang.reflect.Field executorField = HandleDataService.class.getDeclaredField("executor");
+      executorField.setAccessible(true);
+      executorField.set(handleDataService, executorMock);
+    }catch (Exception e) {
       throw new RuntimeException(e);
     }
   }

@@ -35,7 +35,7 @@ public class HandleDataService extends ABaseService {
   private String currentChannelId;
   private MeasurementDataProcessor measurementDataProcessor;
   private final ExecutorService executor;
-  private final CalculationServiceClient calculationClient;
+  private CalculationServiceClient calculationClient;
 
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector, WebClient webClient) {
     super(vertx);
@@ -206,5 +206,9 @@ public class HandleDataService extends ABaseService {
 
   public CalculationServiceClient getCalculationClient() {
     return calculationClient;
+  }
+
+  public void setCalculationClient(CalculationServiceClient calculationClient) {
+    this.calculationClient = calculationClient;
   }
 }
