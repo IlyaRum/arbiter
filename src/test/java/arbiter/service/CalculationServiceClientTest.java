@@ -1,13 +1,11 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.Future;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
-import io.vertx.junit5.VertxExtension;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,21 +14,19 @@ import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@ExtendWith({VertxExtension.class, MockitoExtension.class})
+@ExtendWith(MockitoExtension.class)
 class CalculationServiceClientTest {
 
   @Mock
   private WebClient webClient;
-
-  @InjectMocks
-  private CalculationServiceClient calculationServiceClient;
 
   @Mock
   private ExecutorService executorService;
@@ -41,15 +37,13 @@ class CalculationServiceClientTest {
   @Mock
   private HttpResponse<Buffer> mockHttpResponse;
 
-  private ObjectMapper objectMapper;
-
+  private CalculationServiceClient calculationServiceClient;
   private MockedStatic<AppConfig> mockedAppConfig;
 
   @BeforeEach
   void setUp() {
-    objectMapper = new ObjectMapper();
-    calculationServiceClient = spy(new CalculationServiceClient(webClient, executorService));
     mockedAppConfig = Mockito.mockStatic(AppConfig.class);
+    calculationServiceClient = new CalculationServiceClient(webClient, executorService);
   }
 
   @AfterEach
@@ -58,6 +52,8 @@ class CalculationServiceClientTest {
       mockedAppConfig.close();
     }
   }
+
+  // ============== ПОКРЫТИЕ sendPostRequest ==============
 
   @Test
   void sendPostRequest_SuccessfulResponse_ShouldSendRequest() {
@@ -71,7 +67,8 @@ class CalculationServiceClientTest {
     when(mockHttpResponse.statusCode()).thenReturn(200);
     when(mockHttpResponse.bodyAsString()).thenReturn("Success");
 
-    invokeSendPostRequest( jsonData);
+    // Используем рефлексию для вызова приватного метода
+    invokeSendPostRequest(jsonData);
 
     verify(webClient).postAbs(testUrl);
     verify(mockHttpRequest).putHeader("Content-Type", "application/json");
@@ -79,7 +76,22 @@ class CalculationServiceClientTest {
   }
 
   @Test
-  void sendPostRequest_ClientError_ShouldLogError() throws Exception {
+  void sendPostRequest_WhenShuttingDown_ShouldNotSendRequest() {
+    String jsonData = "{\"test\": \"data\"}";
+
+    // Устанавливаем флаг завершения работы
+    setShuttingDownFlag(true);
+
+    // Вызываем метод
+    invokeSendPostRequest(jsonData);
+
+    // Проверяем, что запрос не отправлялся
+    verify(webClient, never()).postAbs(anyString());
+    verify(mockHttpRequest, never()).sendBuffer(any());
+  }
+
+  @Test
+  void sendPostRequest_ClientError_ShouldLogError() {
     String jsonData = "{\"test\": \"data\"}";
     String testUrl = "http://localhost:8080/api/calculate";
     RuntimeException exception = new RuntimeException("Connection failed");
@@ -89,36 +101,36 @@ class CalculationServiceClientTest {
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
 
-    invokeSendPostRequest( jsonData);
+    invokeSendPostRequest(jsonData);
 
     verify(webClient).postAbs(testUrl);
     verify(mockHttpRequest).sendBuffer(any());
   }
 
   @Test
-  void sendPostRequest_FailedResponseWithStatusCode400_ShouldLogError() throws Exception {
+  void sendPostRequest_FailedResponseWithStatusCode400_ShouldLogError() {
     String jsonData = "{\"test\": \"data\"}";
     String testUrl = "http://localhost:8080/api/calculate";
+
     when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
     when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpResponse.statusCode()).thenReturn(400);
     when(mockHttpResponse.bodyAsString()).thenReturn("Bad Request: Invalid data");
 
-    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeFunctionCaptor =
-      ArgumentCaptor.forClass(Function.class);
-
     @SuppressWarnings("unchecked")
     Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);
     when(mockHttpRequest.sendBuffer(any())).thenReturn(mockFuture);
-    when(mockFuture.compose(composeFunctionCaptor.capture())).thenReturn(Future.succeededFuture());
+    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeCaptor =
+      ArgumentCaptor.forClass(Function.class);
+    when(mockFuture.compose(composeCaptor.capture())).thenReturn(Future.succeededFuture());
 
-    invokeSendPostRequest( jsonData);
+    invokeSendPostRequest(jsonData);
 
     verify(webClient).postAbs(testUrl);
 
-    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeFunctionCaptor.getValue();
-    Future<?> resultFuture = composeFunction.apply(mockHttpResponse);
+    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeCaptor.getValue();
+    Future<Void> resultFuture = composeFunction.apply(mockHttpResponse);
 
     assertTrue(resultFuture.failed());
     resultFuture.onFailure(error -> {
@@ -128,57 +140,27 @@ class CalculationServiceClientTest {
   }
 
   @Test
-  void sendPutRequest_ClientError_ShouldLogError() throws Exception {
+  void sendPostRequest_SuccessfulResponseWithStatusCode201_ShouldSucceed() {
     String jsonData = "{\"test\": \"data\"}";
     String testUrl = "http://localhost:8080/api/calculate";
-    RuntimeException exception = new RuntimeException("Connection failed");
 
     when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
-    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
-    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
+    when(mockHttpResponse.statusCode()).thenReturn(201); // Created
+    when(mockHttpResponse.bodyAsString()).thenReturn("Created");
 
-    invokeSendPutRequest( jsonData, "unitId");
+    invokeSendPostRequest(jsonData);
 
-    verify(webClient).putAbs(testUrl);
-    verify(mockHttpRequest).sendBuffer(any());
-  }
-
-  @Test
-  void sendPutRequest_FailedResponseWithStatusCode400_ShouldLogError() throws Exception {
-    String jsonData = "{\"test\": \"data\"}";
-    String testUrl = "http://localhost:8080/api/calculate";
-    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
-    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
-    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
-    when(mockHttpResponse.statusCode()).thenReturn(400);
-    when(mockHttpResponse.bodyAsString()).thenReturn("Bad Request: Invalid data");
-
-    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeFunctionCaptor =
-      ArgumentCaptor.forClass(Function.class);
-
-    @SuppressWarnings("unchecked")
-    Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);
-    when(mockHttpRequest.sendBuffer(any())).thenReturn(mockFuture);
-    when(mockFuture.compose(composeFunctionCaptor.capture())).thenReturn(Future.succeededFuture());
-
-    invokeSendPutRequest( jsonData, "unitId");
-
-    verify(webClient).putAbs(testUrl);
-
-    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeFunctionCaptor.getValue();
-    Future<?> resultFuture = composeFunction.apply(mockHttpResponse);
-
-    assertTrue(resultFuture.failed());
-    resultFuture.onFailure(error -> {
-      assertTrue(error.getMessage().contains("HTTP error: 400"));
-      assertTrue(error.getMessage().contains("Bad Request"));
-    });
+    verify(webClient).postAbs(testUrl);
+    verify(mockHttpRequest).sendBuffer(Buffer.buffer(jsonData));
   }
 
   @Test
   void sendPutRequest_SuccessfulResponse_ShouldSendRequest() {
     String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
     String testUrl = "http://localhost:8080/api/calculate";
 
     when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
@@ -188,7 +170,7 @@ class CalculationServiceClientTest {
     when(mockHttpResponse.statusCode()).thenReturn(200);
     when(mockHttpResponse.bodyAsString()).thenReturn("Success");
 
-    invokeSendPutRequest(jsonData, "unitId");
+    invokeSendPutRequest(jsonData, unitId);
 
     verify(webClient).putAbs(testUrl);
     verify(mockHttpRequest).putHeader("Content-Type", "application/json");
@@ -196,70 +178,171 @@ class CalculationServiceClientTest {
   }
 
   @Test
-  void sendPostRequestAsync_shouldSubmitTaskToExecutor() throws Exception {
+  void sendPutRequest_WhenShuttingDown_ShouldNotSendRequest() {
+    String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
 
-    String testJson = "{\"test\": \"data\"}";
-//    ExecutorService spyExecutor = setExecutorField(handleDataService);
+    setShuttingDownFlag(true);
 
-    invokeSendPostRequestAsync(testJson);
+    invokeSendPutRequest(jsonData, unitId);
 
-    verify(executorService, timeout(1000).times(1)).submit(any(Runnable.class));
+    verify(webClient, never()).putAbs(anyString());
+    verify(mockHttpRequest, never()).sendBuffer(any());
   }
 
   @Test
-  void sendPutRequestAsync_shouldSubmitTaskToExecutor() throws Exception {
+  void sendPutRequest_ClientError_ShouldLogError() {
+    String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
+    String testUrl = "http://localhost:8080/api/calculate";
+    RuntimeException exception = new RuntimeException("Connection failed");
 
-    String testJson = "{\"test\": \"data\"}";
-//    ExecutorService spyExecutor = setExecutorField(handleDataService);
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
 
-    invokeSendPutRequestAsync(testJson, "unitId");
+    invokeSendPutRequest(jsonData, unitId);
 
-    verify(executorService, timeout(1000).times(1)).submit(any(Runnable.class));
+    verify(webClient).putAbs(testUrl);
+    verify(mockHttpRequest).sendBuffer(any());
   }
 
-  private static ExecutorService setExecutorField(HandleDataService service) throws NoSuchFieldException, IllegalAccessException {
-    java.lang.reflect.Field executorField = HandleDataService.class.getDeclaredField("executor");
-    executorField.setAccessible(true);
+  @Test
+  void sendPutRequest_FailedResponseWithStatusCode500_ShouldLogError() {
+    String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
+    String testUrl = "http://localhost:8080/api/calculate";
 
-    ExecutorService spyExecutor = spy((ExecutorService) executorField.get(service));
-    executorField.set(service, spyExecutor);
-    return spyExecutor;
+    when(AppConfig.getCalcSrvAbsoluteUrl()).thenReturn(testUrl);
+    when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
+    when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
+    when(mockHttpResponse.statusCode()).thenReturn(500);
+    when(mockHttpResponse.bodyAsString()).thenReturn("Internal Server Error");
+
+    @SuppressWarnings("unchecked")
+    Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);
+    when(mockHttpRequest.sendBuffer(any())).thenReturn(mockFuture);
+
+    ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeCaptor =
+      ArgumentCaptor.forClass(Function.class);
+    when(mockFuture.compose(composeCaptor.capture())).thenReturn(Future.succeededFuture());
+
+    invokeSendPutRequest(jsonData, unitId);
+
+    verify(webClient).putAbs(testUrl);
+
+    Function<HttpResponse<Buffer>, Future<Void>> composeFunction = composeCaptor.getValue();
+    Future<Void> resultFuture = composeFunction.apply(mockHttpResponse);
+
+    assertTrue(resultFuture.failed());
+    resultFuture.onFailure(error -> {
+      assertTrue(error.getMessage().contains("HTTP error: 500"));
+      assertTrue(error.getMessage().contains("Internal Server Error"));
+    });
   }
 
-  public void invokeSendPostRequestAsync(String jsonData) {
+  @Test
+  void sendPostRequestAsync_ShouldSubmitTaskToExecutor() {
+    String jsonData = "{\"test\": \"data\"}";
+
+    calculationServiceClient.sendPostRequestAsync(jsonData);
+
+    verify(executorService).submit(any(Runnable.class));
+  }
+
+  @Test
+  void sendPutRequestAsync_ShouldSubmitTaskToExecutor() {
+    String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
+
+    calculationServiceClient.sendPutRequestAsync(jsonData, unitId);
+
+    verify(executorService).submit(any(Runnable.class));
+  }
+
+  @Test
+  void sendPutRequestAsync_WhenShuttingDown_ShouldSubmitTaskButNotSendRequest() {
+    String jsonData = "{\"test\": \"data\"}";
+    String unitId = "unit123";
+
+    setShuttingDownFlag(true);
+
+    ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+
+    calculationServiceClient.sendPutRequestAsync(jsonData, unitId);
+
+    verify(executorService).submit(runnableCaptor.capture());
+
+    Runnable capturedRunnable = runnableCaptor.getValue();
+    capturedRunnable.run();
+
+    verify(webClient, never()).putAbs(anyString());
+  }
+
+  @Test
+  void shutdown_ShouldSetShuttingDownFlagAndShutdownExecutor() throws InterruptedException {
+    when(executorService.awaitTermination(5, TimeUnit.SECONDS)).thenReturn(true);
+
+    calculationServiceClient.shutdown();
+
+    // Проверяем, что флаг установлен
+    assertTrue(getShuttingDownFlag());
+
+    // Проверяем вызовы shutdown
+    verify(executorService).shutdown();
+    verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
+    verify(executorService, never()).shutdownNow();
+  }
+
+  @Test
+  void shutdown_WhenAwaitTerminationTimesOut_ShouldCallShutdownNow() throws InterruptedException {
+    when(executorService.awaitTermination(5, TimeUnit.SECONDS)).thenReturn(false);
+
+    calculationServiceClient.shutdown();
+
+    verify(executorService).shutdown();
+    verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
+    verify(executorService).shutdownNow();
+  }
+
+  @Test
+  void shutdown_WhenAwaitTerminationInterrupted_ShouldCallShutdownNowAndRestoreInterrupt() throws InterruptedException {
+    when(executorService.awaitTermination(5, TimeUnit.SECONDS))
+      .thenThrow(new InterruptedException("Test interruption"));
+
+    calculationServiceClient.shutdown();
+
+    verify(executorService).shutdown();
+    verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
+    verify(executorService).shutdownNow();
+
+    assertTrue(Thread.currentThread().isInterrupted());
+
+    Thread.interrupted();
+  }
+
+  private void setShuttingDownFlag(boolean value) {
     try {
-      java.lang.reflect.Method method = CalculationServiceClient.class.getDeclaredMethod(
-        "sendPostRequestAsync", String.class);
-      method.setAccessible(true);
-      method.invoke(calculationServiceClient, jsonData);
+      java.lang.reflect.Field field = CalculationServiceClient.class.getDeclaredField("isShuttingDown");
+      field.setAccessible(true);
+      field.set(calculationServiceClient, value);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  public void invokeSendPutRequestAsync(String jsonData, String unitId) {
+  private boolean getShuttingDownFlag() {
     try {
-      java.lang.reflect.Method method = CalculationServiceClient.class.getDeclaredMethod(
-        "sendPutRequestAsync", String.class, String.class);
-      method.setAccessible(true);
-      method.invoke(calculationServiceClient, jsonData, unitId);
+      java.lang.reflect.Field field = CalculationServiceClient.class.getDeclaredField("isShuttingDown");
+      field.setAccessible(true);
+      return (boolean) field.get(calculationServiceClient);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
-  public void invokeSendPutRequest(String jsonData, String unitId) {
-    try {
-      java.lang.reflect.Method method = CalculationServiceClient.class.getDeclaredMethod(
-        "sendPutRequest", String.class, String.class);
-      method.setAccessible(true);
-      method.invoke(calculationServiceClient, jsonData, unitId);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void invokeSendPostRequest(String jsonData) {
+  private void invokeSendPostRequest(String jsonData) {
     try {
       java.lang.reflect.Method method = CalculationServiceClient.class.getDeclaredMethod(
         "sendPostRequest", String.class);
@@ -270,4 +353,14 @@ class CalculationServiceClientTest {
     }
   }
 
+  private void invokeSendPutRequest(String jsonData, String unitId) {
+    try {
+      java.lang.reflect.Method method = CalculationServiceClient.class.getDeclaredMethod(
+        "sendPutRequest", String.class, String.class);
+      method.setAccessible(true);
+      method.invoke(calculationServiceClient, jsonData, unitId);
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 }
