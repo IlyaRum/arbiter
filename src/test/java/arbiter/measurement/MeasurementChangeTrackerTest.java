@@ -7,10 +7,8 @@ import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
 import arbiter.helper.MeasurementChangeTrackerReflectionTestHelper;
-import arbiter.measurement.state.ConsistencyStatus;
 import arbiter.measurement.state.UnitState;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -162,31 +160,6 @@ public class MeasurementChangeTrackerTest {
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
   }
 
-  @Disabled
-   @Test
-  void testAggregateData_IncompleteData() {
-     TestDataConfig config = createUnit1Config(testTimestamp);
-
-     Unit mockUnit = createMockUnit(config);
-     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-
-    List<Measurement> measurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp),
-      createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp)
-    );
-
-    Map<String, Parameter> parameters = new HashMap<>();
-    parameters.put(s1, new Parameter(s1, config.getDp1Uid()));
-    parameters.put(s2, new Parameter(s2, config.getDp2Uid()));
-
-    StoreData storeData = createStoreDataWithUnit(config.getUnitName(), parameters, mockUnit);
-
-    measurementChangeTracker.trackAndProcessChanges(measurements, storeData);
-
-    Boolean initialDataLoaded = measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
-    assertFalse(initialDataLoaded);
-  }
-
   @Test
   void testAggregateData_MultipleUnits() {
     TestDataConfig unit1Config = createUnit1Config(testTimestamp);
@@ -297,38 +270,6 @@ public class MeasurementChangeTrackerTest {
     assertEquals(config.getDp1Value(), result.get(config.getDp1Uid()).getValue());
     assertEquals(config.getDp2Value(), result.get(config.getDp2Uid()).getValue());
     assertEquals(config.getDp3Value(), result.get(config.getDp3Uid()).getValue());
-  }
-
-  @Disabled
-  @Test
-  void testCheckAllTargetsHaveConsistentData_DifferentTimestamps(){
-    TestDataConfig config = createUnit1Config(testTimestamp);
-
-    Map<String, Measurement> dataBuffer = new HashMap<>();
-    dataBuffer.put(config.getDp1Uid(), createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp));
-    dataBuffer.put(config.getDp2Uid(), createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp));
-    dataBuffer.put(config.getDp3Uid(), createMeasurement(config.getDp3Uid(), config.getDp3Value(), testTimestamp));
-    Instant referenceTimestamp = testTimestamp.plusSeconds(2);
-    dataBuffer.put(config.getCycleUid(), createMeasurement(config.getCycleUid(), config.getCycleValue(), referenceTimestamp));
-
-    ConsistencyStatus status = measurementChangeTrackerReflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, referenceTimestamp);
-
-    assertTrue(status.isAllTargetsHaveData());
-    assertFalse(status.isAllTimestampsMatch());
-  }
-
-  @Disabled
-  @Test
-  void testCheckAllTargetsHaveConsistentData_MissingData(){
-    TestDataConfig config = createUnit1Config(testTimestamp);
-
-    Map<String, Measurement> dataBuffer = new HashMap<>();
-    dataBuffer.put(config.getDp1Uid(), createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp));
-    dataBuffer.put(config.getDp2Uid(), createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp));
-
-    ConsistencyStatus status = measurementChangeTrackerReflectionTestHelper.invokeCheckAllTargetsHaveConsistentData(config.getUnitName(), config.getTargetUids(), dataBuffer, testTimestamp);
-
-    assertFalse(status.isAllTargetsHaveData());
   }
 
   @Test

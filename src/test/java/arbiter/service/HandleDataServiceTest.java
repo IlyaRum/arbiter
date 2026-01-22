@@ -1,6 +1,5 @@
 package arbiter.service;
 
-import arbiter.config.AppConfig;
 import arbiter.data.StoreData;
 import arbiter.data.dto.UnitDto;
 import arbiter.di.DependencyInjector;
@@ -26,7 +25,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URI;
