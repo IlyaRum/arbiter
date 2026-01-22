@@ -17,11 +17,11 @@ import java.util.Set;
 /**
  * Класс для тестирования приватных методов
  */
-public class BatchAggregatorReflectionTestHelper {
+public class MeasurementChangeTrackerReflectionTestHelper {
 
   private final MeasurementChangeTracker measurementChangeTracker;
 
-  public BatchAggregatorReflectionTestHelper(MeasurementChangeTracker measurementChangeTracker) {
+  public MeasurementChangeTrackerReflectionTestHelper(MeasurementChangeTracker measurementChangeTracker) {
     this.measurementChangeTracker = measurementChangeTracker;
   }
 
@@ -38,7 +38,7 @@ public class BatchAggregatorReflectionTestHelper {
   public void invokeSendAccumulatedChanges(String unitId, UnitState unitState) {
     try {
       java.lang.reflect.Method method = MeasurementChangeTracker.class.getDeclaredMethod(
-        "sendAccumulatedChanges", String.class, UnitState.class);
+        "sendTrackedChanges", String.class, UnitState.class);
       method.setAccessible(true);
       method.invoke(measurementChangeTracker, unitId, unitState);
     } catch (Exception e) {
@@ -90,7 +90,7 @@ public class BatchAggregatorReflectionTestHelper {
 
   public Map<String, Map<String, Parameter>> getUnitAccumulatedChanges() {
     try {
-      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitAccumulatedChanges");
+      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedParameterChanges");
       field.setAccessible(true);
       return (Map<String, Map<String, Parameter>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
@@ -100,7 +100,7 @@ public class BatchAggregatorReflectionTestHelper {
 
   public Map<String, Map<String, Topology>> getUnitAccumulatedTopologyChanges() {
     try {
-      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitAccumulatedTopologyChanges");
+      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedTopologyChanges");
       field.setAccessible(true);
       return (Map<String, Map<String, Topology>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
@@ -110,7 +110,7 @@ public class BatchAggregatorReflectionTestHelper {
 
   public Map<String, Map<String, Element>> getUnitAccumulatedElementChanges() {
     try {
-      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitAccumulatedElementChanges");
+      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedElementChanges");
       field.setAccessible(true);
       return (Map<String, Map<String, Element>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
@@ -120,7 +120,7 @@ public class BatchAggregatorReflectionTestHelper {
 
   public Map<String, Map<String, InfluencingFactor>> getUnitAccumulatedFactorChanges() {
     try {
-      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitAccumulatedFactorChanges");
+      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitTrackedFactorChanges");
       field.setAccessible(true);
       return (Map<String, Map<String, InfluencingFactor>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
