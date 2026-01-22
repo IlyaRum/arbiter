@@ -6,19 +6,16 @@ import arbiter.data.dto.FilteredUnitDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
-import arbiter.measurement.state.ConsistencyCheckResult;
-import arbiter.measurement.state.ConsistencyStatus;
 import arbiter.measurement.state.UnitState;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 
-import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 
 /**
- * Отвечает за сбор, фильтрацию и группировку изменений измерений для каждого сечения
+ * Отслеживает изменения значений измерений (parameters, topology, elements, factors) для каждого сечения
  */
 
 public class MeasurementChangeTracker {
@@ -62,8 +59,8 @@ public class MeasurementChangeTracker {
     logger.debug("Количество сечений с новыми измерениями в StoreData: " + result.getUnitDataList().size());
     logger.debug(String.format("Входные параметры: %s", result));
 
-    Map<String, Measurement> measurementsByUid = createMeasurementsMap(measurements);
-    trackChangesForAllUnits(result, measurementsByUid);
+//    Map<String, Measurement> measurementsByUid = createMeasurementsMap(measurements);
+    trackChangesForAllUnits(result);
   }
 
   private static Map<String, Measurement> createMeasurementsMap(List<Measurement> measurements) {
@@ -74,25 +71,21 @@ public class MeasurementChangeTracker {
     return measurementsByUid;
   }
 
-  private void trackChangesForAllUnits(StoreData result, Map<String, Measurement> measurementsByUid) {
+  private void trackChangesForAllUnits(StoreData result) {
     int unitProcessedCount = 0;
     for (UnitDto unitDto : result.getUnitDataList()) {
       unitProcessedCount++;
-      trackChangesForUnit(result, unitDto, unitProcessedCount, measurementsByUid);
+      trackChangesForUnit(result, unitDto, unitProcessedCount);
     }
   }
 
-  private void trackChangesForUnit(StoreData result, UnitDto unitDto, int unitProcessedCount, Map<String, Measurement> measurementsByUid) {
+  private void trackChangesForUnit(StoreData result, UnitDto unitDto, int unitProcessedCount) {
     String unitId = getUnitIdentifier(unitDto);
     int totalCount = result.getUnitDataList().size();
     logger.info(String.format("[%d/%d] Обработка сечения: %s", unitProcessedCount, totalCount, unitId));
 
     initializeUnitStateStructures(unitId);
-    logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
-
-    boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
-    UnitState unitState = getUnitState(unitId);
-    processTrackedChanges(result, unitId, initialDataLoaded, unitState);
+    trackedChanges(result, unitId);
   }
 
   private UnitState getUnitState(String unitId) {
@@ -104,12 +97,13 @@ public class MeasurementChangeTracker {
     );
   }
 
-  private void processTrackedChanges(StoreData result, String unitId, boolean initialDataLoaded,
-                                     UnitState unitState) {
-      if (!initialDataLoaded) {
+  private void trackedChanges(StoreData result, String unitId) {
+    boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+    UnitState unitState = getUnitState(unitId);
+    if (!initialDataLoaded) {
         loadInitialValues(result, unitId);
       } else
-        accumulateAndProcessChanges(result, unitId, unitState);
+        trackAndSendChanges(result, unitId, unitState);
   }
 
   private void loadInitialValues(StoreData result, String unitId) {
@@ -122,8 +116,8 @@ public class MeasurementChangeTracker {
     logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
-  private void accumulateAndProcessChanges(StoreData result, String unitId, UnitState unitState) {
-    logger.debug("Накопление изменений для сечения '" + unitId + "'");
+  private void trackAndSendChanges(StoreData result, String unitId, UnitState unitState) {
+    logger.debug("Отслеживание изменений для сечения '" + unitId + "'");
     trackParameterChanges(unitId, result);
     trackTopologyChanges(unitId, result);
     trackElementChanges(unitId, result);
@@ -134,17 +128,17 @@ public class MeasurementChangeTracker {
     int elementChanges = unitState.getTrackedElementChanges().size();
     int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
 
-    logger.info(String.format("Накопленные изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d",
-      unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
-
     if (!unitState.getTrackedChanges().isEmpty() ||
       !unitState.getTrackedTopologyChanges().isEmpty() ||
       !unitState.getTrackedElementChanges().isEmpty() ||
       !unitState.getTrackedInfluencingFactorChanges().isEmpty()) {
 
+      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d",
+        unitId, paramChanges, topologyChanges, elementChanges, factorChanges));
+
       sendTrackedChanges(unitId, unitState);
     } else {
-      logger.debug("Нет накопленных изменений для отправки");
+      logger.info("Нет изменений для отправки");
     }
   }
 
@@ -201,13 +195,14 @@ public class MeasurementChangeTracker {
     unitTrackedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
   }
 
   /**
-   * Накапливает изменения параметров для конкретного юнита
+   * Отслеживает изменения параметров для конкретного сечения
    */
   private void trackParameterChanges(String unitId, StoreData result) {
-    Map<String, Parameter> TrackedChanges = unitTrackedParameterChanges.get(unitId);
+    Map<String, Parameter> trackedChanges = unitTrackedParameterChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -216,7 +211,7 @@ public class MeasurementChangeTracker {
       double currentValue = param.getValue();
 
       if (isParameterChanged(unitId, paramId, currentValue)) {
-        TrackedChanges.put(paramId, param);
+        trackedChanges.put(paramId, param);
         logger.debug("Parameter изменен для сечения '" + unitId + "': " +
           param.getName() + " = " + currentValue);
       }
@@ -224,7 +219,7 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Накапливает изменения топологий для конкретного юнита
+   * Отслеживает изменения топологий для конкретного сечения
    */
   private void trackTopologyChanges(String unitId, StoreData result) {
     Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
@@ -244,7 +239,7 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Накапливает изменения элементов для конкретного юнита
+   * Отслеживает изменения элементов для конкретного сечения
    */
   private void trackElementChanges(String unitId, StoreData result) {
     Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
@@ -264,10 +259,10 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Накапливает изменения элементов для конкретного юнита
+   * Отслеживает изменения элементов для конкретного сечения
    */
   private void trackInfluencingFactorChanges(String unitId, StoreData result) {
-    Map<String, InfluencingFactor> TrackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
+    Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
     UnitDto unitDto = findUnitDtoById(result, unitId);
     if (unitDto == null) return;
 
@@ -276,7 +271,7 @@ public class MeasurementChangeTracker {
       double currentValue = influencingFactor.getValue();
 
       if (isFactorChanged(unitId, influencingFactorId, currentValue)) {
-        TrackedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
+        trackedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
         logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
           influencingFactor.getName() + " = " + currentValue);
       }
@@ -284,8 +279,7 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Создает StoreData из накопленных изменений, когда все условия выполнены:
-   * все targetUids получены, одинаковый timestamp, initialDataLoaded, hasConsistentTimestamp
+   * Создает StoreData, состоящий только из новых изменений для конкретного сечения:
    */
   private StoreData createStoreDataFromTrackedChanges(String unitId) {
     StoreData TrackedResult = new StoreData();
@@ -553,13 +547,6 @@ public class MeasurementChangeTracker {
     Double previousValue = previousParameterValues.get(paramId);
     // Если предыдущего значения нет - считаем что изменилось (первый раз)
     if (previousValue == null) {
-      return true;
-    }
-
-    // Особый случай: если значение 99999 - всегда считаем изменением
-    //TODO[IER] На тестировании обнаружилось для 'МДП с ПА [СМЗУ]' и 'АДП [СМЗУ]' всегда равны 99999.0
-    // поставил условие, чтобы всегда попадало в PUT запрос
-    if (currentValue == 99999.0 || previousValue == 99999.0) {
       return true;
     }
 
