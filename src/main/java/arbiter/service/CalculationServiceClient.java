@@ -61,7 +61,7 @@ public class CalculationServiceClient {
       return;
     }
 
-    logger.info(String.format("Отправляем PUT запрос для сечения '%s'", unitId));
+    logger.info(String.format("Отправляем PUT запрос для сечения '%s' с данными %s", unitId, jsonData));
 
     webClient.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")

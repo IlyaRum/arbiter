@@ -145,7 +145,7 @@ public class HandleDataService extends ABaseService {
 
     executor.submit(() -> {
       try {
-        String jsonData = convertStoreDataToJson(storeData);
+        String jsonData = convertStoreDataToJson(storeData.getUnitDataList());
 
         if (firstTime) {
           calculationClient.sendPostRequestAsync(jsonData);
