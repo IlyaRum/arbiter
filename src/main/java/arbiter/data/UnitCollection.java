@@ -1,5 +1,6 @@
 package arbiter.data;
 
+import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
@@ -21,6 +22,7 @@ public class UnitCollection {
   private Unit unit;
   private JsonObject config;
 
+  private CommonField commonField;
   private List<Unit> units = new CopyOnWriteArrayList<>();
   private List<Measurement> writeBuffer = new CopyOnWriteArrayList<>();
   //private List<String> UIDs = new ArrayList<>(); //срез uid'ов, которые добавляем набора значений измерений в подписке
@@ -38,6 +40,8 @@ public class UnitCollection {
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.vertx = vertx;
     this.version = versionInfo;
+
+    this.commonField = new CommonField();
 
     loadConfigAsync(configFile);
   }
@@ -82,6 +86,8 @@ public class UnitCollection {
         // Инициализация целевых UID после загрузки units
         initializeUnitTargetUids();
         logger.info("Unit target UIDs initialized for " + unitTargetUids.size() + " units");
+
+        initializeCommonFields();
 
         //connect();
       })
@@ -329,6 +335,18 @@ public class UnitCollection {
       unitTargetUids.put(unit.getName(), targetUids);
       logger.info("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
     }
+  }
+
+  public CommonField getCommonField() {
+    return commonField;
+  }
+
+  public CommonFieldDto getCommonFieldDto() {
+    return new CommonFieldDto(commonField);
+  }
+
+  private void initializeCommonFields() {
+    commonField.setOik(oik);
   }
 
   /**

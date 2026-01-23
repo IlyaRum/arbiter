@@ -1,15 +1,23 @@
 package arbiter.data;
 
+import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.UnitDto;
+import arbiter.data.model.CommonField;
 import arbiter.data.model.RepairGroupValue;
 import arbiter.data.model.Unit;
+import com.fasterxml.jackson.annotation.*;
 
 import java.util.*;
 
+@JsonIgnoreProperties({"unitDataList"})
 public class StoreData {
+  @JsonProperty("common")
+  private CommonFieldDto commonFieldDto;
+  @JsonProperty("section")
   private final List<UnitDto> unitDtoList;
 
   public StoreData() {
+    this.commonFieldDto = new CommonFieldDto();
     this.unitDtoList = new ArrayList<>();
   }
 
@@ -19,6 +27,14 @@ public class StoreData {
 
   public List<UnitDto> getUnitDataList() {
     return unitDtoList;
+  }
+
+  public void setCommonFieldDto(CommonFieldDto commonFieldDto) {
+    this.commonFieldDto = commonFieldDto;
+  }
+
+  public CommonFieldDto getCommonFieldDto() {
+    return commonFieldDto;
   }
 
   public int size() {
@@ -57,7 +73,8 @@ public class StoreData {
   @Override
   public String toString() {
     return new StringJoiner(", ", StoreData.class.getSimpleName() + "[", "]")
-      .add("unitDataList=" + unitDtoList)
+      .add("common=" + commonFieldDto)
+      .add("section=" + unitDtoList)
       .toString();
   }
 }

@@ -1,6 +1,7 @@
 package arbiter.measurement;
 
 import arbiter.data.*;
+import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
@@ -38,6 +39,9 @@ public class MeasurementDataProcessor {
   public void onDataReceived(MeasurementList list) {
     try {
       StoreData result = processMeasurementsToStoreData(list);
+
+      CommonFieldDto commonFieldDto = dependencyInjector.getUnitCollection().getCommonFieldDto();
+      result.setCommonFieldDto(commonFieldDto);
 
       if (result.size() > 0) {
         if (firstTime && dataReadyCallback != null) {

@@ -145,13 +145,13 @@ public class HandleDataService extends ABaseService {
 
     executor.submit(() -> {
       try {
-        String jsonData = convertStoreDataToJson(storeData.getUnitDataList());
-
         if (firstTime) {
-          calculationClient.sendPostRequestAsync(jsonData);
+          String jsonPostData = convertStoreDataToJson(storeData);
+          calculationClient.sendPostRequestAsync(jsonPostData);
           firstTime = false;
         } else if (unitId != null) {
-          calculationClient.sendPutRequestAsync(jsonData, unitId);
+          String jsonPutData = convertStoreDataToJson(storeData.getUnitDataList());
+          calculationClient.sendPutRequestAsync(jsonPutData, unitId);
         }
       } catch (Exception e) {
         logger.error("Ошибка при обработке данных для отправки", e);

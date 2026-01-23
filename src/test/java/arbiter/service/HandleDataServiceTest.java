@@ -248,10 +248,8 @@ class HandleDataServiceTest {
     handleDataService.setFirstTime(true);
     handleDataService.setCalculationClient(calculationServiceClient);
     StoreData storeData = mock(StoreData.class);
-    UnitDto unitDto = mock(UnitDto.class);
 
     when(storeData.size()).thenReturn(1);
-    when(storeData.getUnitDataList()).thenReturn(List.of(unitDto));
 
     doNothing().when(calculationServiceClient).sendPostRequestAsync(anyString());
 
