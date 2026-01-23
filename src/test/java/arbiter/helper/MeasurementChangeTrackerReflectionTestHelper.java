@@ -3,7 +3,6 @@ package arbiter.helper;
 import arbiter.data.model.*;
 import arbiter.measurement.MeasurementChangeTracker;
 import arbiter.measurement.Measurement;
-import arbiter.measurement.state.ConsistencyStatus;
 import arbiter.measurement.state.UnitState;
 
 import java.time.Instant;
@@ -38,28 +37,6 @@ public class MeasurementChangeTrackerReflectionTestHelper {
         "sendTrackedChanges", String.class, UnitState.class);
       method.setAccessible(true);
       method.invoke(measurementChangeTracker, unitId, unitState);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public ConsistencyStatus invokeCheckAllTargetsHaveConsistentData(String unitId, Set<String> targetUids,
-                                                                   Map<String, Measurement> dataBuffer, Instant referenceTimestamp) {
-    try {
-      java.lang.reflect.Method method = MeasurementChangeTracker.class.getDeclaredMethod(
-        "checkAllTargetsHaveConsistentData", String.class, Set.class, Map.class, Instant.class);
-      method.setAccessible(true);
-      return (ConsistencyStatus) method.invoke(measurementChangeTracker, unitId, targetUids, dataBuffer, referenceTimestamp);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public Map<String, Map<String, Measurement>> getUnitDataBuffers() {
-    try {
-      java.lang.reflect.Field field = MeasurementChangeTracker.class.getDeclaredField("unitDataBuffers");
-      field.setAccessible(true);
-      return (Map<String, Map<String, Measurement>>) field.get(measurementChangeTracker);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
