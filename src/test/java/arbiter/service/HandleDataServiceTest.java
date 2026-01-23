@@ -77,10 +77,6 @@ class HandleDataServiceTest {
     Promise<JsonObject> promise = Promise.promise();
     Handler<String> handler = handleDataService.handleTextMessage(promise);
 
-    Promise<Object> executeBlockingPromise = Promise.promise();
-    Future<Object> mockFuture = executeBlockingPromise.future();
-    when(vertx.executeBlocking(any(), eq(false))).thenReturn(mockFuture);
-
     String eventId = UUID.randomUUID().toString();
     CloudEvent event = CloudEventBuilder.v1()
       .withId(eventId)
@@ -198,10 +194,6 @@ class HandleDataServiceTest {
 
   @Test
   void testHandleChannelOpened() {
-    Promise<Object> executeBlockingPromise = Promise.promise();
-    Future<Object> mockFuture = executeBlockingPromise.future();
-    when(vertx.executeBlocking(any(), eq(false))).thenReturn(mockFuture);
-
     CloudEvent event = CloudEventBuilder.v1()
       .withId(UUID.randomUUID().toString())
       .withSource(URI.create("urn:source"))

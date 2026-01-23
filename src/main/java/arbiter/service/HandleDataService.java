@@ -37,6 +37,8 @@ public class HandleDataService extends ABaseService {
   private final ExecutorService executor;
   private CalculationServiceClient calculationClient;
 
+  private static final ObjectMapper MAPPER = createObjectMapper();
+
   public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector, WebClient webClient) {
     super(vertx);
     this.executor = Executors.newSingleThreadExecutor(r -> {
@@ -129,7 +131,7 @@ public class HandleDataService extends ABaseService {
 
   private void handleChannelOpened(CloudEvent event) {
     logger.debug("[channel.opened]event: " + event);
-    logAsync("[channel.opened]event: " + event);
+    //logAsync("[channel.opened]event: " + event);
     currentChannelId = event.getSubject();
   }
 
@@ -161,14 +163,7 @@ public class HandleDataService extends ABaseService {
 
   private String convertStoreDataToJson(Object objects) {
     try {
-      ObjectMapper mapper = new ObjectMapper();
-      mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
-      mapper.registerModule(new JavaTimeModule());
-      mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-      mapper.enable(SerializationFeature.INDENT_OUTPUT);
-
-      return mapper.writeValueAsString(objects);
-
+      return MAPPER.writeValueAsString(objects);
     } catch (Exception e) {
       logger.error("Ошибка при конвертации данных в JSON: " + e.getMessage());
       return "{\"error\": \"" + e.getMessage() + "\"}";
@@ -210,5 +205,14 @@ public class HandleDataService extends ABaseService {
 
   public void setCalculationClient(CalculationServiceClient calculationClient) {
     this.calculationClient = calculationClient;
+  }
+
+  private static ObjectMapper createObjectMapper() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.registerModule(JsonFormat.getCloudEventJacksonModule());
+    mapper.registerModule(new JavaTimeModule());
+    mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    mapper.enable(SerializationFeature.INDENT_OUTPUT);
+    return mapper;
   }
 }
