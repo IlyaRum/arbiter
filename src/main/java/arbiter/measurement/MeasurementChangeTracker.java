@@ -2,6 +2,7 @@ package arbiter.measurement;
 
 import arbiter.constants.ParameterMappingConstants;
 import arbiter.data.*;
+import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.FilteredUnitDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
@@ -10,6 +11,7 @@ import arbiter.measurement.state.UnitState;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -52,24 +54,287 @@ public class MeasurementChangeTracker {
   }
 
   /**
-   * Метод отслеживает изменение данных измерений сечений
+   * Метод обрабатывает измерения и отслеживает изменения
    */
-  public void trackAndProcessChanges(List<Measurement> measurements, StoreData result) {
-    logger.debug("Получено новых измерений: " + measurements.size());
-    logger.debug("Количество сечений с новыми измерениями в StoreData: " + result.getUnitDataList().size());
-    logger.debug(String.format("Входные параметры: %s", result));
+  public void processAndTrackChanges(MeasurementList list) {
+    logger.debug("Получено новых измерений: " + list.size());
 
-//    Map<String, Measurement> measurementsByUid = createMeasurementsMap(measurements);
-    trackChangesForAllUnits(result);
-  }
+    StoreData result = new StoreData();
+    List<Measurement> measurements = list.getMeasurements();
 
-  private static Map<String, Measurement> createMeasurementsMap(List<Measurement> measurements) {
-    Map<String, Measurement> measurementsByUid = new HashMap<>();
-    for (Measurement measurement : measurements) {
-      measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
+    for (int i = 0; i < measurements.size(); i++) {
+      Measurement measurement = measurements.get(i);
+      MemoryData memoryData = createMemoryData(measurement);
+
+      List<Unit> units = dependencyInjector.getUnitCollection().getUnits();
+      for (Unit unit : units) {
+        processAndTrackForUnit(result, unit, memoryData);
+      }
     }
-    return measurementsByUid;
+
+    //TODO[IER] Эти поля не нужны для PUT запроса
+//    CommonFieldDto commonFieldDto = dependencyInjector.getUnitCollection().getCommonFieldDto();
+//    result.setCommonFieldDto(commonFieldDto);
+
+    if (result.size() > 0) {
+      trackChangesForAllUnits(result);
+    }
   }
+
+  private MemoryData createMemoryData(Measurement measurement) {
+    String id = measurement.getUid();
+    double value = measurement.getValue();
+    Instant time = Instant.parse(measurement.getTimeStamp());
+    int qCode = measurement.getQCode();
+
+    return new MemoryData(id, value, time, qCode);
+  }
+
+  /**
+   * Метод обработки и отслеживания изменений для одного юнита
+   */
+  private void processAndTrackForUnit(StoreData result, Unit unit, MemoryData memoryData) {
+    String unitId = unit.getName();
+
+    initializeUnitStateStructures(unitId);
+
+    processAndTrackParameters(result, unit, unitId, memoryData);
+    processAndTrackTopologies(result, unit, unitId, memoryData);
+    processAndTrackElements(result, unit, unitId, memoryData);
+    processAndTrackInfluencingFactors(result, unit, unitId, memoryData);
+    processAndTrackRepairSchema(result, unit, unitId, memoryData);
+  }
+
+  /**
+   * Объединенная логика обработки и отслеживания параметров
+   */
+  private void processAndTrackParameters(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    List<Parameter> parameters = unit.getParameters();
+
+    for (Parameter parameter : parameters) {
+      if (parameter.getId().equalsIgnoreCase(memoryData.getId())) {
+        boolean isDataDifferent = parameter.isDataDifferent(memoryData.getValue(), memoryData.getTime());
+
+        if (isDataDifferent) {
+          // Обновляем данные параметра
+          parameter.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          // Добавляем в результат
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+
+          // Отслеживаем изменение
+          boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+          if (initialDataLoaded) {
+            // Проверяем, действительно ли изменилось значение
+            double currentValue = parameter.getValue();
+            String paramId = parameter.getId();
+
+            if (isParameterChanged(unitId, paramId, currentValue)) {
+              Map<String, Parameter> trackedChanges = unitTrackedParameterChanges.get(unitId);
+              trackedChanges.put(paramId, parameter);
+              logger.debug("Parameter изменен для сечения '" + unitId + "': " +
+                parameter.getName() + " = " + currentValue);
+            }
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Объединенная логика обработки и отслеживания топологий
+   */
+  private void processAndTrackTopologies(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    List<Topology> topologyList = unit.getTopologies();
+
+    for (Topology topology : topologyList) {
+      if (topology.getId().equalsIgnoreCase(memoryData.getId())) {
+        if (topology.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+          topology.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+
+          // Отслеживаем изменение
+          boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+          if (initialDataLoaded) {
+            double currentValue = topology.getValue();
+            String topologyId = topology.getId();
+
+            if (isTopologyChanged(unitId, topologyId, currentValue)) {
+              Map<String, Topology> trackedChanges = unitTrackedTopologyChanges.get(unitId);
+              trackedChanges.put(topologyId, topology);
+              logger.debug("Topology изменен для сечения '" + unitId + "': " +
+                topology.getName() + " = " + currentValue);
+            }
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Объединенная логика обработки и отслеживания элементов
+   */
+  private void processAndTrackElements(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    List<Element> elements = unit.getElements();
+
+    for (Element element : elements) {
+      if (element.getId().equalsIgnoreCase(memoryData.getId())) {
+        if (element.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+          element.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+
+          // Отслеживаем изменение
+          boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+          if (initialDataLoaded) {
+            double currentValue = element.getValue();
+            String elementId = element.getId();
+
+            if (isElementChanged(unitId, elementId, currentValue)) {
+              Map<String, Element> trackedChanges = unitTrackedElementChanges.get(unitId);
+              trackedChanges.put(elementId, element);
+              logger.debug("Element изменен для сечения '" + unitId + "': " +
+                element.getName() + " = " + currentValue);
+            }
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Объединенная логика обработки и отслеживания влияющих факторов
+   */
+  private void processAndTrackInfluencingFactors(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    List<InfluencingFactor> influencingFactors = unit.getInfluencingFactors();
+
+    for (InfluencingFactor influencingFactor : influencingFactors) {
+      if (influencingFactor.getId().equalsIgnoreCase(memoryData.getId())) {
+        if (influencingFactor.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+          influencingFactor.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+
+          // Отслеживаем изменение
+          boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+          if (initialDataLoaded) {
+            double currentValue = influencingFactor.getValue();
+            String influencingFactorId = influencingFactor.getId();
+
+            if (isFactorChanged(unitId, influencingFactorId, currentValue)) {
+              Map<String, InfluencingFactor> trackedChanges = unitTrackedFactorChanges.get(unitId);
+              trackedChanges.put(influencingFactorId, influencingFactor);
+              logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
+                influencingFactor.getName() + " = " + currentValue);
+            }
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /**
+   * Объединенная логика обработки и отслеживания ремонтных схем
+   */
+  private void processAndTrackRepairSchema(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    RepairSchema repairSchema = unit.getRepairSchema();
+    if (repairSchema == null) return;
+
+    List<RepairGroupValue> repairGroupValues = repairSchema.getRepairGroupValues();
+    if (repairGroupValues == null || repairGroupValues.isEmpty()) return;
+
+    for (RepairGroupValue repairGroup : repairGroupValues) {
+      List<Composition> compositions = repairGroup.getValues();
+      if (compositions == null) continue;
+
+      for (Composition composition : compositions) {
+        if (composition.getId().equalsIgnoreCase(memoryData.getId())) {
+          if (composition.isDataDifferent(memoryData.getValue(), memoryData.getTime())) {
+            composition.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+            UnitDto unitDto = result.getUnitData(unit);
+            if (unitDto == null) {
+              unitDto = new UnitDto(unit);
+              result.addUnitData(unitDto);
+            }
+
+            boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+            if (initialDataLoaded) {
+              double currentValue = composition.getValue();
+              String compositionId = composition.getId();
+
+              if (isRepairChanged(unitId, compositionId, currentValue)) {
+                Map<String, Composition> trackedChanges = unitTrackedRepairChanges.get(unitId);
+                trackedChanges.put(compositionId, composition);
+                logger.debug("Repair (Composition) изменен для сечения '" + unitId + "': " +
+                  composition.getName() + " = " + currentValue);
+              }
+            }
+          }
+          return;
+        }
+      }
+    }
+  }
+
+  private void sendTrackedChangesIfNeeded(String unitId, UnitState unitState) {
+    int paramChanges = unitState.getTrackedParameterChanges().size();
+    int topologyChanges = unitState.getTrackedTopologyChanges().size();
+    int elementChanges = unitState.getTrackedElementChanges().size();
+    int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
+    int repairChanges = unitState.getTrackedRepairChanges().size();
+
+    if (paramChanges > 0 || topologyChanges > 0 || elementChanges > 0 ||
+      factorChanges > 0 || repairChanges > 0) {
+
+      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d",
+        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges));
+
+      sendTrackedChanges(unitId, unitState);
+    } else {
+      logger.info("Нет изменений для отправки");
+    }
+  }
+
+//  /**
+//   * Метод отслеживает изменение данных измерений сечений
+//   */
+//  public void trackAndProcessChanges(List<Measurement> measurements, StoreData result) {
+//    logger.debug("Получено новых измерений: " + measurements.size());
+//    logger.debug("Количество сечений с новыми измерениями в StoreData: " + result.getUnitDataList().size());
+//    logger.debug(String.format("Входные параметры: %s", result));
+//
+//    trackChangesForAllUnits(result);
+//  }
+
+//  private static Map<String, Measurement> createMeasurementsMap(List<Measurement> measurements) {
+//    Map<String, Measurement> measurementsByUid = new HashMap<>();
+//    for (Measurement measurement : measurements) {
+//      measurementsByUid.put(measurement.getUid().toLowerCase(), measurement);
+//    }
+//    return measurementsByUid;
+//  }
 
   private void trackChangesForAllUnits(StoreData result) {
     int unitProcessedCount = 0;
@@ -84,7 +349,6 @@ public class MeasurementChangeTracker {
     int totalCount = result.getUnitDataList().size();
     logger.info(String.format("[%d/%d] Обработка сечения: %s", unitProcessedCount, totalCount, unitId));
 
-    initializeUnitStateStructures(unitId);
     trackedChanges(result, unitId);
   }
 
@@ -101,10 +365,12 @@ public class MeasurementChangeTracker {
   private void trackedChanges(StoreData result, String unitId) {
     boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
     UnitState unitState = getUnitState(unitId);
+
     if (!initialDataLoaded) {
-        loadInitialValues(result, unitId);
-      } else
-        trackAndSendChanges(result, unitId, unitState);
+      loadInitialValues(result, unitId);
+    } else {
+      sendTrackedChangesIfNeeded(unitId, unitState);
+    }
   }
 
   private void loadInitialValues(StoreData result, String unitId) {
@@ -118,34 +384,34 @@ public class MeasurementChangeTracker {
     logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
-  private void trackAndSendChanges(StoreData result, String unitId, UnitState unitState) {
-    logger.debug("Отслеживание изменений для сечения '" + unitId + "'");
-    trackParameterChanges(unitId, result);
-    trackTopologyChanges(unitId, result);
-    trackElementChanges(unitId, result);
-    trackInfluencingFactorChanges(unitId, result);
-    trackRepairChanges(unitId, result);
-
-    int paramChanges = unitState.getTrackedParameterChanges().size();
-    int topologyChanges = unitState.getTrackedTopologyChanges().size();
-    int elementChanges = unitState.getTrackedElementChanges().size();
-    int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
-    int repairChanges = unitState.getTrackedRepairChanges().size();
-
-    if (!unitState.getTrackedParameterChanges().isEmpty() ||
-      !unitState.getTrackedTopologyChanges().isEmpty() ||
-      !unitState.getTrackedElementChanges().isEmpty() ||
-      !unitState.getTrackedInfluencingFactorChanges().isEmpty() ||
-      !unitState.getTrackedRepairChanges().isEmpty()) {
-
-      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d",
-        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges));
-
-      sendTrackedChanges(unitId, unitState);
-    } else {
-      logger.info("Нет изменений для отправки");
-    }
-  }
+//  private void trackAndSendChanges(StoreData result, String unitId, UnitState unitState) {
+//    logger.debug("Отслеживание изменений для сечения '" + unitId + "'");
+//    trackParameterChanges(unitId, result);
+//    trackTopologyChanges(unitId, result);
+//    trackElementChanges(unitId, result);
+//    trackInfluencingFactorChanges(unitId, result);
+//    trackRepairChanges(unitId, result);
+//
+//    int paramChanges = unitState.getTrackedParameterChanges().size();
+//    int topologyChanges = unitState.getTrackedTopologyChanges().size();
+//    int elementChanges = unitState.getTrackedElementChanges().size();
+//    int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
+//    int repairChanges = unitState.getTrackedRepairChanges().size();
+//
+//    if (!unitState.getTrackedParameterChanges().isEmpty() ||
+//      !unitState.getTrackedTopologyChanges().isEmpty() ||
+//      !unitState.getTrackedElementChanges().isEmpty() ||
+//      !unitState.getTrackedInfluencingFactorChanges().isEmpty() ||
+//      !unitState.getTrackedRepairChanges().isEmpty()) {
+//
+//      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d",
+//        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges));
+//
+//      sendTrackedChanges(unitId, unitState);
+//    } else {
+//      logger.info("Нет изменений для отправки");
+//    }
+//  }
 
   private void sendTrackedChanges(String unitId, UnitState unitState) {
     StoreData trackedResult = createStoreDataFromTrackedChanges(unitId);
@@ -207,117 +473,117 @@ public class MeasurementChangeTracker {
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
   }
 
-  /**
-   * Отслеживает изменения параметров для конкретного сечения
-   */
-  private void trackParameterChanges(String unitId, StoreData result) {
-    Map<String, Parameter> trackedChanges = unitTrackedParameterChanges.get(unitId);
-    UnitDto unitDto = findUnitDtoById(result, unitId);
-    if (unitDto == null) return;
-
-    for (Parameter param : unitDto.getParameters().values()) {
-      String paramId = param.getId();
-      double currentValue = param.getValue();
-
-      if (isParameterChanged(unitId, paramId, currentValue)) {
-        trackedChanges.put(paramId, param);
-        logger.debug("Parameter изменен для сечения '" + unitId + "': " +
-          param.getName() + " = " + currentValue);
-      }
-    }
-  }
-
-  /**
-   * Отслеживает изменения топологий для конкретного сечения
-   */
-  private void trackTopologyChanges(String unitId, StoreData result) {
-    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
-    UnitDto unitDto = findUnitDtoById(result, unitId);
-    if (unitDto == null) return;
-
-    for (Topology topology : unitDto.getTopologyList()) {
-      String topologyId = topology.getId();
-      double currentValue = topology.getValue();
-
-      if (isTopologyChanged(unitId, topologyId, currentValue)) {
-        TrackedTopologyChanges.put(topologyId, topology);
-        logger.debug("Topology изменен для сечения '" + unitId + "': " +
-          topology.getName() + " = " + currentValue);
-      }
-    }
-  }
-
-  /**
-   * Отслеживает изменения элементов для конкретного сечения
-   */
-  private void trackElementChanges(String unitId, StoreData result) {
-    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
-    UnitDto unitDto = findUnitDtoById(result, unitId);
-    if (unitDto == null) return;
-
-    for (Element element : unitDto.getElements()) {
-      String elementId = element.getId();
-      double currentValue = element.getValue();
-
-      if (isElementChanged(unitId, elementId, currentValue)) {
-        TrackedElementChanges.put(elementId, element);
-        logger.debug("Element изменен для сечения '" + unitId + "': " +
-          element.getName() + " = " + currentValue);
-      }
-    }
-  }
-
-  /**
-   * Отслеживает изменения влияющих факторов для конкретного сечения
-   */
-  private void trackInfluencingFactorChanges(String unitId, StoreData result) {
-    Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
-    UnitDto unitDto = findUnitDtoById(result, unitId);
-    if (unitDto == null) return;
-
-    for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
-      String influencingFactorId = influencingFactor.getId();
-      double currentValue = influencingFactor.getValue();
-
-      if (isFactorChanged(unitId, influencingFactorId, currentValue)) {
-        trackedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
-        logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
-          influencingFactor.getName() + " = " + currentValue);
-      }
-    }
-  }
-
-  /**
-   * Отслеживает изменения ремонтных схем для конкретного сечения
-   */
-  private void trackRepairChanges(String unitId, StoreData result) {
-    Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
-    UnitDto unitDto = findUnitDtoById(result, unitId);
-    if (unitDto == null) return;
-
-    RepairSchema repairSchema = unitDto.getRepairSchema();
-    if (repairSchema == null) return;
-
-    List<RepairGroupValue> repairGroupValues = repairSchema.getRepairGroupValues();
-    if (repairGroupValues == null || repairGroupValues.isEmpty()) return;
-
-    // Проходим по всем группам ремонтных работ и их значениям Composition
-    for (RepairGroupValue repairGroup : repairGroupValues) {
-      List<Composition> compositions = repairGroup.getValues();
-      if (compositions == null) continue;
-
-      for (Composition composition : compositions) {
-        String compositionId = composition.getId();
-        double currentValue = composition.getValue();
-
-        if (isRepairChanged(unitId, compositionId, currentValue)) {
-          trackedRepairChanges.put(compositionId, composition);
-          logger.debug("Repair (Composition) изменен для сечения '" + unitId + "': " +
-            composition.getName() + " = " + currentValue);
-        }
-      }
-    }
-  }
+//  /**
+//   * Отслеживает изменения параметров для конкретного сечения
+//   */
+//  private void trackParameterChanges(String unitId, StoreData result) {
+//    Map<String, Parameter> trackedChanges = unitTrackedParameterChanges.get(unitId);
+//    UnitDto unitDto = findUnitDtoById(result, unitId);
+//    if (unitDto == null) return;
+//
+//    for (Parameter param : unitDto.getParameters().values()) {
+//      String paramId = param.getId();
+//      double currentValue = param.getValue();
+//
+//      if (isParameterChanged(unitId, paramId, currentValue)) {
+//        trackedChanges.put(paramId, param);
+//        logger.debug("Parameter изменен для сечения '" + unitId + "': " +
+//          param.getName() + " = " + currentValue);
+//      }
+//    }
+//  }
+//
+//  /**
+//   * Отслеживает изменения топологий для конкретного сечения
+//   */
+//  private void trackTopologyChanges(String unitId, StoreData result) {
+//    Map<String, Topology> TrackedTopologyChanges = unitTrackedTopologyChanges.get(unitId);
+//    UnitDto unitDto = findUnitDtoById(result, unitId);
+//    if (unitDto == null) return;
+//
+//    for (Topology topology : unitDto.getTopologyList()) {
+//      String topologyId = topology.getId();
+//      double currentValue = topology.getValue();
+//
+//      if (isTopologyChanged(unitId, topologyId, currentValue)) {
+//        TrackedTopologyChanges.put(topologyId, topology);
+//        logger.debug("Topology изменен для сечения '" + unitId + "': " +
+//          topology.getName() + " = " + currentValue);
+//      }
+//    }
+//  }
+//
+//  /**
+//   * Отслеживает изменения элементов для конкретного сечения
+//   */
+//  private void trackElementChanges(String unitId, StoreData result) {
+//    Map<String, Element> TrackedElementChanges = unitTrackedElementChanges.get(unitId);
+//    UnitDto unitDto = findUnitDtoById(result, unitId);
+//    if (unitDto == null) return;
+//
+//    for (Element element : unitDto.getElements()) {
+//      String elementId = element.getId();
+//      double currentValue = element.getValue();
+//
+//      if (isElementChanged(unitId, elementId, currentValue)) {
+//        TrackedElementChanges.put(elementId, element);
+//        logger.debug("Element изменен для сечения '" + unitId + "': " +
+//          element.getName() + " = " + currentValue);
+//      }
+//    }
+//  }
+//
+//  /**
+//   * Отслеживает изменения влияющих факторов для конкретного сечения
+//   */
+//  private void trackInfluencingFactorChanges(String unitId, StoreData result) {
+//    Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
+//    UnitDto unitDto = findUnitDtoById(result, unitId);
+//    if (unitDto == null) return;
+//
+//    for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
+//      String influencingFactorId = influencingFactor.getId();
+//      double currentValue = influencingFactor.getValue();
+//
+//      if (isFactorChanged(unitId, influencingFactorId, currentValue)) {
+//        trackedInfluencingFactorChanges.put(influencingFactorId, influencingFactor);
+//        logger.debug("InfluencingFactor изменен для сечения '" + unitId + "': " +
+//          influencingFactor.getName() + " = " + currentValue);
+//      }
+//    }
+//  }
+//
+//  /**
+//   * Отслеживает изменения ремонтных схем для конкретного сечения
+//   */
+//  private void trackRepairChanges(String unitId, StoreData result) {
+//    Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
+//    UnitDto unitDto = findUnitDtoById(result, unitId);
+//    if (unitDto == null) return;
+//
+//    RepairSchema repairSchema = unitDto.getRepairSchema();
+//    if (repairSchema == null) return;
+//
+//    List<RepairGroupValue> repairGroupValues = repairSchema.getRepairGroupValues();
+//    if (repairGroupValues == null || repairGroupValues.isEmpty()) return;
+//
+//    // Проходим по всем группам ремонтных работ и их значениям Composition
+//    for (RepairGroupValue repairGroup : repairGroupValues) {
+//      List<Composition> compositions = repairGroup.getValues();
+//      if (compositions == null) continue;
+//
+//      for (Composition composition : compositions) {
+//        String compositionId = composition.getId();
+//        double currentValue = composition.getValue();
+//
+//        if (isRepairChanged(unitId, compositionId, currentValue)) {
+//          trackedRepairChanges.put(compositionId, composition);
+//          logger.debug("Repair (Composition) изменен для сечения '" + unitId + "': " +
+//            composition.getName() + " = " + currentValue);
+//        }
+//      }
+//    }
+//  }
 
   /**
    * Создает StoreData, состоящий только из новых изменений для конкретного сечения:
