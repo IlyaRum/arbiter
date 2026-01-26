@@ -1,12 +1,8 @@
 package arbiter.data.model;
 
 public class CommonField {
-  //ОИК.адрес
-  private String oikAddress;
-  //ОИК.пользователь
-  private String user;
-  //ОИК.отладка
-  private boolean debug;
+  // Данные ОИК
+  private OikData oikData;
   //запись в ОИК
   private boolean writeEnable;
   //изменение критерия МДП СМЗУ
@@ -24,28 +20,48 @@ public class CommonField {
   //Ждать сторожа
   private boolean watchDogWait;
 
+  public CommonField() {
+    this.oikData = new OikData();
+  }
+
+  public OikData getOikData() {
+    return oikData;
+  }
+
+  public void setOikData(OikData oikData) {
+    this.oikData = oikData;
+  }
+
   public String getOikAddress() {
-    return oikAddress;
+    return oikData.getAddress();
   }
 
   public void setOikAddress(String oikAddress) {
-    this.oikAddress = oikAddress;
+    this.oikData.setAddress(oikAddress);
   }
 
   public String getUser() {
-    return user;
+    return oikData.getUser();
   }
 
   public void setUser(String user) {
-    this.user = user;
+    oikData.setUser(user);
+  }
+
+  public String getPassword() {
+    return oikData.getPassword();
+  }
+
+  public void setPassword(String password) {
+    oikData.setPassword(password);
   }
 
   public boolean isDebug() {
-    return debug;
+    return oikData.isDebug();
   }
 
   public void setDebug(boolean debug) {
-    this.debug = debug;
+    oikData.setDebug(debug);
   }
 
   public boolean isWriteEnable() {

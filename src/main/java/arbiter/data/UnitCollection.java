@@ -67,9 +67,13 @@ public class UnitCollection {
     vertx.fileSystem().readFile(configFile)
       .onSuccess(buffer -> {
         this.config = new JsonObject(buffer);
-        this.oik = config.getJsonObject("ОИК").getString("адрес");
-        this.user = config.getJsonObject("ОИК").getString("пользователь", "");
-        this.debug = yesNo(config.getJsonObject("ОИК"), "отладка");
+
+        JsonObject oikField = config.getJsonObject("ОИК");
+        this.oik = oikField.getString("адрес");
+        this.user = oikField.getString("пользователь", "");
+        this.password = oikField.getString("пароль", "");
+        this.debug = yesNo(oikField, "отладка");
+
         this.writeEnable = yesNo(config, "запись в ОИК");
         this.eventUID = config.getString("изменение критерия МДП СМЗУ");
         this.writeEventUID = config.getString("запись критерия МДП СМЗУ");
@@ -370,6 +374,7 @@ public class UnitCollection {
   private void initializeCommonFields() {
     commonField.setOikAddress(oik);
     commonField.setUser(user);
+    commonField.setPassword(password);
     commonField.setDebug(debug);
     commonField.setWriteEnable(writeEnable);
     commonField.setEventUID(eventUID);

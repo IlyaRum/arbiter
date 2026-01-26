@@ -1,15 +1,14 @@
 package arbiter.data.dto;
 
 import arbiter.data.model.CommonField;
+import arbiter.data.model.OikData;
 
 /**
  * Класс для передачи общих данных в расчетный сервис
  */
 public class CommonFieldDto {
 
-  private String oikAddress;
-  private String user;
-  private boolean debug;
+  private OikData oik;
   private boolean writeEnable;
   private String eventUID;
   private String writeEventUID;
@@ -25,42 +24,31 @@ public class CommonFieldDto {
 
   public CommonFieldDto(CommonField commonField) {
     if (commonField != null) {
-      this.oikAddress = commonField.getOikAddress();
-      this.user = commonField.getUser();
-      this.debug = commonField.isDebug();
+      this.oik = commonField.getOikData() != null
+        ? new OikData(
+        commonField.getOikAddress(),
+        commonField.getUser(),
+        commonField.getPassword(),
+        commonField.isDebug()
+      )
+        : new OikData();
       this.writeEnable = commonField.isWriteEnable();
       this.eventUID = commonField.getEventUID();
       this.writeEventUID = commonField.getWriteEventUID();
       this.skipCycle = commonField.isSkipCycle();
+      this.minusHK = commonField.isMinusHK();
       this.heartBeatUID = commonField.getHeartBeatUID();
       this.heartBeatInterval = commonField.getHeartBeatInterval();
       this.watchDogWait = commonField.isWatchDogWait();
-
     }
   }
 
-  public String getOikAddress() {
-    return oikAddress;
+  public OikData getOik() {
+    return oik;
   }
 
-  public void setOikAddress(String oikAddress) {
-    this.oikAddress = oikAddress;
-  }
-
-  public String getUser() {
-    return user;
-  }
-
-  public void setUser(String user) {
-    this.user = user;
-  }
-
-  public boolean isDebug() {
-    return debug;
-  }
-
-  public void setDebug(boolean debug) {
-    this.debug = debug;
+  public void setOik(OikData oik) {
+    this.oik = oik;
   }
 
   public boolean isWriteEnable() {
