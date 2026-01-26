@@ -29,10 +29,17 @@ public class UnitCollection {
   private static final Logger logger = LoggerFactory.getLogger(UnitCollection.class);
 
   private boolean writeEnable;
+  private boolean skipCycle;
+  private boolean minusHK;
   private boolean debug;
   private boolean checkEvent;
   private String eventUID;
   private String writeEventUID;
+
+  //сторож
+  private String heartBeatUID;
+  private Integer heartBeatInterval;
+  private boolean watchDogWait = false;
 
   private Vertx vertx;
   private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
@@ -66,6 +73,16 @@ public class UnitCollection {
         this.writeEnable = yesNo(config, "запись в ОИК");
         this.eventUID = config.getString("изменение критерия МДП СМЗУ");
         this.writeEventUID = config.getString("запись критерия МДП СМЗУ");
+
+        this.skipCycle = yesNo(config, "не проверять данные при старте 2 цикла");
+        this.minusHK = yesNo(config, "вычитать НК");
+
+        JsonObject hasWriteHeartBeat = config.getJsonObject("сторож");
+        if(hasWriteHeartBeat != null) {
+          this.heartBeatUID = hasWriteHeartBeat.getString("id");
+          this.heartBeatInterval = hasWriteHeartBeat.getInteger("интервал", 60);
+          this.watchDogWait = yesNo(hasWriteHeartBeat, "ждать");
+        }
 
         checkEvent = true;
         if (eventUID.isEmpty()) {
@@ -101,6 +118,11 @@ public class UnitCollection {
     if (!obj.containsKey(key)) return false;
     return "да".equalsIgnoreCase(obj.getString(key));
   }
+
+//  public int getInteger(JsonObject obj, String key, int defaultValue) {
+//    if (!obj.containsKey(key)) return defaultValue;
+//    return obj.getInteger(key);
+//  }
 
   public List<String> getUIDs() {
     List<String> allUIDs = new ArrayList<>();
@@ -346,7 +368,17 @@ public class UnitCollection {
   }
 
   private void initializeCommonFields() {
-    commonField.setOik(oik);
+    commonField.setOikAddress(oik);
+    commonField.setUser(user);
+    commonField.setDebug(debug);
+    commonField.setWriteEnable(writeEnable);
+    commonField.setEventUID(eventUID);
+    commonField.setWriteEventUID(writeEventUID);
+    commonField.setSkipCycle(skipCycle);
+    commonField.setHeartBeatUID(heartBeatUID);
+    commonField.setHeartBeatInterval(heartBeatInterval);
+    commonField.setWatchDogWait(watchDogWait);
+    commonField.setMinusHK(minusHK);
   }
 
   /**
