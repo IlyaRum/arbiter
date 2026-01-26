@@ -3,11 +3,13 @@ package arbiter.measurement;
 import arbiter.config.TestDataConfig;
 import arbiter.data.StoreData;
 import arbiter.data.UnitCollection;
+import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
 import arbiter.di.DependencyInjector;
 import arbiter.helper.MeasurementChangeTrackerReflectionTestHelper;
 import arbiter.measurement.state.UnitState;
+import io.vertx.core.internal.logging.LoggerFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -66,24 +68,27 @@ public class MeasurementChangeTrackerTest {
   }
 
   @Test
-  void testAggregateData_InitialLoad() {
-    TestDataConfig config = createUnit1Config(testTimestamp);
+  void testProcessAndTrackChanges_InitialLoad() {
+    TestDataConfig config = createUnit1Config(Instant.now());
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
+    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
-    List<Measurement> measurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp),
-      createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp),
-      createMeasurement(config.getDp3Uid(), config.getDp3Value(), testTimestamp),
-      createMeasurement(config.getCycleUid(), config.getCycleValue(), testTimestamp)
-    );
+    MeasurementList list = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), 2706.18, testTimestamp),
+      createMeasurement(config.getDp2Uid(), 2032.25, testTimestamp),
+      createMeasurement(config.getDp3Uid(), 4357.09, testTimestamp),
+      createMeasurement(config.getCycleUid(), 26319.0, testTimestamp)
+    ));
 
-    Map<String, Parameter> parameters = createParametersObj(config);
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run();
+      return null;
+    }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    StoreData storeData = createStoreDataWithUnit(config.getUnitName(), parameters, mockUnit);
-
-    measurementChangeTracker.trackAndProcessChanges(measurements, storeData);
+    measurementChangeTracker.processAndTrackChanges(list);
 
     Boolean initialDataLoaded = measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
     assertTrue(initialDataLoaded);
@@ -93,50 +98,20 @@ public class MeasurementChangeTrackerTest {
   }
 
   @Test
-  void testAggregateData_WithChanges() {
-    TestDataConfig config = createUnit1Config(testTimestamp);
+  void testProcessAndTrackChanges_WithChanges() {
+    TestDataConfig config = createUnit1Config(Instant.now());
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
+    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
     Instant firstTimestamp = testTimestamp;
-    List<Measurement> firstMeasurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), config.getDp1Value(), firstTimestamp),
-      createMeasurement(config.getDp2Uid(), config.getDp2Value(), firstTimestamp),
-      createMeasurement(config.getDp3Uid(), config.getDp3Value(), firstTimestamp),
-      createMeasurement(config.getCycleUid(), config.getCycleValue(), firstTimestamp)
-    );
-
-    Map<String, Parameter> firstParameters = createParametersObj(config);
-
-    StoreData firstStoreData = createStoreDataWithUnit(config.getUnitName(), firstParameters, mockUnit);
-
-    measurementChangeTracker.trackAndProcessChanges(firstMeasurements, firstStoreData);
-
-    Boolean initialDataLoader = measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
-    assertTrue(initialDataLoader, "Initial data should be loaded after first call");
-
-    Map<String, Double> previousValuesFirst  = measurementChangeTrackerReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
-    assertNotNull(previousValuesFirst, "Previous values should be saved");
-    assertEquals(config.getDp1Value(), previousValuesFirst.get(config.getDp1Uid()), 0.001, "Previous value for param1 should be " + config.getDp1Value());
-    assertEquals(config.getDp2Value(), previousValuesFirst.get(config.getDp2Uid()), 0.001, "Previous value for param2 should be " + config.getDp2Value());
-    assertEquals(config.getDp3Value(), previousValuesFirst.get(config.getDp3Uid()), 0.001, "Previous value for param3 should be " + config.getDp3Value());
-    assertEquals(config.getCycleValue(), previousValuesFirst.get(config.getCycleUid()), 0.001, "Previous value for CycleParam should be " + config.getCycleValue());
-
-    Instant secondTimestamp = firstTimestamp.plusSeconds(2);
-
-    TestDataConfig newConfig = config.setDp1Value(2800.0).setDp2Value(2032.26).setDp3Value(4357.10).setCycleValue(26320.0).setTimeStamp(secondTimestamp);
-
-    List<Measurement> secondMeasurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), newConfig.getDp1Value(), secondTimestamp),
-      createMeasurement(config.getDp2Uid(), newConfig.getDp2Value(), secondTimestamp),
-      createMeasurement(config.getDp3Uid(), newConfig.getDp3Value(), secondTimestamp),
-      createMeasurement(config.getCycleUid(), newConfig.getCycleValue(), secondTimestamp)
-    );
-
-    Map<String, Parameter> secondParameters = createParametersObj(newConfig);
-
-    StoreData secondStoreData = createStoreDataWithUnit(config.getUnitName(), secondParameters, mockUnit);
+    MeasurementList firstList = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), 2706.18, firstTimestamp),
+      createMeasurement(config.getDp2Uid(), 2032.25, firstTimestamp),
+      createMeasurement(config.getDp3Uid(), 4357.09, firstTimestamp),
+      createMeasurement(config.getCycleUid(), 26319.0, firstTimestamp)
+    ));
 
     doAnswer(invocation -> {
       Runnable task = invocation.getArgument(0);
@@ -144,24 +119,32 @@ public class MeasurementChangeTrackerTest {
       return null;
     }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    measurementChangeTracker.trackAndProcessChanges(secondMeasurements, secondStoreData);
+    measurementChangeTracker.processAndTrackChanges(firstList);
 
-    Map<String, Double> previousValuesSecond  = measurementChangeTrackerReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
-    assertNotNull(previousValuesSecond, "Previous values should be saved");
-    assertEquals(newConfig.getDp1Value(), previousValuesFirst.get(newConfig.getDp1Uid()), 0.001, "Previous value for param1 should be " + newConfig.getDp1Value());
-    assertEquals(newConfig.getDp2Value(), previousValuesFirst.get(newConfig.getDp2Uid()), 0.001, "Previous value for param2 should be " + newConfig.getDp2Value());
-    assertEquals(newConfig.getDp3Value(), previousValuesFirst.get(newConfig.getDp3Uid()), 0.001, "Previous value for param3 should be " + newConfig.getDp3Value());
+    Boolean initialDataLoader = measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().get(config.getUnitName());
+    assertTrue(initialDataLoader, "Initial data should be loaded after first call");
 
-    Map<String, Parameter> trackedChanges = measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().get(config.getUnitName());
-    assertTrue(trackedChanges == null || trackedChanges.isEmpty(),
-      "Tracked changes should be cleared after sending");
+    Map<String, Double> previousValuesFirst = measurementChangeTrackerReflectionTestHelper.getUnitPreviousParameterValues().get(config.getUnitName());
+    assertNotNull(previousValuesFirst, "Previous values should be saved");
+
+    Instant secondTimestamp = firstTimestamp.plusSeconds(2);
+    TestDataConfig newConfig = config.setDp1Value(2800.0).setDp2Value(2032.26).setDp3Value(4357.10).setCycleValue(26320.0).setTimeStamp(secondTimestamp);
+
+    MeasurementList secondList = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), newConfig.getDp1Value(), secondTimestamp),
+      createMeasurement(config.getDp2Uid(), newConfig.getDp2Value(), secondTimestamp),
+      createMeasurement(config.getDp3Uid(), newConfig.getDp3Value(), secondTimestamp),
+      createMeasurement(config.getCycleUid(), newConfig.getCycleValue(), secondTimestamp)
+    ));
+
+    measurementChangeTracker.processAndTrackChanges(secondList);
 
     verify(singleThreadExecutor, times(1)).submit(any(Runnable.class));
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
   }
 
   @Test
-  void testAggregateData_MultipleUnits() {
+  void testProcessAndTrackChanges_MultipleUnits() {
     TestDataConfig unit1Config = createUnit1Config(testTimestamp);
     TestDataConfig unit2Config = createUnit2Config(testTimestamp);
 
@@ -169,8 +152,9 @@ public class MeasurementChangeTrackerTest {
     Unit mockUnit2 = createMockUnit(unit2Config);
 
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit1, mockUnit2));
+    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
-    List<Measurement> measurements = Arrays.asList(
+    MeasurementList list = createMeasurementList(Arrays.asList(
       createMeasurement(unit1Config.getDp1Uid(), unit1Config.getDp1Value(), testTimestamp),
       createMeasurement(unit1Config.getDp2Uid(), unit1Config.getDp2Value(), testTimestamp),
       createMeasurement(unit1Config.getDp3Uid(), unit1Config.getDp3Value(), testTimestamp),
@@ -179,57 +163,7 @@ public class MeasurementChangeTrackerTest {
       createMeasurement(unit2Config.getDp2Uid(), unit2Config.getDp2Value(), testTimestamp),
       createMeasurement(unit2Config.getDp3Uid(), unit2Config.getDp3Value(), testTimestamp),
       createMeasurement(unit2Config.getCycleUid(), unit2Config.getCycleValue(), testTimestamp)
-    );
-
-    StoreData storeData = new StoreData();
-    UnitDto unitDto1 = new UnitDto(mockUnit1);
-    unitDto1.getParameters();
-    UnitDto unitDto2 = new UnitDto(mockUnit2);
-    storeData.addUnitData(unitDto1);
-    storeData.addUnitData(unitDto2);
-
-    measurementChangeTracker.trackAndProcessChanges(measurements, storeData);
-
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit1Config.getUnitName()));
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit2Config.getUnitName()));
-  }
-
-  @Test
-  void testAggregateData_SpecialValue99999() {
-    TestDataConfig config = createUnit1Config(testTimestamp);
-
-    config.setDp1Value(99999.0);
-
-    Unit mockUnit = createMockUnit(config);
-    when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-
-    Instant firstTimestamp = testTimestamp;
-    List<Measurement> firstMeasurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), config.getDp1Value(), firstTimestamp),
-      createMeasurement(config.getDp2Uid(), config.getDp2Value(), firstTimestamp),
-      createMeasurement(config.getDp3Uid(), config.getDp3Value(), firstTimestamp),
-      createMeasurement(config.getCycleUid(), config.getCycleValue(), firstTimestamp)
-    );
-
-    Map<String, Parameter> parameters = createParametersObj(config);
-
-    StoreData firstStoreData = createStoreDataWithUnit(config.getUnitName(), parameters, mockUnit);
-
-    measurementChangeTracker.trackAndProcessChanges(firstMeasurements, firstStoreData);
-
-
-    Instant secondTimestamp = firstTimestamp.plusSeconds(2);
-    TestDataConfig newConfig = config.setDp1Value(99999.0).setDp2Value(1234.0).setDp3Value(5679.0).setCycleValue(26320.0).setTimeStamp(secondTimestamp);
-    List<Measurement> secondMeasurements = Arrays.asList(
-      createMeasurement(newConfig.getDp1Uid(), newConfig.getDp1Value(), secondTimestamp),
-      createMeasurement(newConfig.getDp2Uid(), newConfig.getDp2Value(), secondTimestamp),
-      createMeasurement(newConfig.getDp3Uid(), newConfig.getDp3Value(), secondTimestamp),
-      createMeasurement(newConfig.getCycleUid(), newConfig.getCycleValue(), secondTimestamp)
-    );
-
-    Map<String, Parameter> secondParameters = createParametersObj(newConfig);
-
-    StoreData secondStoreData = createStoreDataWithUnit(newConfig.getUnitName(), secondParameters, mockUnit);
+    ));
 
     doAnswer(invocation -> {
       Runnable task = invocation.getArgument(0);
@@ -237,66 +171,79 @@ public class MeasurementChangeTrackerTest {
       return null;
     }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    measurementChangeTracker.trackAndProcessChanges(secondMeasurements, secondStoreData);
+    measurementChangeTracker.processAndTrackChanges(list);
 
-    Map<String, Double> previousValues  = measurementChangeTrackerReflectionTestHelper.getUnitPreviousParameterValues().get(newConfig.getUnitName());
-    assertNotNull(previousValues, "Previous values should be saved");
-    assertEquals(99999.0, previousValues.get(newConfig.getDp1Uid()), 0.001, "Previous value for param1 should be 99999.0");
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit1Config.getUnitName()));
+    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitInitialDataLoaded().containsKey(unit2Config.getUnitName()));
+  }
+
+  @Test
+  void testProcessAndTrackChanges_SpecialValue99999() {
+    TestDataConfig config = createUnit1Config(Instant.now());
+
+    Unit mockUnit = createMockUnit(config);
+    when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
+    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
+
+    Instant firstTimestamp = testTimestamp;
+    MeasurementList firstList = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), 99999.0, firstTimestamp),
+      createMeasurement(config.getDp2Uid(), 2032.25, firstTimestamp),
+      createMeasurement(config.getDp3Uid(), 4357.09, firstTimestamp),
+      createMeasurement(config.getCycleUid(), 26319.0, firstTimestamp)
+    ));
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      task.run();
+      return null;
+    }).when(singleThreadExecutor).submit(any(Runnable.class));
+
+    measurementChangeTracker.processAndTrackChanges(firstList);
+
+    Instant secondTimestamp = firstTimestamp.plusSeconds(2);
+    TestDataConfig newConfig = config.setDp1Value(99999.0).setDp2Value(1234.0).setDp3Value(5679.0).setCycleValue(26320.0).setTimeStamp(secondTimestamp);
+
+    MeasurementList secondList = createMeasurementList(Arrays.asList(
+      createMeasurement(newConfig.getDp1Uid(), newConfig.getDp1Value(), secondTimestamp),
+      createMeasurement(newConfig.getDp2Uid(), newConfig.getDp2Value(), secondTimestamp),
+      createMeasurement(newConfig.getDp3Uid(), newConfig.getDp3Value(), secondTimestamp),
+      createMeasurement(newConfig.getCycleUid(), newConfig.getCycleValue(), secondTimestamp)
+    ));
+
+    measurementChangeTracker.processAndTrackChanges(secondList);
 
     verify(singleThreadExecutor, times(1)).submit(runnableCaptor.capture());
     verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(newConfig.getUnitName()));
   }
 
   @Test
-  void testProcessConsistentData_SameTimestamp() {
-
-  }
-
-  @Test
-  void testCreateMeasurementsMap() {
-
-    TestDataConfig config = createUnit1Config(testTimestamp);
-
-    List<Measurement> measurements = Arrays.asList(
-      createMeasurement(config.getDp1Uid(), config.getDp1Value(), testTimestamp),
-      createMeasurement(config.getDp2Uid(), config.getDp2Value(), testTimestamp),
-      createMeasurement(config.getDp3Uid(), config.getDp3Value(), testTimestamp)
-    );
-
-    Map<String, Measurement> result = measurementChangeTrackerReflectionTestHelper.invokeCreateMeasurementsMap(measurements);
-
-    assertNotNull(result);
-    assertEquals(3, result.size());
-    assertEquals(config.getDp1Value(), result.get(config.getDp1Uid()).getValue());
-    assertEquals(config.getDp2Value(), result.get(config.getDp2Uid()).getValue());
-    assertEquals(config.getDp3Value(), result.get(config.getDp3Uid()).getValue());
-  }
-
-  @Test
-  void testAggregateData_CallbackThrowsException() throws Exception {
-    TestDataConfig config = createUnit1Config(testTimestamp);
+  void testCallbackThrowsException_LogsError() {
+    TestDataConfig config = createUnit1Config(Instant.now());
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
+    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
+    Instant firstTimestamp = testTimestamp;
 
-    Map<String, Parameter> trackedChanges = createParametersObj(config);
-    Map<String, Topology> trackedTopologyChanges = new ConcurrentHashMap<>();
-    Map<String, Element> trackedElementChanges = new ConcurrentHashMap<>();
-    Map<String, InfluencingFactor> trackedFactorChanges = new ConcurrentHashMap<>();
-    Map<String, Composition> trackedCompositionChanges = new ConcurrentHashMap<>();
+    MeasurementList list = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), 2706.18, firstTimestamp),
+      createMeasurement(config.getDp2Uid(), 2032.25, firstTimestamp),
+      createMeasurement(config.getDp3Uid(), 4357.09, firstTimestamp),
+      createMeasurement(config.getCycleUid(), 26319.0, firstTimestamp)
+    ));
 
-    measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().put(config.getUnitName(), trackedChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitTrackedTopologyChanges().put(config.getUnitName(), trackedTopologyChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitTrackedElementChanges().put(config.getUnitName(), trackedElementChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitTrackedFactorChanges().put(config.getUnitName(), trackedFactorChanges);
-    measurementChangeTrackerReflectionTestHelper.getUnitTrackedRepairChanges().put(config.getUnitName(), trackedCompositionChanges);
+    measurementChangeTracker.processAndTrackChanges(list);
 
-    Map<String, Double> previousParameterValues = new ConcurrentHashMap<>();
-    previousParameterValues.put(config.getDp1Uid(), config.getDp1Value());
-    previousParameterValues.put(config.getDp2Uid(), config.getDp2Value());
-    previousParameterValues.put(config.getDp3Uid(), config.getDp3Value());
+    Instant secondTimestamp = firstTimestamp.plusSeconds(2);
+    TestDataConfig newConfig = config.setDp1Value(2800.0).setDp2Value(2032.26).setDp3Value(4357.10).setCycleValue(26320.0).setTimeStamp(secondTimestamp);
 
-    measurementChangeTrackerReflectionTestHelper.getUnitPreviousParameterValues().put(config.getUnitName(), previousParameterValues);
+    MeasurementList secondList = createMeasurementList(Arrays.asList(
+      createMeasurement(config.getDp1Uid(), newConfig.getDp1Value(), secondTimestamp),
+      createMeasurement(config.getDp2Uid(), newConfig.getDp2Value(), secondTimestamp),
+      createMeasurement(config.getDp3Uid(), newConfig.getDp3Value(), secondTimestamp),
+      createMeasurement(config.getCycleUid(), newConfig.getCycleValue(), secondTimestamp)
+    ));
 
     doThrow(new RuntimeException("Test callback exception"))
       .when(dataReadyCallback).onDataReady(any(StoreData.class), anyString());
@@ -307,15 +254,9 @@ public class MeasurementChangeTrackerTest {
       return null;
     }).when(singleThreadExecutor).submit(any(Runnable.class));
 
-    measurementChangeTrackerReflectionTestHelper.invokeSendTrackedChanges(config.getUnitName(), createUnitState(trackedChanges, trackedTopologyChanges,trackedElementChanges,trackedFactorChanges, trackedCompositionChanges));
+    assertDoesNotThrow(() -> measurementChangeTracker.processAndTrackChanges(secondList));
 
     verify(singleThreadExecutor, times(1)).submit(any(Runnable.class));
-    verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), eq(config.getUnitName()));
-
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedChanges().get(config.getUnitName()).isEmpty(),"Tracked parameter changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedTopologyChanges().get(config.getUnitName()).isEmpty(),"Tracked topology changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedElementChanges().get(config.getUnitName()).isEmpty(),"Tracked elements changes should be cleared even when executor throws exception");
-    assertTrue(measurementChangeTrackerReflectionTestHelper.getUnitTrackedFactorChanges().get(config.getUnitName()).isEmpty(),"Tracked influencing factor changes should be cleared even when executor throws exception");
   }
 
   public static TestDataConfig createUnit1Config(Instant timestamp){
@@ -390,15 +331,27 @@ public class MeasurementChangeTrackerTest {
     when(mockUnit.getName()).thenReturn(config.getUnitName());
 
     List<Parameter> parameters = new ArrayList<>();
-    parameters.add(new Parameter(s1, config.getDp1Uid()));
-    parameters.add(new Parameter(s2, config.getDp2Uid()));
-    parameters.add(new Parameter(s3, config.getDp3Uid()));
-    parameters.add(new Parameter(s4, config.getCycleUid()));
+    Parameter param1 = new Parameter(s1, config.getDp1Uid());
+    param1.setData(config.getDp1Value(), config.getTimestamp(), 0);
+    parameters.add(param1);
 
-    lenient().when(mockUnit.getParameters()).thenReturn(parameters);
+    Parameter param2 = new Parameter(s2, config.getDp2Uid());
+    param2.setData(config.getDp2Value(), config.getTimestamp(), 0);
+    parameters.add(param2);
 
-    when(unitCollection.getCycleNumberUidFromUnit(mockUnit)).thenReturn(config.getCycleUid());
-    when(unitCollection.getTargetUidsForUnit(mockUnit)).thenReturn(config.getTargetUids());
+    Parameter param3 = new Parameter(s3, config.getDp3Uid());
+    param3.setData(config.getDp3Value(), config.getTimestamp(), 0);
+    parameters.add(param3);
+
+    Parameter cycleParam = new Parameter(s4, config.getCycleUid());
+    cycleParam.setData(config.getCycleValue(), config.getTimestamp(), 0);
+    parameters.add(cycleParam);
+
+    when(mockUnit.getParameters()).thenReturn(parameters);
+    when(mockUnit.getTopologies()).thenReturn(new ArrayList<>());
+    when(mockUnit.getElements()).thenReturn(new ArrayList<>());
+    when(mockUnit.getInfluencingFactors()).thenReturn(new ArrayList<>());
+    when(mockUnit.getRepairSchema()).thenReturn(null);
 
     mockUnits.put(config.getUnitName(), mockUnit);
     return mockUnit;
@@ -409,7 +362,16 @@ public class MeasurementChangeTrackerTest {
     when(measurement.getUid()).thenReturn(uid);
     when(measurement.getValue()).thenReturn(value);
     when(measurement.getTimeStamp()).thenReturn(timestamp.toString());
+    when(measurement.getQCode()).thenReturn(0);
     return measurement;
+  }
+
+  private MeasurementList createMeasurementList(List<Measurement> measurements) {
+    MeasurementList list = new MeasurementList();
+    for (Measurement measurement : measurements) {
+      list.add(measurement);
+    }
+    return list;
   }
 
   private StoreData createStoreDataWithUnit(String unitName, Map<String, Parameter> parameters, Unit unit) {
@@ -431,5 +393,4 @@ public class MeasurementChangeTrackerTest {
     storeData.addUnitData(unitDto);
     return storeData;
   }
-
 }

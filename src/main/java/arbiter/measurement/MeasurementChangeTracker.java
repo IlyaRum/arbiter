@@ -72,10 +72,6 @@ public class MeasurementChangeTracker {
       }
     }
 
-    //TODO[IER] Эти поля не нужны для PUT запроса
-//    CommonFieldDto commonFieldDto = dependencyInjector.getUnitCollection().getCommonFieldDto();
-//    result.setCommonFieldDto(commonFieldDto);
-
     if (result.size() > 0) {
       trackChangesForAllUnits(result);
     }
@@ -969,7 +965,6 @@ public class MeasurementChangeTracker {
       return true;
     }
 
-    // Сравниваем с учетом точности double
     return Math.abs(currentValue - previousValue) > 1e-10;
   }
 

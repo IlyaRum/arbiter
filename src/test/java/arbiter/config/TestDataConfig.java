@@ -12,10 +12,10 @@ public class TestDataConfig {
   private final String cycleUid;
   private final Set<String> targetUids;
   private Instant timestamp;
-  private double dp1Value = 2706.18;
-  private double dp2Value = 2032.25;
-  private double dp3Value = 4357.09;
-  private double cycleValue = 26319.0;
+  private double dp1Value = 0.0;
+  private double dp2Value = 0.0;
+  private double dp3Value = 0.0;
+  private double cycleValue = 0.0;
 
   public TestDataConfig(String unitName, String dp1Uid, String dp2Uid, String dp3Uid, String cycleUid, Set<String> targetUids, Instant timestamp) {
     this.unitName = unitName;

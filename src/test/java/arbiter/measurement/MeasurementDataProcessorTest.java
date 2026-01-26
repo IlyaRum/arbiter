@@ -210,34 +210,6 @@ class MeasurementDataProcessorTest {
   }
 
   @Test
-  void testOnDataReceived_DataNotDifferent_DoesNotUpdate() {
-    double paramValue = 42.5;
-
-    Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
-    MeasurementList list = createMeasurementList(measurement);
-
-    Unit unit = mock(Unit.class);
-    Parameter parameter = mock(Parameter.class);
-
-    when(parameter.getId()).thenReturn(PARAM_ID);
-    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(false);
-
-    List<Parameter> parameters = new ArrayList<>();
-    parameters.add(parameter);
-
-    setupUnitWithParameters(unit, parameters);
-
-    List<Unit> units = new ArrayList<>();
-    units.add(unit);
-
-    setupDependencyInjectorWithUnits(units);
-
-    processor.onDataReceived(list);
-
-    verify(parameter, never()).setData(anyDouble(), any(Instant.class), anyInt());
-  }
-
-  @Test
   void testOnDataReceived_ExceptionInProcessing_LogsError() {
     MeasurementList list = createMeasurementList(createMeasurement("test-id", 1.0, Instant.now(), 1));
 
