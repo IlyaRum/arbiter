@@ -1,15 +1,13 @@
 package arbiter.data.dto;
 
 //import arbiter.data.serialize.ParametersMapSerializer;
+import arbiter.constants.ParameterArpmMappingConstants;
 import arbiter.constants.ParameterMappingConstants;
 import arbiter.data.model.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 //import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -29,6 +27,8 @@ public class UnitDto {
   //@JsonSerialize(using = ParametersMapSerializer.class)
   private final Map<String, Parameter> parameters;
 
+  private List<Map<String, Object>> automaticPowerControls;
+
   public UnitDto(Unit unit) {
     this.unit = unit;
     this.name = unit.getName();
@@ -42,6 +42,23 @@ public class UnitDto {
     this.elements = unit.getElements();
     this.influencingFactors = unit.getInfluencingFactors();
     this.repairSchema = unit.getRepairSchema();
+
+    this.automaticPowerControls = unit.getArpmList().stream()
+      .map(arpm -> {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("name", arpm.getName());
+
+        Map<String, ParameterArpm> paramMap = arpm.getParameterArpm().stream()
+          .collect(Collectors.toMap(
+            this::getMappedParameterArpmKey,
+            Function.identity(),
+            (existing, replacement) -> existing,
+            LinkedHashMap::new
+          ));
+        map.putAll(paramMap);
+        return map;
+      })
+      .collect(Collectors.toList());
   }
 
   public Unit getUnit() {
@@ -92,8 +109,16 @@ public class UnitDto {
     return repairSchema;
   }
 
+  public List<Map<String, Object>> getAutomaticPowerControls() {
+    return automaticPowerControls;
+  }
+
   private String getMappedParameterKey(Parameter parameter) {
     return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(parameter.getName(), parameter.getId());
+  }
+
+  private String getMappedParameterArpmKey(ParameterArpm parameterArpm) {
+    return ParameterArpmMappingConstants.PARAMETER_ARPM_NAME_TO_FIELD_MAPPING.getOrDefault(parameterArpm.getName(), parameterArpm.getUid());
   }
 
   @Override

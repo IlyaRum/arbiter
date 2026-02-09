@@ -15,6 +15,16 @@ public class CommonField {
   private boolean skipCycle;
   //вычитать НК
   private boolean minusHK;
+  //секунд между циклом расчета и критерием
+  private Integer eventDelta;
+  //порт арбитра
+  private Integer port;
+  //интервал опроса данных
+  private Integer requestDelay;
+  //количество попыток соединения с ОИК
+  private Integer connectAttempt;
+  //пауза перед соединением с ОИК
+  private Integer oikConnectTimeout;
 
   public CommonField() {
     this.oikData = new OikData();
@@ -127,5 +137,45 @@ public class CommonField {
 
   public void setMinusHK(boolean minusHK) {
     this.minusHK = minusHK;
+  }
+
+  public Integer getEventDelta() {
+    return eventDelta;
+  }
+
+  public void setEventDelta(Integer eventDelta) {
+    this.eventDelta = eventDelta;
+  }
+
+  public Integer getPort() {
+    return port;
+  }
+
+  public void setPort(Integer port) {
+    this.port = port;
+  }
+
+  public Integer getRequestDelay() {
+    return requestDelay;
+  }
+
+  public void setRequestDelay(Integer requestDelay) {
+    this.requestDelay = requestDelay;
+  }
+
+  public Integer getConnectAttempt() {
+    return connectAttempt;
+  }
+
+  public void setConnectAttempt(Integer connectAttempt) {
+    this.connectAttempt = connectAttempt;
+  }
+
+  public Integer getOikConnectTimeout() {
+    return oikConnectTimeout;
+  }
+
+  public void setOikConnectTimeout(Integer oikConnectTimeout) {
+    this.oikConnectTimeout = oikConnectTimeout;
   }
 }

@@ -33,6 +33,12 @@ public class UnitCollection {
   private boolean checkEvent;
   private String eventUID;
   private String writeEventUID;
+  private String instance;
+  private Integer eventDelta;
+  private Integer port;
+  private Integer requestDelay;
+  private Integer connectAttempt;
+  private Integer oikConnectTimeout;
 
   //сторож
   private String heartBeatUID;
@@ -75,9 +81,15 @@ public class UnitCollection {
         this.writeEnable = yesNo(config, "запись в ОИК");
         this.eventUID = config.getString("изменение критерия МДП СМЗУ");
         this.writeEventUID = config.getString("запись критерия МДП СМЗУ");
+        this.instance = config.getString("экземпляр");
 
         this.skipCycle = yesNo(config, "не проверять данные при старте 2 цикла");
         this.minusHK = yesNo(config, "вычитать НК");
+        this.eventDelta = config.getInteger("секунд между циклом расчета и критерием", 0);
+        this.port = config.getInteger("порт", 8080);
+        this.requestDelay = config.getInteger("интервал опроса данных", 1000);
+        this.connectAttempt = config.getInteger("количество попыток соединения с ОИК", 100);
+        this.oikConnectTimeout = config.getInteger("пауза перед соединением с ОИК", 1000);
 
         JsonObject hasWriteHeartBeat = config.getJsonObject("сторож");
         if(hasWriteHeartBeat != null) {
@@ -86,12 +98,14 @@ public class UnitCollection {
           this.watchDogWait = yesNo(hasWriteHeartBeat, "ждать");
         }
 
-        checkEvent = true;
-        if (eventUID.isEmpty()) {
-          checkEvent = false;
-        } else {
-          if (writeEventUID.isEmpty()) {
+        if(eventUID != null) {
+          checkEvent = true;
+          if (eventUID.isEmpty()) {
             checkEvent = false;
+          } else {
+            if (writeEventUID.isEmpty()) {
+              checkEvent = false;
+            }
           }
         }
 
@@ -133,6 +147,7 @@ public class UnitCollection {
     allUIDs.addAll(getCompositionUIDs());
     allUIDs.addAll(getElementUIDs());
     allUIDs.addAll(getInfluencingFactorUIDs());
+    allUIDs.addAll(getArpmUIDs());
     return allUIDs;
   }
 
@@ -176,6 +191,17 @@ public class UnitCollection {
     return units.stream()
       .flatMap(unit -> unit.getParameters().stream())
       .flatMap(parameter -> parameter.getUIDs().stream())
+      .toList();
+  }
+
+  private List<String> getArpmUIDs() {
+    return units.stream()
+      .map(Unit::getArpmList)
+      .flatMap(Collection::stream)
+      .map(ARPM::getParameterArpm)
+      .flatMap(Collection::stream)
+      .map(ParameterArpm::getUIDs)
+      .flatMap(Collection::stream)
       .toList();
   }
 
@@ -378,6 +404,11 @@ public class UnitCollection {
     commonField.setHeartBeatInterval(heartBeatInterval);
     commonField.setWatchDogWait(watchDogWait);
     commonField.setMinusHK(minusHK);
+    commonField.setEventDelta(eventDelta);
+    commonField.setPort(port);
+    commonField.setRequestDelay(requestDelay);
+    commonField.setConnectAttempt(connectAttempt);
+    commonField.setOikConnectTimeout(oikConnectTimeout);
   }
 
   /**

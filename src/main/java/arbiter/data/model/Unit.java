@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,6 +30,7 @@ public class Unit {
   private List<Element> elements = new CopyOnWriteArrayList<>();
   private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
   private List<RepairGroupValue> repairGroupValues = new CopyOnWriteArrayList<>();
+  private List<ARPM> arpmList = new CopyOnWriteArrayList<>();
 
 
   @JsonIgnore
@@ -123,6 +125,26 @@ public class Unit {
       parameters.add(param);
     }
 
+    JsonArray ARPMArray = config.getJsonArray("АРПМ");
+    if(ARPMArray !=null) {
+      for (int i = 0; i < ARPMArray.size(); i++) {
+        JsonObject arpmObj = ARPMArray.getJsonObject(i);
+        ARPM arpm = new ARPM();
+        arpm.setName(arpmObj.getString("имя"));
+        List<ParameterArpm> parameterArpms = new CopyOnWriteArrayList<>();
+        parameterArpms.add(new ParameterArpm("Арбитр. Не пройдена достоверизация уставки", arpmObj.getString("Арбитр. Не пройдена достоверизация уставки")));
+        parameterArpms.add(new ParameterArpm("АРПМ адаптивная уставка чтение", arpmObj.getString("АРПМ адаптивная уставка чтение")));
+        parameterArpms.add(new ParameterArpm("АРПМ адаптивная уставка запись", arpmObj.getString("АРПМ адаптивная уставка запись")));
+        parameterArpms.add(new ParameterArpm("АРПМ дельта", arpmObj.getString("АРПМ дельта")));
+        parameterArpms.add(new ParameterArpm("АРПМ Тз", arpmObj.getString("АРПМ Тз")));
+        parameterArpms.add(new ParameterArpm("АРПМ превышение записанного", arpmObj.getString("АРПМ превышение записанного")));
+        parameterArpms.add(new ParameterArpm("АРПМ превышение предыдущего", arpmObj.getString("АРПМ превышение предыдущего")));
+        parameterArpms.add(new ParameterArpm("состояние АРПМ", arpmObj.getString("состояние АРПМ")));
+        arpm.setParameterArpm(parameterArpms);
+        arpmList.add(arpm);
+      }
+    }
+
     // Инициализация таймеров
     this.cycleTimer = new UltimateTimer(this.name, "(ЦИКЛ)");
     this.errorSet = new ErrorSet(name);
@@ -214,6 +236,17 @@ public class Unit {
 
   public int getDeltaTm() {
     return deltaTm;
+  }
+
+  public List<ARPM> getArpmList() {
+    return arpmList;
+  }
+
+  public List<ParameterArpm> getParameterArpmList() {
+   return arpmList.stream()
+     .map(ARPM::getParameterArpm)
+     .flatMap(Collection::stream)
+     .toList();
   }
 
   @Override
