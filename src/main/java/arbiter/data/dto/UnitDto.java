@@ -35,7 +35,7 @@ public class UnitDto {
     this.group = unit.getGroup();
     this.direction = unit.getDirection();
     this.deltaTm = unit.getDeltaTm();
-    this.writeResultToScada = unit.isWriteResultToScada();
+    this.writeResultToScada = unit.isActive();
     this.mdpAndADP = unit.isMdpAndADP();
     this.parameters = unit.getParameters().stream().collect(Collectors.toMap(this::getMappedParameterKey, Function.identity(),(existing, replacement) -> existing,HashMap::new));
     this.topologyList = unit.getTopologies();

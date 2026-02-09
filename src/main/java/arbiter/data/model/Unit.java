@@ -19,7 +19,7 @@ public class Unit {
   private String group;
   private int direction;
   private int deltaTm;
-  private boolean writeResultToScada;
+  private boolean active;
   private boolean mdpAndADP;
   private RepairSchema repairSchema;
 
@@ -40,7 +40,7 @@ public class Unit {
     this.name = config.getString("наименование");
     this.group = config.getString("группа");
     this.direction = config.getInteger("направление");
-    this.writeResultToScada = yesNo(config, "в работе");
+    this.active = yesNo(config, "в работе");
     this.mdpAndADP = yesNo(config, "проверять и МДП и АДП");
     this.deltaTm = config.getInteger("Дельта ТИ");
 
@@ -188,8 +188,8 @@ public class Unit {
     return name;
   }
 
-  public boolean isWriteResultToScada() {
-    return writeResultToScada;
+  public boolean isActive() {
+    return active;
   }
 
   public UltimateTimer getCycleTimer() {
@@ -222,7 +222,7 @@ public class Unit {
       .add("name='" + name + "'")
       .add("group='" + group + "'")
       .add("direction=" + direction)
-      .add("writeResultToScada=" + writeResultToScada)
+      .add("writeResultToScada=" + active)
       .add("deltaTm=" + deltaTm)
       .add("mdpAndADP=" + mdpAndADP)
       .toString();
