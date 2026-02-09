@@ -15,9 +15,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 public class UnitCollection {
   private String version;
-  private String oik;
-  private String user;
-  private String password;
+  private String oikAddress;
+  private String oikUser;
+  private String oikPassword;
+  private boolean oikDebug;
   private Status status = Status.DISCONNECTED;
   private Unit unit;
   private JsonObject config;
@@ -25,13 +26,11 @@ public class UnitCollection {
   private CommonField commonField;
   private List<Unit> units = new CopyOnWriteArrayList<>();
   private List<Measurement> writeBuffer = new CopyOnWriteArrayList<>();
-  //private List<String> UIDs = new ArrayList<>(); //срез uid'ов, которые добавляем набора значений измерений в подписке
   private static final Logger logger = LoggerFactory.getLogger(UnitCollection.class);
 
   private boolean writeEnable;
   private boolean skipCycle;
   private boolean minusHK;
-  private boolean debug;
   private boolean checkEvent;
   private String eventUID;
   private String writeEventUID;
@@ -69,10 +68,10 @@ public class UnitCollection {
         this.config = new JsonObject(buffer);
 
         JsonObject oikField = config.getJsonObject("ОИК");
-        this.oik = oikField.getString("адрес");
-        this.user = oikField.getString("пользователь", "");
-        this.password = oikField.getString("пароль", "");
-        this.debug = yesNo(oikField, "отладка");
+        this.oikAddress = oikField.getString("адрес");
+        this.oikUser = oikField.getString("пользователь", "");
+        this.oikPassword = oikField.getString("пароль", "");
+        this.oikDebug = yesNo(oikField, "отладка");
 
         this.writeEnable = yesNo(config, "запись в ОИК");
         this.eventUID = config.getString("изменение критерия МДП СМЗУ");
@@ -372,10 +371,10 @@ public class UnitCollection {
   }
 
   private void initializeCommonFields() {
-    commonField.setOikAddress(oik);
-    commonField.setUser(user);
-    commonField.setPassword(password);
-    commonField.setDebug(debug);
+    commonField.setOikAddress(oikAddress);
+    commonField.setUser(oikUser);
+    commonField.setPassword(oikPassword);
+    commonField.setDebug(oikDebug);
     commonField.setWriteEnable(writeEnable);
     commonField.setEventUID(eventUID);
     commonField.setWriteEventUID(writeEventUID);

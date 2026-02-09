@@ -3,6 +3,8 @@ package arbiter.data.model;
 public class CommonField {
   // Данные ОИК
   private OikData oikData;
+  // Данные сторож
+  private Watcher watcher;
   //запись в ОИК
   private boolean writeEnable;
   //изменение критерия МДП СМЗУ
@@ -13,15 +15,10 @@ public class CommonField {
   private boolean skipCycle;
   //вычитать НК
   private boolean minusHK;
-  //id сторожа
-  private String heartBeatUID;
-  //Интервал сторожа
-  private Integer heartBeatInterval;
-  //Ждать сторожа
-  private boolean watchDogWait;
 
   public CommonField() {
     this.oikData = new OikData();
+    this.watcher = new Watcher();
   }
 
   public OikData getOikData() {
@@ -30,6 +27,10 @@ public class CommonField {
 
   public void setOikData(OikData oikData) {
     this.oikData = oikData;
+  }
+
+  public Watcher getWatcher() {
+    return watcher;
   }
 
   public String getOikAddress() {
@@ -97,27 +98,27 @@ public class CommonField {
   }
 
   public String getHeartBeatUID() {
-    return heartBeatUID;
+    return this.watcher.getHeartBeatUID();
   }
 
   public void setHeartBeatUID(String heartBeatUID) {
-    this.heartBeatUID = heartBeatUID;
+    this.watcher.setHeartBeatUID(heartBeatUID);
   }
 
   public Integer getHeartBeatInterval() {
-    return heartBeatInterval;
+    return this.watcher.getHeartBeatInterval();
   }
 
   public void setHeartBeatInterval(Integer heartBeatInterval) {
-    this.heartBeatInterval = heartBeatInterval;
+    this.watcher.setHeartBeatInterval(heartBeatInterval);
   }
 
   public boolean isWatchDogWait() {
-    return watchDogWait;
+    return this.watcher.isWatchDogWait();
   }
 
   public void setWatchDogWait(boolean watchDogWait) {
-    this.watchDogWait = watchDogWait;
+    this.watcher.setWatchDogWait(watchDogWait);
   }
 
   public boolean isMinusHK() {

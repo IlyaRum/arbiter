@@ -2,6 +2,7 @@ package arbiter.data.dto;
 
 import arbiter.data.model.CommonField;
 import arbiter.data.model.OikData;
+import arbiter.data.model.Watcher;
 
 /**
  * Класс для передачи общих данных в расчетный сервис
@@ -9,15 +10,12 @@ import arbiter.data.model.OikData;
 public class CommonFieldDto {
 
   private OikData oik;
+  private Watcher watcher;
   private boolean writeEnable;
   private String eventUID;
   private String writeEventUID;
   private boolean skipCycle;
   private boolean minusHK;
-
-  private String heartBeatUID;
-  private Integer heartBeatInterval;
-  private boolean watchDogWait;
 
   public CommonFieldDto() {
   }
@@ -37,9 +35,12 @@ public class CommonFieldDto {
       this.writeEventUID = commonField.getWriteEventUID();
       this.skipCycle = commonField.isSkipCycle();
       this.minusHK = commonField.isMinusHK();
-      this.heartBeatUID = commonField.getHeartBeatUID();
-      this.heartBeatInterval = commonField.getHeartBeatInterval();
-      this.watchDogWait = commonField.isWatchDogWait();
+      this.watcher = commonField.getWatcher() != null
+        ? new Watcher(
+        commonField.getHeartBeatUID(),
+        commonField.getHeartBeatInterval(),
+        commonField.isWatchDogWait()
+      ) : new Watcher();
     }
   }
 
@@ -49,6 +50,14 @@ public class CommonFieldDto {
 
   public void setOik(OikData oik) {
     this.oik = oik;
+  }
+
+  public Watcher getWatcher() {
+    return watcher;
+  }
+
+  public void setWatcher(Watcher watcher) {
+    this.watcher = watcher;
   }
 
   public boolean isWriteEnable() {
@@ -81,30 +90,6 @@ public class CommonFieldDto {
 
   public void setSkipCycle(boolean skipCycle) {
     this.skipCycle = skipCycle;
-  }
-
-  public String getHeartBeatUID() {
-    return heartBeatUID;
-  }
-
-  public void setHeartBeatUID(String heartBeatUID) {
-    this.heartBeatUID = heartBeatUID;
-  }
-
-  public Integer getHeartBeatInterval() {
-    return heartBeatInterval;
-  }
-
-  public void setHeartBeatInterval(Integer heartBeatInterval) {
-    this.heartBeatInterval = heartBeatInterval;
-  }
-
-  public boolean isWatchDogWait() {
-    return watchDogWait;
-  }
-
-  public void setWatchDogWait(boolean watchDogWait) {
-    this.watchDogWait = watchDogWait;
   }
 
   public boolean isMinusHK() {
