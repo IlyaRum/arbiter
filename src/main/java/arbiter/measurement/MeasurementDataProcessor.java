@@ -76,7 +76,8 @@ public class MeasurementDataProcessor {
       result.addUnitData(unitDto);
     }
 
-    CommonFieldDto commonFieldDto = dependencyInjector.getUnitCollection().getCommonFieldDto();
+    CommonField commonField = dependencyInjector.getUnitCollection().getCommonField();
+    CommonFieldDto commonFieldDto = new CommonFieldDto(commonField);
     result.setCommonFieldDto(commonFieldDto);
 
     return result;

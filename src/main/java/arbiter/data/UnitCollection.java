@@ -1,6 +1,5 @@
 package arbiter.data;
 
-import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
@@ -364,10 +363,6 @@ public class UnitCollection {
 
   public CommonField getCommonField() {
     return commonField;
-  }
-
-  public CommonFieldDto getCommonFieldDto() {
-    return new CommonFieldDto(commonField);
   }
 
   private void initializeCommonFields() {

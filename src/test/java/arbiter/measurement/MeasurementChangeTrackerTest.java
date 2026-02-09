@@ -73,7 +73,6 @@ public class MeasurementChangeTrackerTest {
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
     MeasurementList list = createMeasurementList(Arrays.asList(
       createMeasurement(config.getDp1Uid(), 2706.18, testTimestamp),
@@ -103,7 +102,6 @@ public class MeasurementChangeTrackerTest {
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
     Instant firstTimestamp = testTimestamp;
     MeasurementList firstList = createMeasurementList(Arrays.asList(
@@ -152,7 +150,6 @@ public class MeasurementChangeTrackerTest {
     Unit mockUnit2 = createMockUnit(unit2Config);
 
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit1, mockUnit2));
-    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
     MeasurementList list = createMeasurementList(Arrays.asList(
       createMeasurement(unit1Config.getDp1Uid(), unit1Config.getDp1Value(), testTimestamp),
@@ -183,7 +180,6 @@ public class MeasurementChangeTrackerTest {
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
 
     Instant firstTimestamp = testTimestamp;
     MeasurementList firstList = createMeasurementList(Arrays.asList(
@@ -223,7 +219,6 @@ public class MeasurementChangeTrackerTest {
 
     Unit mockUnit = createMockUnit(config);
     when(unitCollection.getUnits()).thenReturn(List.of(mockUnit));
-    when(unitCollection.getCommonFieldDto()).thenReturn(new CommonFieldDto());
     Instant firstTimestamp = testTimestamp;
 
     MeasurementList list = createMeasurementList(Arrays.asList(
