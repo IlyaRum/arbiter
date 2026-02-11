@@ -148,6 +148,7 @@ public class UnitCollection {
     allUIDs.addAll(getElementUIDs());
     allUIDs.addAll(getInfluencingFactorUIDs());
     allUIDs.addAll(getArpmUIDs());
+    allUIDs.addAll(getUnitResultUids());
     return allUIDs;
   }
 
@@ -202,6 +203,13 @@ public class UnitCollection {
       .flatMap(Collection::stream)
       .map(ParameterArpm::getUIDs)
       .flatMap(Collection::stream)
+      .toList();
+  }
+
+  private List<String> getUnitResultUids() {
+    return units.stream()
+      .flatMap(unit -> unit.getUnitResults().stream())
+      .flatMap(ur -> ur.getUIDs().stream())
       .toList();
   }
 

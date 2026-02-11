@@ -3,6 +3,7 @@ package arbiter.data.dto;
 //import arbiter.data.serialize.ParametersMapSerializer;
 import arbiter.constants.ParameterArpmMappingConstants;
 import arbiter.constants.ParameterMappingConstants;
+import arbiter.constants.ParameterUnitResultMappingConstants;
 import arbiter.data.model.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 //import com.fasterxml.jackson.databind.annotation.JsonSerialize;
@@ -26,6 +27,7 @@ public class UnitDto {
   private final RepairSchema repairSchema;
   //@JsonSerialize(using = ParametersMapSerializer.class)
   private final Map<String, Parameter> parameters;
+  private final Map<String, UnitResult> result;
 
   private List<Map<String, Object>> automaticPowerControls;
 
@@ -44,21 +46,23 @@ public class UnitDto {
     this.repairSchema = unit.getRepairSchema();
 
     this.automaticPowerControls = unit.getArpmList().stream()
-      .map(arpm -> {
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("name", arpm.getName());
-
-        Map<String, ParameterArpm> paramMap = arpm.getParameterArpm().stream()
-          .collect(Collectors.toMap(
-            this::getMappedParameterArpmKey,
-            Function.identity(),
-            (existing, replacement) -> existing,
-            LinkedHashMap::new
-          ));
-        map.putAll(paramMap);
-        return map;
-      })
+      .map(this::convertArpmToMap)
       .collect(Collectors.toList());
+
+    this.result = unit.getUnitResults().stream().collect(Collectors.toMap(this::getMappedUnitResultKey, Function.identity(),(existing, replacement) -> existing,LinkedHashMap::new));;
+  }
+
+  private Map<String, Object> convertArpmToMap(ARPM arpm) {
+    Map<String, Object> map = new LinkedHashMap<>();
+    map.put("name", arpm.getName());
+    map.putAll(arpm.getParameterArpm().stream()
+      .collect(Collectors.toMap(
+        this::getMappedParameterArpmKey,
+        Function.identity(),
+        (existing, replacement) -> existing,
+        LinkedHashMap::new
+      )));
+    return map;
   }
 
   public Unit getUnit() {
@@ -113,12 +117,20 @@ public class UnitDto {
     return automaticPowerControls;
   }
 
+  public Map<String, UnitResult> getResult() {
+    return result;
+  }
+
   private String getMappedParameterKey(Parameter parameter) {
     return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(parameter.getName(), parameter.getId());
   }
 
   private String getMappedParameterArpmKey(ParameterArpm parameterArpm) {
     return ParameterArpmMappingConstants.PARAMETER_ARPM_NAME_TO_FIELD_MAPPING.getOrDefault(parameterArpm.getName(), parameterArpm.getUid());
+  }
+
+  private String getMappedUnitResultKey(UnitResult unitResult) {
+    return ParameterUnitResultMappingConstants.PARAMETER_RESULT_NAME_TO_FIELD_MAPPING.getOrDefault(unitResult.getName(), unitResult.getUid());
   }
 
   @Override

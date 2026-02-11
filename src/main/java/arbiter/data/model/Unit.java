@@ -25,12 +25,12 @@ public class Unit {
   private RepairSchema repairSchema;
 
   private List<Parameter> parameters = new CopyOnWriteArrayList<>();
-
   private List<Topology> topologies = new CopyOnWriteArrayList<>();
   private List<Element> elements = new CopyOnWriteArrayList<>();
   private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
   private List<RepairGroupValue> repairGroupValues = new CopyOnWriteArrayList<>();
   private List<ARPM> arpmList = new CopyOnWriteArrayList<>();
+  private List<UnitResult> unitResults = new CopyOnWriteArrayList<>();
 
 
   @JsonIgnore
@@ -145,6 +145,17 @@ public class Unit {
       }
     }
 
+    JsonArray resultArray = config.getJsonArray("результат");
+    if(resultArray !=null) {
+      for (int i = 0; i < resultArray.size(); i++) {
+        JsonObject resultObj = resultArray.getJsonObject(i);
+        UnitResult result = new UnitResult(
+            resultObj.getString("имя"),
+            resultObj.getString("id"));
+        unitResults.add(result);
+      }
+    }
+
     // Инициализация таймеров
     this.cycleTimer = new UltimateTimer(this.name, "(ЦИКЛ)");
     this.errorSet = new ErrorSet(name);
@@ -240,6 +251,10 @@ public class Unit {
 
   public List<ARPM> getArpmList() {
     return arpmList;
+  }
+
+  public List<UnitResult> getUnitResults() {
+    return unitResults;
   }
 
   public List<ParameterArpm> getParameterArpmList() {
