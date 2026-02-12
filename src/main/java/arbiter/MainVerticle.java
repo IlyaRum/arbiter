@@ -158,8 +158,8 @@ public class MainVerticle extends AbstractVerticle {
   public void stop(Promise<Void> stopPromise) {
 
     ShutdownManager shutdownManager = new ShutdownManager(
-      dependencyInjector.getHandleDataService().getCalculationClient(),
-      dependencyInjector.getWebSocketManager()
+      dependencyInjector.getWebSocketManager(),
+      dependencyInjector.getHandleDataService()
     );
 
     shutdownManager.shutdown();

@@ -25,6 +25,7 @@ import io.vertx.ext.web.client.WebClient;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 public class HandleDataService extends ABaseService {
 
@@ -214,5 +215,33 @@ public class HandleDataService extends ABaseService {
     mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
     return mapper;
+  }
+
+  public void shutdown() {
+    logger.info("Завершение HandleDataService");
+
+    try {
+//      if (measurementDataProcessor != null) {
+//        measurementDataProcessor.shutdown();
+//      }
+
+      if (calculationClient != null) {
+        calculationClient.shutdown();
+      }
+
+      executor.shutdown();
+
+      if (!executor.awaitTermination(15, TimeUnit.SECONDS)) {
+        executor.shutdownNow();
+        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+          logger.error("Executor не завершился");
+        }
+      }
+    } catch (InterruptedException e) {
+      executor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
+
+    logger.info("HandleDataService завершен");
   }
 }
