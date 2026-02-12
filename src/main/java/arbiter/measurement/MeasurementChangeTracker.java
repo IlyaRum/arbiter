@@ -2,7 +2,6 @@ package arbiter.measurement;
 
 import arbiter.constants.ParameterMappingConstants;
 import arbiter.data.*;
-import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.FilteredUnitDto;
 import arbiter.data.dto.UnitDto;
 import arbiter.data.model.*;
@@ -36,6 +35,7 @@ public class MeasurementChangeTracker {
   private final Map<String, Map<String, Double>> unitPreviousElementValues = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Double>> unitPreviousFactorValues = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Double>> unitPreviousRepairValues = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Double>> unitPreviousUnitResultValues = new ConcurrentHashMap<>();
 
   // Мапы для накопления изменений типов данных для каждого сечения
   private final Map<String, Map<String, Parameter>> unitTrackedParameterChanges = new ConcurrentHashMap<>();
@@ -43,6 +43,7 @@ public class MeasurementChangeTracker {
   private final Map<String, Map<String, Element>> unitTrackedElementChanges = new ConcurrentHashMap<>();
   private final Map<String, Map<String, InfluencingFactor>> unitTrackedFactorChanges = new ConcurrentHashMap<>();
   private final Map<String, Map<String, Composition>> unitTrackedRepairChanges = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, UnitResult>> unitTrackedUnitResultChanges = new ConcurrentHashMap<>();
 
 
   public MeasurementChangeTracker(DependencyInjector dependencyInjector,
@@ -99,6 +100,7 @@ public class MeasurementChangeTracker {
     processAndTrackElements(result, unit, unitId, memoryData);
     processAndTrackInfluencingFactors(result, unit, unitId, memoryData);
     processAndTrackRepairSchema(result, unit, unitId, memoryData);
+    processAndTrackUnitResult(result, unit, unitId, memoryData);
   }
 
   /**
@@ -214,6 +216,40 @@ public class MeasurementChangeTracker {
     }
   }
 
+  private void processAndTrackUnitResult(StoreData result, Unit unit, String unitId, MemoryData memoryData) {
+    List<UnitResult> unitResults = unit.getUnitResults();
+
+    for (UnitResult unitResult : unitResults) {
+      if (unitResult.getUid().equalsIgnoreCase(memoryData.getId())) {
+        boolean isDataDifferent = unitResult.isDataDifferent(memoryData.getValue(), memoryData.getTime());
+
+        if (isDataDifferent) {
+          unitResult.setData(memoryData.getValue(), memoryData.getTime(), memoryData.getQCode());
+
+          UnitDto unitDto = result.getUnitData(unit);
+          if (unitDto == null) {
+            unitDto = new UnitDto(unit);
+            result.addUnitData(unitDto);
+          }
+
+          boolean initialDataLoaded = unitInitialDataLoaded.get(unitId);
+          if (initialDataLoaded) {
+            double currentValue = unitResult.getValue();
+            String paramId = unitResult.getUid();
+
+            if (isUnitResultChanged(unitId, paramId, currentValue)) {
+              Map<String, UnitResult> trackedChanges = unitTrackedUnitResultChanges.get(unitId);
+              trackedChanges.put(paramId, unitResult);
+              logger.debug("UnitResult изменен для сечения '" + unitId + "': " +
+                unitResult.getName() + " = " + currentValue);
+            }
+          }
+        }
+        return;
+      }
+    }
+  }
+
   /**
    * Объединенная логика обработки и отслеживания влияющих факторов
    */
@@ -300,12 +336,13 @@ public class MeasurementChangeTracker {
     int elementChanges = unitState.getTrackedElementChanges().size();
     int factorChanges = unitState.getTrackedInfluencingFactorChanges().size();
     int repairChanges = unitState.getTrackedRepairChanges().size();
+    int unitResult = unitState.getTrackedUnitResultChanges().size();
 
     if (paramChanges > 0 || topologyChanges > 0 || elementChanges > 0 ||
-      factorChanges > 0 || repairChanges > 0) {
+      factorChanges > 0 || repairChanges > 0 || unitResult > 0) {
 
-      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d",
-        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges));
+      logger.info(String.format("Новые изменения для сечения '%s': Parameter=%d, Topology=%d, Element=%d, Factor=%d, Repair=%d, unitResult=%d",
+        unitId, paramChanges, topologyChanges, elementChanges, factorChanges, repairChanges, unitResult));
 
       sendTrackedChanges(unitId, unitState);
     } else {
@@ -354,7 +391,8 @@ public class MeasurementChangeTracker {
       unitTrackedTopologyChanges.get(unitId),
       unitTrackedElementChanges.get(unitId),
       unitTrackedFactorChanges.get(unitId),
-      unitTrackedRepairChanges.get(unitId)
+      unitTrackedRepairChanges.get(unitId),
+      unitTrackedUnitResultChanges.get(unitId)
     );
   }
 
@@ -377,6 +415,7 @@ public class MeasurementChangeTracker {
     saveCurrentElementValues(unitId, result);
     saveCurrentInfluencingFactorValues(unitId, result);
     saveCurrentRepairValues(unitId, result);
+    saveCurrentUnitResultValues(unitId, result);
     logger.debug("Начальные данные загружены для сечения '" + unitId + "'");
   }
 
@@ -440,6 +479,7 @@ public class MeasurementChangeTracker {
     unitState.getTrackedElementChanges().clear();
     unitState.getTrackedInfluencingFactorChanges().clear();
     unitState.getTrackedRepairChanges().clear();
+    unitState.getTrackedUnitResultChanges().clear();
     logger.info("Накопленные изменения очищены \n");
   }
 
@@ -449,6 +489,7 @@ public class MeasurementChangeTracker {
     saveCurrentElementValuesFromTracked(unitId);
     saveCurrentInfluencingFactorValuesFromTracked(unitId);
     saveCurrentRepairValuesFromTracked(unitId);
+    saveCurrentUnitResultValuesFromTracked(unitId);
     logger.info("Текущие значения сохранены как предыдущие");
   }
 
@@ -460,12 +501,14 @@ public class MeasurementChangeTracker {
     unitPreviousElementValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousFactorValues.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitPreviousRepairValues.computeIfAbsent(unitId, k-> new ConcurrentHashMap<>());
+    unitPreviousUnitResultValues.computeIfAbsent(unitId, k-> new ConcurrentHashMap<>());
 
     unitTrackedParameterChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedTopologyChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedElementChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedRepairChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
+    unitTrackedUnitResultChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
   }
 
@@ -591,12 +634,14 @@ public class MeasurementChangeTracker {
     Map<String, Element> trackedElementChanges = unitTrackedElementChanges.get(unitId);
     Map<String, InfluencingFactor> trackedInfluencingFactorChanges = unitTrackedFactorChanges.get(unitId);
     Map<String, Composition> trackedRepairChanges = unitTrackedRepairChanges.get(unitId);
+    Map<String, UnitResult> trackedUnitResultChanges = unitTrackedUnitResultChanges.get(unitId);
 
     if (!trackedParameterChanges.isEmpty() ||
       !trackedTopologyChanges.isEmpty() ||
       !trackedElementChanges.isEmpty() ||
       !trackedInfluencingFactorChanges.isEmpty() ||
-      !trackedRepairChanges.isEmpty()) {
+      !trackedRepairChanges.isEmpty() ||
+      !trackedUnitResultChanges.isEmpty()) {
       Unit unit = findUnitByName(unitId);
       if (unit != null) {
 
@@ -605,6 +650,7 @@ public class MeasurementChangeTracker {
         Map<String, Element> elementChangesForUnit = new HashMap<>();
         Map<String, InfluencingFactor> influencingFactorChangesForUnit = new HashMap<>();
         Map<String, Composition> repairChangesForUnit = new HashMap<>();
+        Map<String, UnitResult> unitResultChangesForUnit = new HashMap<>();
 
         for (Parameter param : trackedParameterChanges.values()) {
           if (isParameterBelongsToUnit(unit, param)) {
@@ -636,11 +682,18 @@ public class MeasurementChangeTracker {
           }
         }
 
+        for (UnitResult unitResult : trackedUnitResultChanges.values()) {
+          if (isUnitResultBelongsToUnit(unit, unitResult)) {
+            unitResultChangesForUnit.put(unitResult.getUid(), unitResult);
+          }
+        }
+
         if (!parameterChangesForUnit.isEmpty() ||
           !topologyChangesForUnit.isEmpty() ||
           !elementChangesForUnit.isEmpty() ||
           !influencingFactorChangesForUnit.isEmpty() ||
-          !repairChangesForUnit.isEmpty()) {
+          !repairChangesForUnit.isEmpty() ||
+          !unitResultChangesForUnit.isEmpty()) {
 
           RepairSchema filteredRepairSchema = null;
           if (!repairChangesForUnit.isEmpty()) {
@@ -652,7 +705,8 @@ public class MeasurementChangeTracker {
             topologyChangesForUnit,
             elementChangesForUnit,
             influencingFactorChangesForUnit,
-            filteredRepairSchema);
+            filteredRepairSchema,
+            unitResultChangesForUnit);
 
           trackedResult.addUnitData(unitDto);
 
@@ -661,7 +715,8 @@ public class MeasurementChangeTracker {
             ", elements=" + elementChangesForUnit.size() +
             ", topologies=" + topologyChangesForUnit.size() +
             ", influencingFactor=" + influencingFactorChangesForUnit.size() +
-            ", repairs=" + repairChangesForUnit.size());
+            ", repairs=" + repairChangesForUnit.size() +
+            ", unitResult=" + unitResultChangesForUnit.size());
         }
       }
     }
@@ -728,6 +783,15 @@ public class MeasurementChangeTracker {
       }
     }
 
+    return false;
+  }
+
+  private boolean isUnitResultBelongsToUnit(Unit unit, UnitResult result) {
+    for (UnitResult unitResult : unit.getUnitResults()) {
+      if (unitResult.getUid().equals(result.getUid())) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -803,6 +867,20 @@ public class MeasurementChangeTracker {
       logger.info("Предыдущие значения parameter обновлены для сечения '" + unitId +
         "': " + param.getName() + "/" + param.getId() + " = " + param.getValue() +
         ", timestamp=" + param.getTime());
+    }
+  }
+
+  /**
+   * Сохраняем текущие значения как предыдущие для следующего сравнения для конкретного юнита
+   */
+  private void saveCurrentUnitResultValuesFromTracked(String unitId) {
+    Map<String, UnitResult> trackedChanges = unitTrackedUnitResultChanges.get(unitId);
+    Map<String, Double> previousUnitResultValues = unitPreviousUnitResultValues.get(unitId);
+    for (UnitResult result : trackedChanges.values()) {
+      previousUnitResultValues.put(result.getUid(), result.getValue());
+      logger.info("Предыдущие значения unitResult обновлены для сечения '" + unitId +
+        "': " + result.getName() + "/" + result.getUid() + " = " + result.getValue() +
+        ", timestamp=" + result.getTime());
     }
   }
 
@@ -886,6 +964,23 @@ public class MeasurementChangeTracker {
   }
 
   /**
+   * Сохраняет текущие значения параметров для конкретного юнита
+   */
+  private void saveCurrentUnitResultValues(String unitId, StoreData result) {
+    Map<String, Double> previousUnitResultValues = unitPreviousUnitResultValues.get(unitId);
+    UnitDto unitDto = findUnitDtoById(result, unitId);
+    if (unitDto != null) {
+      for (UnitResult unitResult : unitDto.getResult().values()) {
+        String id = unitResult.getUid();
+        double currentValue = unitResult.getValue();
+        previousUnitResultValues.put(id, currentValue);
+        logger.debug("Сохранено начальное значение unitResult для сечения '" + unitId +
+          "': " + unitResult.getName() + " = " + currentValue);
+      }
+    }
+  }
+
+  /**
    * Сохраняет текущие значения топологий для конкретного юнита
    */
   private void saveCurrentTopologyValues(String unitId, StoreData result) {
@@ -961,6 +1056,16 @@ public class MeasurementChangeTracker {
     Map<String, Double> previousParameterValues = unitPreviousParameterValues.get(unitId);
     Double previousValue = previousParameterValues.get(paramId);
     // Если предыдущего значения нет - считаем что изменилось (первый раз)
+    if (previousValue == null) {
+      return true;
+    }
+
+    return Math.abs(currentValue - previousValue) > 1e-10;
+  }
+
+  private boolean isUnitResultChanged(String unitId, String paramId, double currentValue) {
+    Map<String, Double> previousUnitResultValues = unitPreviousUnitResultValues.get(unitId);
+    Double previousValue = previousUnitResultValues.get(paramId);
     if (previousValue == null) {
       return true;
     }

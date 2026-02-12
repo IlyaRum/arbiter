@@ -13,17 +13,20 @@ public class UnitState {
   final Map<String, Element> trackedElementChanges;
   final Map<String, InfluencingFactor> trackedInfluencingFactorChanges;
   final Map<String, Composition> trackedTrackedRepairChanges;
+  final Map<String, UnitResult> trackedUnitResultChanges;
 
   public UnitState(Map<String, Parameter> trackedChanges,
             Map<String, Topology> trackedTopologyChanges,
             Map<String, Element> trackedElementChanges,
             Map<String, InfluencingFactor> trackedInfluencingFactorChanges,
-                   Map<String, Composition> trackedTrackedRepairChanges) {
+                   Map<String, Composition> trackedTrackedRepairChanges,
+                   Map<String, UnitResult> trackedUnitResultChanges) {
     this.trackedParameterChanges = trackedChanges;
     this.trackedTopologyChanges = trackedTopologyChanges;
     this.trackedElementChanges = trackedElementChanges;
     this.trackedInfluencingFactorChanges = trackedInfluencingFactorChanges;
     this.trackedTrackedRepairChanges = trackedTrackedRepairChanges;
+    this.trackedUnitResultChanges = trackedUnitResultChanges;
   }
 
   public Map<String, Parameter> getTrackedParameterChanges() {
@@ -41,7 +44,12 @@ public class UnitState {
   public Map<String, InfluencingFactor> getTrackedInfluencingFactorChanges() {
     return trackedInfluencingFactorChanges;
   }
+
   public Map<String, Composition> getTrackedRepairChanges() {
     return trackedTrackedRepairChanges;
+  }
+
+  public Map<String, UnitResult> getTrackedUnitResultChanges() {
+    return trackedUnitResultChanges;
   }
 }

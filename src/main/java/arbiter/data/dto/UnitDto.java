@@ -138,6 +138,8 @@ public class UnitDto {
       .add("elements=" + getElements())
       .add("repairSchema=" + getRepairSchema())
       .add("influencingFactors=" + getInfluencingFactors())
+      .add("automaticPowerControls=" + getAutomaticPowerControls())
+      .add("result=" + getResult())
       .toString();
   }
 }

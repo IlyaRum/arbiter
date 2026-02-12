@@ -58,7 +58,9 @@ public class StoreData {
           unitDto.getTopologyList().size() +
           unitDto.getElements().size() +
           unitDto.getInfluencingFactors().size() +
-          sizeCompositionIds;
+          sizeCompositionIds +
+          unitDto.getAutomaticPowerControls().size() +
+          unitDto.getResult().size();
       })
       .sum();
   }

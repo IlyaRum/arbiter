@@ -315,9 +315,10 @@ public class MeasurementChangeTrackerTest {
                                     Map<String, Topology> trackedTopologyChanges,
                                     Map<String, Element> trackedElementChanges,
                                     Map<String, InfluencingFactor> trackedInfluencingFactorChanges,
-                                    Map<String, Composition> trackedRepairChanges) {
+                                    Map<String, Composition> trackedRepairChanges,
+                                    Map<String, UnitResult> trackedUnitResult) {
     return new UnitState(trackedChanges, trackedTopologyChanges,
-      trackedElementChanges, trackedInfluencingFactorChanges,trackedRepairChanges
+      trackedElementChanges, trackedInfluencingFactorChanges,trackedRepairChanges,trackedUnitResult
     );
   }
 

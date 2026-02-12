@@ -18,13 +18,15 @@ public class FilteredUnitDto extends UnitDto {
   private final List<InfluencingFactor> filteredInfuencingFactorList;
   private final RepairSchema filteredRepairSchema;
   private final Map<String, InfluencingFactor> influencingFactories;
+  private final Map<String, UnitResult> filteredUnitResult;
 
   public FilteredUnitDto(UnitDto original,
                          Map<String, Parameter> filteredParameters,
                          Map<String, Topology> filteredTopologies,
                          Map<String, Element> filteredElements,
                          Map<String, InfluencingFactor> influencingFactories,
-                         RepairSchema filteredRepairSchema) {
+                         RepairSchema filteredRepairSchema,
+                         Map<String, UnitResult> filteredUnitResult) {
     super(original.getUnit());
     this.filteredParameters = filteredParameters;
     this.filteredTopologies = filteredTopologies;
@@ -34,6 +36,7 @@ public class FilteredUnitDto extends UnitDto {
     this.filteredElementList = new ArrayList<>(filteredElements.values());
     this.filteredInfuencingFactorList = new ArrayList<>(influencingFactories.values());
     this.filteredRepairSchema = filteredRepairSchema;;
+    this.filteredUnitResult = filteredUnitResult;;
   }
 
   @Override
@@ -59,4 +62,10 @@ public class FilteredUnitDto extends UnitDto {
   public RepairSchema getRepairSchema() {
     return filteredRepairSchema;
   }
+
+  @Override
+  public Map<String, UnitResult> getResult() {
+    return filteredUnitResult;
+  }
+
 }
