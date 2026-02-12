@@ -44,11 +44,7 @@ public class UnitDto {
     this.elements = unit.getElements();
     this.influencingFactors = unit.getInfluencingFactors();
     this.repairSchema = unit.getRepairSchema();
-
-    this.automaticPowerControls = unit.getArpmList().stream()
-      .map(this::convertArpmToMap)
-      .collect(Collectors.toList());
-
+    this.automaticPowerControls = unit.getArpmList().stream().map(this::convertArpmToMap).collect(Collectors.toList());
     this.result = unit.getUnitResults().stream().collect(Collectors.toMap(this::getMappedUnitResultKey, Function.identity(),(existing, replacement) -> existing,LinkedHashMap::new));;
   }
 
