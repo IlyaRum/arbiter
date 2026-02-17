@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.data.StoreData;
+import arbiter.data.dto.UnitDataWrapper;
 import arbiter.di.DependencyInjector;
 import arbiter.measurement.MeasurementDataProcessor;
 import arbiter.measurement.MeasurementList;
@@ -152,7 +153,11 @@ public class HandleDataService extends ABaseService {
           calculationClient.sendPostRequestAsync(jsonPostData);
           firstTime = false;
         } else if (unitId != null) {
-          String jsonPutData = convertStoreDataToJson(storeData.getUnitDataList());
+//          JsonObject jsonWrapper = new JsonObject();
+//          jsonWrapper.put("section", storeData.getUnitDataList());
+//          String jsonPutData = jsonWrapper.encode();
+          UnitDataWrapper wrapper = new UnitDataWrapper(storeData.getUnitDataList());
+          String jsonPutData = convertStoreDataToJson(wrapper);
           calculationClient.sendPutRequestAsync(jsonPutData, unitId);
         }
       } catch (Exception e) {
