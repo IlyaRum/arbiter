@@ -2,10 +2,12 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -18,11 +20,19 @@ public class CalculationServiceClient {
   private static final Logger logger = LoggerFactory.getLogger(CalculationServiceClient.class);
 
   private volatile boolean isShuttingDown = false;
+  private static final int REQUEST_TIMEOUT_MS = 30000;
   private final WebClient webClient;
   private final ExecutorService executor;
 
-  public CalculationServiceClient(WebClient webClient, ExecutorService executor) {
-    this.webClient = webClient;
+  public CalculationServiceClient(Vertx vertx, ExecutorService executor) {
+    WebClientOptions options = new WebClientOptions()
+      .setKeepAlive(true)
+      .setConnectTimeout(5000)
+      .setSsl(true)
+      .setTrustAll(true) //отключает проверку сертификатов
+      .setVerifyHost(false); //Отключает проверку hostname
+
+    this.webClient = WebClient.wrap(vertx.createHttpClient(options));
     this.executor = executor;
   }
 
@@ -39,6 +49,7 @@ public class CalculationServiceClient {
 
     webClient.postAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
+      .timeout(REQUEST_TIMEOUT_MS)
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
         if (response.statusCode() >= 200 && response.statusCode() < 300) {
@@ -65,6 +76,7 @@ public class CalculationServiceClient {
 
     webClient.putAbs(AppConfig.getCalcSrvAbsoluteUrl())
       .putHeader("Content-Type", "application/json")
+      .timeout(REQUEST_TIMEOUT_MS)
       .sendBuffer(Buffer.buffer(jsonData))
       .compose(response -> {
         if (response.statusCode() >= 200 && response.statusCode() < 300) {

@@ -47,7 +47,7 @@ public class HandleDataService extends ABaseService {
       return t;
     });
 
-    this.calculationClient = new CalculationServiceClient(webClient, executor);
+    this.calculationClient = new CalculationServiceClient(vertx, executor);
     this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, executor);
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
   }
