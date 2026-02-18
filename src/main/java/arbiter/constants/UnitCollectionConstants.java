@@ -24,6 +24,57 @@ public class UnitCollectionConstants {
   public static final String CONFIG_KEY_WATCHDOG_WAIT = "ждать";
   public static final String CONFIG_KEY_UNITS_ARRAY = "сечение";
 
+  public static final String CONFIG_KEY_UNIT_NAME = "наименование";
+  public static final String CONFIG_KEY_UNIT_GROUP = "группа";
+  public static final String CONFIG_KEY_UNIT_DIRECTION = "направление";
+  public static final String CONFIG_KEY_UNIT_ACTIVE = "в работе";
+  public static final String CONFIG_KEY_UNIT_CHECK_BOTH = "проверять и МДП и АДП";
+  public static final String CONFIG_KEY_UNIT_DELTA_TM = "Дельта ТИ";
+
+  public static final String CONFIG_KEY_INFLUENCING_FACTORS = "Влияющие ТИ";
+  public static final String CONFIG_KEY_INFLUENCING_FACTOR_ID = "id";
+  public static final String CONFIG_KEY_INFLUENCING_FACTOR_NAME = "имя";
+
+  public static final String CONFIG_KEY_TOPOLOGY = "топология";
+  public static final String CONFIG_KEY_TOPOLOGY_ID = "id";
+  public static final String CONFIG_KEY_TOPOLOGY_NAME = "имя";
+
+  public static final String CONFIG_KEY_ELEMENTS = "ТС элементов";
+  public static final String CONFIG_KEY_ELEMENT_ID = "id";
+  public static final String CONFIG_KEY_ELEMENT_NAME = "имя";
+
+  public static final String CONFIG_KEY_REPAIR_SCHEMA = "ремонтная схема";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_TV_SIGNALS = "телесигналы";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_CHECK_FORMULA = "проверка";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_GROUP = "группа";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_OPERATION = "операция";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION = "состав";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_ID = "id";
+  public static final String CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME = "имя";
+
+  public static final String CONFIG_KEY_PARAMETERS = "исходные данные";
+  public static final String CONFIG_KEY_PARAMETER_NAME = "имя";
+  public static final String CONFIG_KEY_PARAMETER_ID = "id";
+  public static final String CONFIG_KEY_PARAMETER_MIN = "min";
+  public static final String CONFIG_KEY_PARAMETER_MAX = "max";
+
+  public static final String CONFIG_KEY_ARPM = "АРПМ";
+  public static final String CONFIG_KEY_ARPM_NAME = "имя";
+
+  public static final String CONFIG_KEY_RESULTS = "результат";
+  public static final String CONFIG_KEY_RESULT_NAME = "имя";
+  public static final String CONFIG_KEY_RESULT_ID = "id";
+
+  public static final String ARPM_PARAM_ARBITR_NOT_VALID = "Арбитр. Не пройдена достоверизация уставки";
+  public static final String ARPM_PARAM_ADAPTIVE_SETPOINT_READ = "АРПМ адаптивная уставка чтение";
+  public static final String ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE = "АРПМ адаптивная уставка запись";
+  public static final String ARPM_PARAM_DELTA = "АРПМ дельта";
+  public static final String ARPM_PARAM_TZ = "АРПМ Тз";
+  public static final String ARPM_PARAM_EXCEED_WRITTEN = "АРПМ превышение записанного";
+  public static final String ARPM_PARAM_EXCEED_PREVIOUS = "АРПМ превышение предыдущего";
+  public static final String ARPM_PARAM_STATE = "состояние АРПМ";
+  public static final String ARPM_PARAM_STATE_TS = "ТС состояния АРПМ";
+
 
 
   private UnitCollectionConstants() {

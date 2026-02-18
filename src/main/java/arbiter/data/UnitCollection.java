@@ -12,6 +12,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static arbiter.constants.UnitCollectionConstants.*;
+import static arbiter.util.ConfigValidator.*;
+
 public class UnitCollection {
   private String version;
   private String oikAddress;
@@ -21,6 +24,7 @@ public class UnitCollection {
   private Status status = Status.DISCONNECTED;
   private Unit unit;
   private JsonObject config;
+  private boolean configValid = false;
 
   private CommonField commonField;
   private List<Unit> units = new CopyOnWriteArrayList<>();
@@ -64,41 +68,47 @@ public class UnitCollection {
       }, false)
       .onFailure(err -> {
         System.err.println("Loading configFile failed: " + err.getMessage());
+        logger.error("Loading configFile failed: " + err.getMessage());
+        vertx.close().onComplete(v -> {
+          System.exit(1);
+        });
       });
   }
 
   private void loadConfig(String configFile) {
     vertx.fileSystem().readFile(configFile)
       .onSuccess(buffer -> {
+        try {
         this.config = new JsonObject(buffer);
 
-        JsonObject oikField = config.getJsonObject("ОИК");
-        this.oikAddress = oikField.getString("адрес");
-        this.oikUser = oikField.getString("пользователь", "");
-        this.oikPassword = oikField.getString("пароль", "");
-        this.oikDebug = yesNo(oikField, "отладка");
+        JsonObject oikField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_OIK), CONFIG_KEY_OIK);
+        this.oikAddress = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS), CONFIG_KEY_OIK);
+        this.oikUser = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_USER), CONFIG_KEY_USER);
+        this.oikPassword = (String) validateFieldName(oikField.getString(CONFIG_KEY_PASSWORD), CONFIG_KEY_PASSWORD);
+        this.oikDebug = yesNo(oikField, CONFIG_KEY_DEBUG);
 
-        this.writeEnable = yesNo(config, "запись в ОИК");
-        this.eventUID = config.getString("изменение критерия МДП СМЗУ");
-        this.writeEventUID = config.getString("запись критерия МДП СМЗУ");
-        this.instance = config.getString("экземпляр");
+        this.writeEnable = yesNo(config, CONFIG_KEY_WRITE_ENABLE);
+        this.eventUID = validateFieldNameAndValueUuid(CONFIG_KEY_EVENT_UID, config);
+        this.writeEventUID = validateFieldNameAndValueUuid(CONFIG_KEY_WRITE_EVENT_UID, config);
+        this.instance = (String) validateFieldName(config.getString(CONFIG_KEY_INSTANCE), CONFIG_KEY_INSTANCE);
 
-        this.skipCycle = yesNo(config, "не проверять данные при старте 2 цикла");
-        this.minusHK = yesNo(config, "вычитать НК");
-        this.eventDelta = config.getInteger("секунд между циклом расчета и критерием", 0);
-        this.port = config.getInteger("порт", 8080);
-        this.requestDelay = config.getInteger("интервал опроса данных", 1000);
-        this.connectAttempt = config.getInteger("количество попыток соединения с ОИК", 100);
-        this.oikConnectTimeout = config.getInteger("пауза перед соединением с ОИК", 1000);
+        this.skipCycle = yesNo(config, CONFIG_KEY_SKIP_CYCLE);
+        this.minusHK = yesNo(config, CONFIG_KEY_MINUS_HK);
+        this.eventDelta = validateFieldName(config, CONFIG_KEY_EVENT_DELTA, config.getInteger(CONFIG_KEY_EVENT_DELTA, 0));
+        this.port = validateFieldName(config, CONFIG_KEY_PORT, config.getInteger(CONFIG_KEY_PORT, 8080));
+        this.requestDelay = validateFieldName(config, CONFIG_KEY_REQUEST_DELAY, config.getInteger(CONFIG_KEY_REQUEST_DELAY, 1000));
 
-        JsonObject hasWriteHeartBeat = config.getJsonObject("сторож");
-        if(hasWriteHeartBeat != null) {
-          this.heartBeatUID = hasWriteHeartBeat.getString("id");
-          this.heartBeatInterval = hasWriteHeartBeat.getInteger("интервал", 60);
-          this.watchDogWait = yesNo(hasWriteHeartBeat, "ждать");
+        this.connectAttempt = validateFieldName(config, CONFIG_KEY_CONNECT_ATTEMPT, config.getInteger(CONFIG_KEY_CONNECT_ATTEMPT, 100));
+        this.oikConnectTimeout = validateFieldName(config, CONFIG_KEY_OIK_CONNECT_TIMEOUT, config.getInteger(CONFIG_KEY_OIK_CONNECT_TIMEOUT, 1000));
+
+        JsonObject hasWriteHeartBeat = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_WATCHDOG), CONFIG_KEY_WATCHDOG);
+        if (hasWriteHeartBeat != null) {
+          this.heartBeatUID = validateFieldNameAndValueUuidInSection(CONFIG_KEY_HEARTBEAT_ID, hasWriteHeartBeat, CONFIG_KEY_WATCHDOG);
+          this.heartBeatInterval = validateFieldName(hasWriteHeartBeat, CONFIG_KEY_HEARTBEAT_INTERVAL, hasWriteHeartBeat.getInteger(CONFIG_KEY_HEARTBEAT_INTERVAL, 60));
+          this.watchDogWait = yesNo(hasWriteHeartBeat, CONFIG_KEY_WATCHDOG_WAIT);
         }
 
-        if(eventUID != null) {
+        if (eventUID != null) {
           checkEvent = true;
           if (eventUID.isEmpty()) {
             checkEvent = false;
@@ -109,35 +119,33 @@ public class UnitCollection {
           }
         }
 
-        JsonArray unitsArray = config.getJsonArray("сечение");
-        for (int i = 0; i < unitsArray.size(); i++) {
-          this.unit = new Unit(i, unitsArray.getJsonObject(i));
-          units.add(unit);
-        }
-
-        // Инициализация целевых UID после загрузки units
-        initializeUnitTargetUids();
-        logger.info("Unit target UIDs initialized for " + unitTargetUids.size() + " units");
+        JsonArray unitsArray = (JsonArray) validateFieldNameAndValue(config.getJsonArray(CONFIG_KEY_UNITS_ARRAY), CONFIG_KEY_UNITS_ARRAY);
+          for (int i = 0; i < unitsArray.size(); i++) {
+            this.unit = new Unit(i, unitsArray.getJsonObject(i));
+            units.add(unit);
+          }
 
         initializeCommonFields();
 
         //connect();
+
+      } catch (Exception e) {
+      handleConfigError("Ошибка при обработке конфигурационного файла: " + e.getMessage(), e);
+    }
       })
       .onFailure(err -> {
-        //logger.error("Ошибка загрузки конфигурации", err);
-        System.err.println("Ошибка загрузки конфигурации: " + err.getMessage());
+        handleConfigError("Ошибка при загрузке конфигурационного файла: " + err.getMessage(), err);
       });
   }
 
-  public boolean yesNo(JsonObject obj, String key) {
-    if (!obj.containsKey(key)) return false;
-    return "да".equalsIgnoreCase(obj.getString(key));
+  private void handleConfigError(String errorMsg, Throwable err) {
+    logger.error(errorMsg, err);
+    Runtime.getRuntime().halt(1);
   }
 
-//  public int getInteger(JsonObject obj, String key, int defaultValue) {
-//    if (!obj.containsKey(key)) return defaultValue;
-//    return obj.getInteger(key);
-//  }
+  public boolean yesNo(JsonObject obj, String key) {
+    return "да".equalsIgnoreCase(validateBooleanValue((String) validateFieldName(obj.getString(key), key), key));
+  }
 
   public List<String> getUIDs() {
     List<String> allUIDs = new ArrayList<>();
@@ -479,6 +487,13 @@ public class UnitCollection {
    */
   public boolean areTargetUidsInitialized() {
     return !unitTargetUids.isEmpty();
+  }
+
+  /**
+   * Проверяет, валидна ли загруженная конфигурация
+   */
+  public boolean isConfigValid() {
+    return configValid;
   }
 
 }

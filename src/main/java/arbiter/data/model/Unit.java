@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.StringJoiner;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static arbiter.constants.UnitCollectionConstants.*;
+import static arbiter.util.ConfigValidator.*;
+
 /**
  * Сечение
  */
@@ -30,6 +33,7 @@ public class Unit {
   private List<InfluencingFactor> influencingFactors = new CopyOnWriteArrayList<>();
   private List<RepairGroupValue> repairGroupValues = new CopyOnWriteArrayList<>();
   private List<ARPM> arpmList = new CopyOnWriteArrayList<>();
+  private List<Integer> arpmStateTSList = new CopyOnWriteArrayList<>();
   private List<UnitResult> unitResults = new CopyOnWriteArrayList<>();
 
 
@@ -39,118 +43,124 @@ public class Unit {
   private UltimateTimer cycleTimer;
 
   public Unit(int index, JsonObject config) {
-    this.name = config.getString("наименование");
-    this.group = config.getString("группа");
-    this.direction = config.getInteger("направление");
-    this.active = yesNo(config, "в работе");
-    this.mdpAndADP = yesNo(config, "проверять и МДП и АДП");
-    this.deltaTm = config.getInteger("Дельта ТИ");
+    this.name = (String) validateFieldNameAndValueInSection(config.getString(CONFIG_KEY_UNIT_NAME), CONFIG_KEY_UNIT_NAME, CONFIG_KEY_UNITS_ARRAY);
+    this.group = (String) validateFieldNameAndValueInSection(config.getString(CONFIG_KEY_UNIT_GROUP), CONFIG_KEY_UNIT_GROUP, CONFIG_KEY_UNITS_ARRAY);
+    this.direction = validateFieldNameInSection(config, CONFIG_KEY_UNIT_DIRECTION, config.getInteger(CONFIG_KEY_UNIT_DIRECTION), CONFIG_KEY_UNITS_ARRAY);
+    this.active = yesNo(config, CONFIG_KEY_UNIT_ACTIVE);
+    this.mdpAndADP = yesNo(config, CONFIG_KEY_UNIT_CHECK_BOTH);
+    this.deltaTm = validateFieldNameInSection(config, CONFIG_KEY_UNIT_DELTA_TM, config.getInteger(CONFIG_KEY_UNIT_DELTA_TM), CONFIG_KEY_UNITS_ARRAY);
 
-    JsonArray influencingFactorArray = config.getJsonArray("Влияющие ТИ");
+    JsonArray influencingFactorArray = config.getJsonArray(CONFIG_KEY_INFLUENCING_FACTORS);
     if(influencingFactorArray !=null) {
       for (int i = 0; i < influencingFactorArray.size(); i++) {
         JsonObject influencingFactorObj = influencingFactorArray.getJsonObject(i);
         InfluencingFactor influencingFactor = new InfluencingFactor(
-          influencingFactorObj.getString("id"),
-          influencingFactorObj.getString("имя"));
+          validateFieldNameAndValueUuidInSection(CONFIG_KEY_INFLUENCING_FACTOR_ID,influencingFactorObj, CONFIG_KEY_INFLUENCING_FACTORS),
+          (String) validateFieldNameAndValueInSection(influencingFactorObj.getString(CONFIG_KEY_INFLUENCING_FACTOR_NAME), CONFIG_KEY_INFLUENCING_FACTOR_NAME, CONFIG_KEY_INFLUENCING_FACTORS));
         influencingFactors.add(influencingFactor);
       }
     }
 
-    JsonArray topologyArray = config.getJsonArray("топология");
-    if(topologyArray !=null) {
+    JsonArray topologyArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_TOPOLOGY), CONFIG_KEY_TOPOLOGY, CONFIG_KEY_UNITS_ARRAY);
       for (int i = 0; i < topologyArray.size(); i++) {
         JsonObject topologyObj = topologyArray.getJsonObject(i);
         Topology topology = new Topology(
-          topologyObj.getString("id"),
-          topologyObj.getString("имя"));
+          validateFieldNameAndValueUuidInSection(CONFIG_KEY_TOPOLOGY_ID, topologyObj, CONFIG_KEY_TOPOLOGY),
+          (String) validateFieldNameAndValueInSection(topologyObj.getString(CONFIG_KEY_TOPOLOGY_NAME), CONFIG_KEY_TOPOLOGY_NAME, CONFIG_KEY_TOPOLOGY));
         topologies.add(topology);
-      }
     }
 
-    JsonArray elementArray = config.getJsonArray("ТС элементов");
-    if(elementArray !=null) {
+    JsonArray elementArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_ELEMENTS), CONFIG_KEY_ELEMENTS, CONFIG_KEY_UNITS_ARRAY);
       for (int i = 0; i < elementArray.size(); i++) {
         JsonObject elementObj = elementArray.getJsonObject(i);
         Element element = new Element(
-          elementObj.getString("id"),
-          elementObj.getString("имя"));
+          validateFieldNameAndValueUuidInSection(CONFIG_KEY_ELEMENT_ID, elementObj, CONFIG_KEY_ELEMENTS),
+          (String) validateFieldNameAndValueInSection(elementObj.getString(CONFIG_KEY_ELEMENT_NAME), CONFIG_KEY_ELEMENT_NAME, CONFIG_KEY_ELEMENTS));
         elements.add(element);
-      }
     }
 
-    JsonObject repairSchemaObj = config.getJsonObject("ремонтная схема");
-    if(repairSchemaObj !=null) {
-      JsonArray TVSignals = repairSchemaObj.getJsonArray("телесигналы");
-      String checkFormula = repairSchemaObj.getString("проверка");
+    JsonObject repairSchemaObj = (JsonObject) validateFieldNameInSection(config.getJsonObject(CONFIG_KEY_REPAIR_SCHEMA), CONFIG_KEY_REPAIR_SCHEMA, CONFIG_KEY_UNITS_ARRAY);
+      JsonArray TVSignals = repairSchemaObj.getJsonArray(CONFIG_KEY_REPAIR_SCHEMA_TV_SIGNALS);
+      String checkFormula = repairSchemaObj.getString(CONFIG_KEY_REPAIR_SCHEMA_CHECK_FORMULA);
       repairSchema = new RepairSchema();
       repairSchema.setCheckFormula(checkFormula);
       for (int i = 0; i < TVSignals.size(); i++) {
         JsonObject signal = TVSignals.getJsonObject(i);
         RepairGroupValue repairGroupValue = new RepairGroupValue();
-        repairGroupValue.setGroup(signal.getInteger("группа"));
-        repairGroupValue.setOperation(signal.getString("операция"));
-        JsonArray composition = signal.getJsonArray("состав");
+        repairGroupValue.setGroup(signal.getInteger(CONFIG_KEY_REPAIR_SCHEMA_GROUP));
+        repairGroupValue.setOperation(signal.getString(CONFIG_KEY_REPAIR_SCHEMA_OPERATION));
+        JsonArray composition = signal.getJsonArray(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION);
         for (int j = 0; j < composition.size(); j++) {
           JsonObject compositionObj = composition.getJsonObject(j);
-          String id = compositionObj.getString("id");
           Composition compositionObject = new Composition(
-            id,
-            compositionObj.getString("имя")
+            validateFieldNameAndValueUuidInSection(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_ID, compositionObj, CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION),
+            (String) validateFieldNameInSection(compositionObj.getString(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME),CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME,CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION)
           );
           repairGroupValue.setComposition(compositionObject);
         }
         this.repairGroupValues.add(repairGroupValue);
       }
       repairSchema.setRepairGroupValues(repairGroupValues);
-    }
 
-    JsonArray paramsArray = config.getJsonArray("исходные данные");
+    // Инициализация параметров и результатов
+    JsonArray paramsArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_PARAMETERS), CONFIG_KEY_PARAMETERS, CONFIG_KEY_UNITS_ARRAY);
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);
       Parameter param = null;
 
-      if (paramObj.getInteger("min") != null || paramObj.getInteger("max") != null) {
+      String parameterId = validateFieldNameAndValueUuidInSection(CONFIG_KEY_PARAMETER_ID, paramObj, CONFIG_KEY_PARAMETERS);
+      String parameterName = (String) validateFieldNameAndValueInSection(paramObj.getString(CONFIG_KEY_PARAMETER_NAME), CONFIG_KEY_PARAMETER_NAME, CONFIG_KEY_PARAMETERS);
+      if (paramObj.getInteger(CONFIG_KEY_PARAMETER_MIN) != null || paramObj.getInteger(CONFIG_KEY_PARAMETER_MAX) != null) {
         param = new Parameter(
-          paramObj.getString("имя"),
-          paramObj.getString("id"),
-          paramObj.getInteger("min"),
-          paramObj.getInteger("max"));
+          parameterName,
+          parameterId,
+          paramObj.getInteger(CONFIG_KEY_PARAMETER_MIN),
+          paramObj.getInteger(CONFIG_KEY_PARAMETER_MAX));
       } else {
         param = new Parameter(
-          paramObj.getString("имя"),
-          paramObj.getString("id"));
+          parameterName,
+          parameterId);
       }
       parameters.add(param);
     }
 
-    JsonArray ARPMArray = config.getJsonArray("АРПМ");
+    JsonArray ARPMArray = config.getJsonArray(CONFIG_KEY_ARPM);
     if(ARPMArray !=null) {
+      JsonArray arpmStateTSArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(ARPM_PARAM_STATE_TS), ARPM_PARAM_STATE_TS, CONFIG_KEY_UNITS_ARRAY);
+      arpmStateTSList.addAll(arpmStateTSArray.getList());
       for (int i = 0; i < ARPMArray.size(); i++) {
         JsonObject arpmObj = ARPMArray.getJsonObject(i);
         ARPM arpm = new ARPM();
-        arpm.setName(arpmObj.getString("имя"));
+        arpm.setName((String) validateFieldNameAndValueInSection(arpmObj.getString(CONFIG_KEY_ARPM_NAME), CONFIG_KEY_ARPM_NAME, CONFIG_KEY_ARPM));
         List<ParameterArpm> parameterArpms = new CopyOnWriteArrayList<>();
-        parameterArpms.add(new ParameterArpm("Арбитр. Не пройдена достоверизация уставки", arpmObj.getString("Арбитр. Не пройдена достоверизация уставки")));
-        parameterArpms.add(new ParameterArpm("АРПМ адаптивная уставка чтение", arpmObj.getString("АРПМ адаптивная уставка чтение")));
-        parameterArpms.add(new ParameterArpm("АРПМ адаптивная уставка запись", arpmObj.getString("АРПМ адаптивная уставка запись")));
-        parameterArpms.add(new ParameterArpm("АРПМ дельта", arpmObj.getString("АРПМ дельта")));
-        parameterArpms.add(new ParameterArpm("АРПМ Тз", arpmObj.getString("АРПМ Тз")));
-        parameterArpms.add(new ParameterArpm("АРПМ превышение записанного", arpmObj.getString("АРПМ превышение записанного")));
-        parameterArpms.add(new ParameterArpm("АРПМ превышение предыдущего", arpmObj.getString("АРПМ превышение предыдущего")));
-        parameterArpms.add(new ParameterArpm("состояние АРПМ", arpmObj.getString("состояние АРПМ")));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ARBITR_NOT_VALID), ARPM_PARAM_ARBITR_NOT_VALID, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_ARBITR_NOT_VALID, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_READ), ARPM_PARAM_ADAPTIVE_SETPOINT_READ, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_ADAPTIVE_SETPOINT_READ, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE), ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_DELTA), ARPM_PARAM_DELTA, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_DELTA, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_TZ), ARPM_PARAM_TZ, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_TZ, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_EXCEED_WRITTEN), ARPM_PARAM_EXCEED_WRITTEN, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_EXCEED_WRITTEN, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_EXCEED_PREVIOUS), ARPM_PARAM_EXCEED_PREVIOUS, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_EXCEED_PREVIOUS, arpmObj, CONFIG_KEY_ARPM)));
+        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_STATE), ARPM_PARAM_STATE, CONFIG_KEY_ARPM),
+          validateFieldNameAndValueUuidInSection(ARPM_PARAM_STATE, arpmObj, CONFIG_KEY_ARPM)));
         arpm.setParameterArpm(parameterArpms);
         arpmList.add(arpm);
       }
     }
 
-    JsonArray resultArray = config.getJsonArray("результат");
+    JsonArray resultArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_RESULTS), CONFIG_KEY_RESULTS, CONFIG_KEY_UNITS_ARRAY);
     if(resultArray !=null) {
       for (int i = 0; i < resultArray.size(); i++) {
         JsonObject resultObj = resultArray.getJsonObject(i);
         UnitResult result = new UnitResult(
-            resultObj.getString("имя"),
-            resultObj.getString("id"));
+            (String) validateFieldNameInSection(resultObj.getString(CONFIG_KEY_RESULT_NAME), CONFIG_KEY_RESULT_NAME, CONFIG_KEY_RESULTS),
+            validateFieldNameAndValueUuidInSection(CONFIG_KEY_RESULT_ID, resultObj, CONFIG_KEY_RESULTS));
         unitResults.add(result);
       }
     }
@@ -254,6 +264,10 @@ public class Unit {
 
   public List<UnitResult> getUnitResults() {
     return unitResults;
+  }
+
+  public List<Integer> getArpmStateTSList() {
+    return arpmStateTSList;
   }
 
   public List<ParameterArpm> getParameterArpmList() {

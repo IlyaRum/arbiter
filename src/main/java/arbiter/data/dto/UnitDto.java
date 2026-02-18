@@ -30,6 +30,7 @@ public class UnitDto {
   private final Map<String, UnitResult> result;
 
   private List<Map<String, Object>> automaticPowerControls;
+  private List<Integer> arpmStateTSList;
 
   public UnitDto(Unit unit) {
     this.unit = unit;
@@ -45,6 +46,7 @@ public class UnitDto {
     this.influencingFactors = unit.getInfluencingFactors();
     this.repairSchema = unit.getRepairSchema();
     this.automaticPowerControls = unit.getArpmList().stream().map(this::convertArpmToMap).collect(Collectors.toList());
+    this.arpmStateTSList = unit.getArpmStateTSList();
     this.result = unit.getUnitResults().stream().collect(Collectors.toMap(this::getMappedUnitResultKey, Function.identity(),(existing, replacement) -> existing,LinkedHashMap::new));;
   }
 
@@ -111,6 +113,10 @@ public class UnitDto {
 
   public List<Map<String, Object>> getAutomaticPowerControls() {
     return automaticPowerControls;
+  }
+
+  public List<Integer> getArpmStateTSList() {
+    return arpmStateTSList;
   }
 
   public Map<String, UnitResult> getResult() {
