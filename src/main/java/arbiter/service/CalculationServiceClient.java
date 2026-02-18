@@ -59,7 +59,7 @@ public class CalculationServiceClient {
           return Future.failedFuture("HTTP error: " + response.statusCode() + " - " + response.bodyAsString());
         }
       })
-      .onSuccess(v -> logger.debug("POST запрос выполнен успешно"))
+      .onSuccess(v -> logger.info("POST запрос выполнен успешно"))
       .onFailure(err -> logger.error("Ошибка при отправке POST запроса: " + err.getMessage()));
   }
 

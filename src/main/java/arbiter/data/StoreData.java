@@ -13,7 +13,7 @@ import java.util.*;
 public class StoreData {
   @JsonProperty("common")
   private CommonFieldDto commonFieldDto;
-  @JsonProperty("section")
+  @JsonProperty("sections")
   private final List<UnitDto> unitDtoList;
 
   public StoreData() {

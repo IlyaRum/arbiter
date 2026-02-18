@@ -19,7 +19,7 @@ public class UnitDto {
   private final String group;
   private final int direction;
   private final int deltaTm;
-  private final boolean writeResultToScada;
+  private final boolean active;
   private final boolean mdpAndADP;
   private final List<Topology> topologyList;
   private final List<Element> elements;
@@ -37,7 +37,7 @@ public class UnitDto {
     this.group = unit.getGroup();
     this.direction = unit.getDirection();
     this.deltaTm = unit.getDeltaTm();
-    this.writeResultToScada = unit.isActive();
+    this.active = unit.isActive();
     this.mdpAndADP = unit.isMdpAndADP();
     this.parameters = unit.getParameters().stream().collect(Collectors.toMap(this::getMappedParameterKey, Function.identity(),(existing, replacement) -> existing,HashMap::new));
     this.topologyList = unit.getTopologies();
@@ -85,8 +85,8 @@ public class UnitDto {
     return deltaTm;
   }
 
-  public boolean isWriteResultToScada() {
-    return writeResultToScada;
+  public boolean isActive() {
+    return active;
   }
 
   public boolean isMdpAndADP() {

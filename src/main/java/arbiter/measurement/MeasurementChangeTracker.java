@@ -1,6 +1,7 @@
 package arbiter.measurement;
 
 import arbiter.constants.ParameterMappingConstants;
+import arbiter.constants.ParameterUnitResultMappingConstants;
 import arbiter.data.*;
 import arbiter.data.dto.FilteredUnitDto;
 import arbiter.data.dto.UnitDto;
@@ -684,7 +685,7 @@ public class MeasurementChangeTracker {
 
         for (UnitResult unitResult : trackedUnitResultChanges.values()) {
           if (isUnitResultBelongsToUnit(unit, unitResult)) {
-            unitResultChangesForUnit.put(unitResult.getUid(), unitResult);
+            unitResultChangesForUnit.put(getMappedUnitResultKey(unitResult), unitResult);
           }
         }
 
@@ -944,6 +945,12 @@ public class MeasurementChangeTracker {
     //TODO [IER] Используем ту же логику, что и в UnitDto
     // Нужно отрефакторить, чтобы использовать один метод
     return ParameterMappingConstants.PARAMETER_NAME_TO_FIELD_MAPPING.getOrDefault(param.getName(), param.getId());
+  }
+
+  private String getMappedUnitResultKey(UnitResult unitResult) {
+    //TODO [IER] Используем ту же логику, что и в UnitDto
+    // Нужно отрефакторить, чтобы использовать один метод
+    return ParameterUnitResultMappingConstants.PARAMETER_RESULT_NAME_TO_FIELD_MAPPING.getOrDefault(unitResult.getName(), unitResult.getUid());
   }
 
   /**

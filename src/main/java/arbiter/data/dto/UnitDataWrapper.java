@@ -8,7 +8,7 @@ import java.util.List;
  * Обертка для формата запроса PUT
  */
 public class UnitDataWrapper {
-  @JsonProperty("section")
+  @JsonProperty("sections")
   private List<UnitDto> section;
 
   public UnitDataWrapper(List<UnitDto> section) {
