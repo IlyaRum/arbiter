@@ -2,7 +2,6 @@ package arbiter.data;
 
 import arbiter.data.dto.CommonFieldDto;
 import arbiter.data.dto.UnitDto;
-import arbiter.data.model.CommonField;
 import arbiter.data.model.RepairGroupValue;
 import arbiter.data.model.Unit;
 import com.fasterxml.jackson.annotation.*;
@@ -47,9 +46,9 @@ public class StoreData {
           sizeCompositionIds = unitDto.getRepairSchema()
             .getRepairGroupValues().stream()
             .map(RepairGroupValue::getValues)
-            .filter(Objects::nonNull) // дополнительная проверка
+            .filter(Objects::nonNull)
             .flatMap(Collection::stream)
-            .filter(Objects::nonNull) // проверка элементов
+            .filter(Objects::nonNull)
             .toList()
             .size();
         }

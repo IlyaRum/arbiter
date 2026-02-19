@@ -105,7 +105,6 @@ public class Unit {
       repairSchema.setRepairGroupValues(repairGroupValues);
     }
 
-    // Инициализация параметров и результатов
     JsonArray paramsArray = config.getJsonArray("исходные данные");
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);
@@ -270,7 +269,7 @@ public class Unit {
       .add("name='" + name + "'")
       .add("group='" + group + "'")
       .add("direction=" + direction)
-      .add("writeResultToScada=" + active)
+      .add("active=" + active)
       .add("deltaTm=" + deltaTm)
       .add("mdpAndADP=" + mdpAndADP)
       .toString();

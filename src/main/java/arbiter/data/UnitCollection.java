@@ -109,7 +109,6 @@ public class UnitCollection {
           }
         }
 
-        // Загрузка units
         JsonArray unitsArray = config.getJsonArray("сечение");
         for (int i = 0; i < unitsArray.size(); i++) {
           this.unit = new Unit(i, unitsArray.getJsonObject(i));

@@ -74,7 +74,6 @@ class CalculationServiceClientTest {
     when(mockHttpResponse.statusCode()).thenReturn(200);
     when(mockHttpResponse.bodyAsString()).thenReturn("Success");
 
-    // Используем рефлексию для вызова приватного метода
     invokeSendPostRequest(jsonData);
 
     verify(webClient).postAbs(testUrl);
@@ -86,13 +85,10 @@ class CalculationServiceClientTest {
   void sendPostRequest_WhenShuttingDown_ShouldNotSendRequest() {
     String jsonData = "{\"test\": \"data\"}";
 
-    // Устанавливаем флаг завершения работы
     setShuttingDownFlag(true);
 
-    // Вызываем метод
     invokeSendPostRequest(jsonData);
 
-    // Проверяем, что запрос не отправлялся
     verify(webClient, never()).postAbs(anyString());
     verify(mockHttpRequest, never()).sendBuffer(any());
   }
@@ -155,7 +151,7 @@ class CalculationServiceClientTest {
     when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
-    when(mockHttpResponse.statusCode()).thenReturn(201); // Created
+    when(mockHttpResponse.statusCode()).thenReturn(201);
     when(mockHttpResponse.bodyAsString()).thenReturn("Created");
 
     invokeSendPostRequest(jsonData);
@@ -293,10 +289,8 @@ class CalculationServiceClientTest {
 
     calculationServiceClient.shutdown();
 
-    // Проверяем, что флаг установлен
     assertTrue(getShuttingDownFlag());
 
-    // Проверяем вызовы shutdown
     verify(executorService).shutdown();
     verify(executorService).awaitTermination(5, TimeUnit.SECONDS);
     verify(executorService, never()).shutdownNow();

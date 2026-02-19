@@ -97,7 +97,7 @@ class MeasurementDataProcessorTest {
 
     doAnswer(invocation -> {
       Runnable task = invocation.getArgument(0);
-      task.run(); // Выполняем синхронно
+      task.run();
       return null;
     }).when(executorMock).submit(any(Runnable.class));
 
@@ -269,7 +269,6 @@ class MeasurementDataProcessorTest {
     return new Measurement(uid, value, time, qCode);
   }
 
-  // Helper class for testing
   private static class Measurement extends arbiter.measurement.Measurement {
     public Measurement(String uid, double value, Instant time, int qCode) {
       super(createJsonNode(uid, value, time, qCode));
