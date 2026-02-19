@@ -14,6 +14,7 @@ public class CommonFieldDto {
   private boolean writeEnable;
   private String eventUID;
   private String writeEventUID;
+  private String instance;
   private boolean skipCycle;
   private boolean minusHK;
   private Integer eventDelta;
@@ -38,6 +39,7 @@ public class CommonFieldDto {
       this.writeEnable = commonField.isWriteEnable();
       this.eventUID = commonField.getEventUID();
       this.writeEventUID = commonField.getWriteEventUID();
+      this.instance = commonField.getInstance();
       this.skipCycle = commonField.isSkipCycle();
       this.minusHK = commonField.isMinusHK();
       this.eventDelta = commonField.getEventDelta();
@@ -92,6 +94,14 @@ public class CommonFieldDto {
 
   public void setWriteEventUID(String writeEventUID) {
     this.writeEventUID = writeEventUID;
+  }
+
+  public String getInstance() {
+    return instance;
+  }
+
+  public void setInstance(String instance) {
+    this.instance = instance;
   }
 
   public boolean isSkipCycle() {

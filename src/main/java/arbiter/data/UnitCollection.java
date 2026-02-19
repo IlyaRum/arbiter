@@ -50,7 +50,6 @@ public class UnitCollection {
   private boolean watchDogWait = false;
 
   private Vertx vertx;
-  private final Map<String, Set<String>> unitTargetUids = new ConcurrentHashMap<>();
 
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.vertx = vertx;
@@ -67,7 +66,6 @@ public class UnitCollection {
         return null;
       }, false)
       .onFailure(err -> {
-        System.err.println("Loading configFile failed: " + err.getMessage());
         logger.error("Loading configFile failed: " + err.getMessage());
         vertx.close().onComplete(v -> {
           System.exit(1);
@@ -90,7 +88,7 @@ public class UnitCollection {
         this.writeEnable = yesNo(config, CONFIG_KEY_WRITE_ENABLE);
         this.eventUID = validateFieldNameAndValueUuid(CONFIG_KEY_EVENT_UID, config);
         this.writeEventUID = validateFieldNameAndValueUuid(CONFIG_KEY_WRITE_EVENT_UID, config);
-        this.instance = (String) validateFieldName(config.getString(CONFIG_KEY_INSTANCE), CONFIG_KEY_INSTANCE);
+        this.instance = config.getString(CONFIG_KEY_INSTANCE);
 
         this.skipCycle = yesNo(config, CONFIG_KEY_SKIP_CYCLE);
         this.minusHK = yesNo(config, CONFIG_KEY_MINUS_HK);
@@ -220,165 +218,9 @@ public class UnitCollection {
       .toList();
   }
 
-  //  public void connect() {
-//    status = TStatus.DISCONNECTED;
-//    int attempts = 0;
-//    int maxReconnect = config.getInteger("количество попыток соединения с ОИК", 100);
-//
-//    vertx.setPeriodic(1000, timerId -> {
-//      if (status != TStatus.CONNECTED && attempts < maxReconnect) {
-//        attempts++;
-//        tryConnect();
-//      } else if (attempts >= maxReconnect) {
-//        status = TStatus.STOPPED;
-//        vertx.cancelTimer(timerId);
-//      }
-//    });
-//  }
-
-//  private void tryConnect() {
-//    ck11Client = new CK11Client(vertx, oik, user, password, debug);
-//
-//    ck11Client.connect()
-//      .compose(token -> {
-//        webSocketClient = new CK11WebSocketClient(vertx, oik, token);
-//        return webSocketClient.connect();
-//      })
-//      .compose(webSocket -> {
-//        status = TStatus.CONNECTED;
-//        setupWebSocketHandlers(webSocket);
-//        return initialRead();
-//      })
-//      .onSuccess(v -> {
-//        logger.info("Успешное подключение к ОИК: {}", oik);
-//      })
-//      .onFailure(throwable -> {
-//        logger.error("Ошибка подключения", throwable);
-//        status = TStatus.DISCONNECTED;
-//      });
-//  }
-
-//  private void setupWebSocketHandlers(WebSocket webSocket) {
-//    webSocket.textMessageHandler(message -> {
-//      JsonObject json = new JsonObject(message);
-//      if (json.containsKey("data")) {
-//        onDataReceived(json.getJsonArray("data"));
-//      } else if (json.containsKey("event")) {
-//        onEventReceived(json.getJsonObject("event"));
-//      }
-//    });
-//
-//    webSocket.closeHandler(v -> {
-//      //logger.warn("WebSocket соединение закрыто");
-//      connect(); // Переподключение
-//    });
-//
-//    // Пинг
-//    vertx.setPeriodic(30000, id -> {
-//      webSocket.writePing(Buffer.buffer("ping"));
-//    });
-//  }
-
-//  private void onDataReceived(JsonArray data) {
-//    List<Parameter> updatedParams = new ArrayList<>();
-//
-//    for (int i = 0; i < data.size(); i++) {
-//      JsonObject measurement = data.getJsonObject(i);
-//      String id = measurement.getString("id").toLowerCase();
-//      double value = measurement.getDouble("value");
-//      Instant time = Instant.parse(measurement.getString("time"));
-//      int qCode = measurement.getInteger("qCode", 0);
-//
-//      for (Unit unit : units) {
-//        for (Parameter param : unit.getParameters().values()) {
-//          if (param.getId().equalsIgnoreCase(id)) {
-//            if (!param.isAssigned() ||
-//              !param.getTime().equals(time) ||
-//              param.getValue() != value) {
-//
-//              //param.setData(value, time, qCode);
-//              updatedParams.add(param);
-//
-//              if (debug) {
-//                //logger.debug("{} - {} = {} [{}] {}", unit.getName(), param.getName(), value, qCode, time);
-//              }
-//            }
-//          }
-//        }
-//      }
-//    }
-//
-//    if (!updatedParams.isEmpty()) {
-//      //logger.info("Получено {} новых значений", updatedParams.size());
-//      processData.accept(updatedParams);
-//    }
-//  }
-
-//  private void onEventReceived(JsonObject event) {
-//    JsonObject data = event.getJsonObject("data");
-//    String id = data.getString("id");
-//    String uid = data.getJsonArray("parameters").getJsonObject(0).getString("uuid");
-//
-//    for (TUnit unit : units) {
-//      if (unit.getEventObject().equalsIgnoreCase(uid)) {
-//        logger.info("{} получено событие ({}): {}",
-//          unit.getName(), id, data.getString("message"));
-//
-//        unit.setEventData(data);
-//        processEvent.accept(unit);
-//      }
-//    }
-//  }
-
-//  public Future<Void> initialRead() {
-//    List<String> ids = new ArrayList<>();
-//    for (TUnit unit : units) {
-//      for (TResult result : unit.getResults().values()) {
-//        if (result.writable()) {
-//          ids.add(result.getId());
-//        }
-//      }
-//    }
-//
-//    return ck11Client.getValues(ids, 0)
-//      .onSuccess(measurements -> {
-//        for (Measurement measurement : measurements) {
-//          for (TUnit unit : units) {
-//            for (TResult result : unit.getResults().values()) {
-//              if (result.getId().equalsIgnoreCase(measurement.getUid())) {
-//                result.setValue(measurement.getValue(), measurement.getTime());
-//              }
-//            }
-//          }
-//        }
-//      });
-//  }
-
-//  public Future<Void> write() {
-//    if (writeBuffer.isEmpty()) {
-//      return Future.succeededFuture();
-//    }
-//
-//    List<Measurement> toWrite = new ArrayList<>(writeBuffer);
-//    writeBuffer.clear();
-//
-//    return ck11Client.write(toWrite)
-//      .onFailure(throwable -> {
-//        logger.error("Ошибка записи", throwable);
-//        writeBuffer.addAll(toWrite); // Возвращаем обратно в буфер
-//        connect(); // Переподключаемся
-//      });
-//  }
-
-//  public void addToWriteBuffer(Measurement measurement) {
-//    writeBuffer.add(measurement);
-//  }
-
   public List<Unit> getUnits() {
     return units;
   }
-//  public boolean isWriteEnable() { return writeEnable; }
-//  public Status getStatus() { return status; }
 
   public String getEventUID() {
     return eventUID;
@@ -389,17 +231,6 @@ public class UnitCollection {
    */
   public boolean isCheckEvent() {
     return checkEvent;
-  }
-
-  /**
-   * Инициализирует целевые UID для всех юнитов
-   */
-  private void initializeUnitTargetUids() {
-    for (Unit unit : units) {
-      Set<String> targetUids = extractTargetUidsFromUnit(unit);
-      unitTargetUids.put(unit.getName(), targetUids);
-      logger.info("Initialized target UIDs for unit " + unit.getName() + ": " + targetUids);
-    }
   }
 
   public CommonField getCommonField() {
@@ -414,6 +245,7 @@ public class UnitCollection {
     commonField.setWriteEnable(writeEnable);
     commonField.setEventUID(eventUID);
     commonField.setWriteEventUID(writeEventUID);
+    commonField.setInstance(instance);
     commonField.setSkipCycle(skipCycle);
     commonField.setHeartBeatUID(heartBeatUID);
     commonField.setHeartBeatInterval(heartBeatInterval);
@@ -424,76 +256,6 @@ public class UnitCollection {
     commonField.setRequestDelay(requestDelay);
     commonField.setConnectAttempt(connectAttempt);
     commonField.setOikConnectTimeout(oikConnectTimeout);
-  }
-
-  /**
-   * Извлекает целевые UID из исходных данных юнита
-   */
-  private Set<String> extractTargetUidsFromUnit(Unit unit) {
-    Set<String> targetUids = new HashSet<>();
-    List<Parameter> parameters = unit.getParameters();
-
-    for (Parameter param : parameters) {
-      String paramName = param.getName();
-      if (isTargetParameter(paramName)) {
-        targetUids.add(param.getId().toLowerCase());
-      }
-    }
-    return targetUids;
-  }
-
-  /**
-   * Проверяет, является ли параметр целевым для отслеживания
-   */
-  private boolean isTargetParameter(String parameterName) {
-    if (parameterName == null) return false;
-    return parameterName.equals("МДП без ПА [СМЗУ]") ||
-      parameterName.equals("МДП с ПА [СМЗУ]") ||
-      parameterName.equals("АДП [СМЗУ]") ||
-      parameterName.equals("Номер цикла расчета СМЗУ");
-  }
-
-  /**
-   * Возвращает целевые UID для указанного юнита
-   */
-  public Set<String> getTargetUidsForUnit(String unitName) {
-    return unitTargetUids.getOrDefault(unitName, Collections.emptySet());
-  }
-
-  /**
-   * Возвращает целевые UID для указанного юнита
-   */
-  public Set<String> getTargetUidsForUnit(Unit unit) {
-    return getTargetUidsForUnit(unit.getName());
-  }
-
-  /**
-   * Получает UID параметра "Номер цикла расчета СМЗУ" из юнита
-   */
-  public String getCycleNumberUidFromUnit(Unit unit) {
-    List<Parameter> parameters = unit.getParameters();
-
-    for (Parameter param : parameters) {
-      String paramName = param.getName();
-      if (paramName != null && paramName.equals("Номер цикла расчета СМЗУ")) {
-        return param.getId().toLowerCase();
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Проверяет, инициализированы ли целевые UID для всех юнитов
-   */
-  public boolean areTargetUidsInitialized() {
-    return !unitTargetUids.isEmpty();
-  }
-
-  /**
-   * Проверяет, валидна ли загруженная конфигурация
-   */
-  public boolean isConfigValid() {
-    return configValid;
   }
 
 }

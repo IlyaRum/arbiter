@@ -11,6 +11,8 @@ public class CommonField {
   private String eventUID;
   //запись критерия МДП СМЗУ
   private String writeEventUID;
+  //экземпляр
+  private String instance;
   //не проверять данные при старте 2 цикла
   private boolean skipCycle;
   //вычитать НК
@@ -97,6 +99,14 @@ public class CommonField {
 
   public void setWriteEventUID(String writeEventUID) {
     this.writeEventUID = writeEventUID;
+  }
+
+  public String getInstance() {
+    return instance;
+  }
+
+  public void setInstance(String instance) {
+    this.instance = instance;
   }
 
   public boolean isSkipCycle() {
