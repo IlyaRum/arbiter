@@ -61,7 +61,7 @@ public class Unit {
       }
     }
 
-    JsonArray topologyArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_TOPOLOGY), CONFIG_KEY_TOPOLOGY, CONFIG_KEY_UNITS_ARRAY);
+    JsonArray topologyArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(CONFIG_KEY_TOPOLOGY), CONFIG_KEY_TOPOLOGY, CONFIG_KEY_UNITS_ARRAY);
       for (int i = 0; i < topologyArray.size(); i++) {
         JsonObject topologyObj = topologyArray.getJsonObject(i);
         Topology topology = new Topology(
@@ -70,7 +70,7 @@ public class Unit {
         topologies.add(topology);
     }
 
-    JsonArray elementArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_ELEMENTS), CONFIG_KEY_ELEMENTS, CONFIG_KEY_UNITS_ARRAY);
+    JsonArray elementArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(CONFIG_KEY_ELEMENTS), CONFIG_KEY_ELEMENTS, CONFIG_KEY_UNITS_ARRAY);
       for (int i = 0; i < elementArray.size(); i++) {
         JsonObject elementObj = elementArray.getJsonObject(i);
         Element element = new Element(
@@ -79,7 +79,7 @@ public class Unit {
         elements.add(element);
     }
 
-    JsonObject repairSchemaObj = (JsonObject) validateFieldNameInSection(config.getJsonObject(CONFIG_KEY_REPAIR_SCHEMA), CONFIG_KEY_REPAIR_SCHEMA, CONFIG_KEY_UNITS_ARRAY);
+    JsonObject repairSchemaObj = (JsonObject) validateFieldNameAndValueInSection(config.getJsonObject(CONFIG_KEY_REPAIR_SCHEMA), CONFIG_KEY_REPAIR_SCHEMA, CONFIG_KEY_UNITS_ARRAY);
       JsonArray TVSignals = repairSchemaObj.getJsonArray(CONFIG_KEY_REPAIR_SCHEMA_TV_SIGNALS);
       String checkFormula = repairSchemaObj.getString(CONFIG_KEY_REPAIR_SCHEMA_CHECK_FORMULA);
       repairSchema = new RepairSchema();
@@ -94,7 +94,7 @@ public class Unit {
           JsonObject compositionObj = composition.getJsonObject(j);
           Composition compositionObject = new Composition(
             validateFieldNameAndValueUuidInSection(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_ID, compositionObj, CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION),
-            (String) validateFieldNameInSection(compositionObj.getString(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME),CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME,CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION)
+            (String) validateFieldNameAndValueInSection(compositionObj.getString(CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME),CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION_NAME,CONFIG_KEY_REPAIR_SCHEMA_COMPOSITION)
           );
           repairGroupValue.setComposition(compositionObject);
         }
@@ -103,7 +103,7 @@ public class Unit {
       repairSchema.setRepairGroupValues(repairGroupValues);
 
     // Инициализация параметров и результатов
-    JsonArray paramsArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_PARAMETERS), CONFIG_KEY_PARAMETERS, CONFIG_KEY_UNITS_ARRAY);
+    JsonArray paramsArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(CONFIG_KEY_PARAMETERS), CONFIG_KEY_PARAMETERS, CONFIG_KEY_UNITS_ARRAY);
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);
       Parameter param = null;
@@ -126,40 +126,40 @@ public class Unit {
 
     JsonArray ARPMArray = config.getJsonArray(CONFIG_KEY_ARPM);
     if(ARPMArray !=null) {
-      JsonArray arpmStateTSArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(ARPM_PARAM_STATE_TS), ARPM_PARAM_STATE_TS, CONFIG_KEY_UNITS_ARRAY);
+      JsonArray arpmStateTSArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(ARPM_PARAM_STATE_TS), ARPM_PARAM_STATE_TS, CONFIG_KEY_UNITS_ARRAY);
       arpmStateTSList.addAll(arpmStateTSArray.getList());
       for (int i = 0; i < ARPMArray.size(); i++) {
         JsonObject arpmObj = ARPMArray.getJsonObject(i);
         ARPM arpm = new ARPM();
         arpm.setName((String) validateFieldNameAndValueInSection(arpmObj.getString(CONFIG_KEY_ARPM_NAME), CONFIG_KEY_ARPM_NAME, CONFIG_KEY_ARPM));
         List<ParameterArpm> parameterArpms = new CopyOnWriteArrayList<>();
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ARBITR_NOT_VALID), ARPM_PARAM_ARBITR_NOT_VALID, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_ARBITR_NOT_VALID), ARPM_PARAM_ARBITR_NOT_VALID, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_ARBITR_NOT_VALID, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_READ), ARPM_PARAM_ADAPTIVE_SETPOINT_READ, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_READ), ARPM_PARAM_ADAPTIVE_SETPOINT_READ, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_ADAPTIVE_SETPOINT_READ, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE), ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE), ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_ADAPTIVE_SETPOINT_WRITE, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_DELTA), ARPM_PARAM_DELTA, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_DELTA), ARPM_PARAM_DELTA, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_DELTA, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_TZ), ARPM_PARAM_TZ, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_TZ), ARPM_PARAM_TZ, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_TZ, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_EXCEED_WRITTEN), ARPM_PARAM_EXCEED_WRITTEN, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_EXCEED_WRITTEN), ARPM_PARAM_EXCEED_WRITTEN, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_EXCEED_WRITTEN, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_EXCEED_PREVIOUS), ARPM_PARAM_EXCEED_PREVIOUS, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_EXCEED_PREVIOUS), ARPM_PARAM_EXCEED_PREVIOUS, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_EXCEED_PREVIOUS, arpmObj, CONFIG_KEY_ARPM)));
-        parameterArpms.add(new ParameterArpm((String) validateFieldName(arpmObj.getString(ARPM_PARAM_STATE), ARPM_PARAM_STATE, CONFIG_KEY_ARPM),
+        parameterArpms.add(new ParameterArpm((String) validateFieldNameInSection(arpmObj.getString(ARPM_PARAM_STATE), ARPM_PARAM_STATE, CONFIG_KEY_ARPM),
           validateFieldNameAndValueUuidInSection(ARPM_PARAM_STATE, arpmObj, CONFIG_KEY_ARPM)));
         arpm.setParameterArpm(parameterArpms);
         arpmList.add(arpm);
       }
     }
 
-    JsonArray resultArray = (JsonArray) validateFieldNameInSection(config.getJsonArray(CONFIG_KEY_RESULTS), CONFIG_KEY_RESULTS, CONFIG_KEY_UNITS_ARRAY);
+    JsonArray resultArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(CONFIG_KEY_RESULTS), CONFIG_KEY_RESULTS, CONFIG_KEY_UNITS_ARRAY);
     if(resultArray !=null) {
       for (int i = 0; i < resultArray.size(); i++) {
         JsonObject resultObj = resultArray.getJsonObject(i);
         UnitResult result = new UnitResult(
-            (String) validateFieldNameInSection(resultObj.getString(CONFIG_KEY_RESULT_NAME), CONFIG_KEY_RESULT_NAME, CONFIG_KEY_RESULTS),
+            (String) validateFieldNameAndValueInSection(resultObj.getString(CONFIG_KEY_RESULT_NAME), CONFIG_KEY_RESULT_NAME, CONFIG_KEY_RESULTS),
             validateFieldNameAndValueUuidInSection(CONFIG_KEY_RESULT_ID, resultObj, CONFIG_KEY_RESULTS));
         unitResults.add(result);
       }
