@@ -25,15 +25,21 @@ public class CalculationServiceClient {
   private final ExecutorService executor;
 
   public CalculationServiceClient(Vertx vertx, ExecutorService executor) {
-    WebClientOptions options = new WebClientOptions()
+    this(vertx, executor, createDefaultOptions());
+  }
+
+  protected CalculationServiceClient(Vertx vertx, ExecutorService executor, WebClientOptions options) {
+    this.webClient = WebClient.wrap(vertx.createHttpClient(options));
+    this.executor = executor;
+  }
+
+  private static WebClientOptions createDefaultOptions() {
+    return new WebClientOptions()
       .setKeepAlive(true)
       .setConnectTimeout(5000)
       .setSsl(true)
-      .setTrustAll(true) //отключает проверку сертификатов
-      .setVerifyHost(false); //Отключает проверку hostname
-
-    this.webClient = WebClient.wrap(vertx.createHttpClient(options));
-    this.executor = executor;
+      .setTrustAll(true)
+      .setVerifyHost(false);
   }
 
   /**

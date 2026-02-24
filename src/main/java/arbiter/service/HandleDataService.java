@@ -21,7 +21,6 @@ import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.WebClient;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ExecutorService;
@@ -40,23 +39,32 @@ public class HandleDataService extends ABaseService {
 
   private static final ObjectMapper MAPPER = createObjectMapper();
 
-  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector, WebClient webClient) {
+  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
+    this(vertx, dependencyInjector, null, null);
+  }
+
+  public HandleDataService(Vertx vertx,
+                           DependencyInjector dependencyInjector,
+                           ExecutorService executor,
+                           CalculationServiceClient calculationClient) {
     super(vertx);
-    this.executor = Executors.newSingleThreadExecutor(r -> {
+
+    this.executor = executor != null ? executor : createDefaultExecutor();
+
+    this.calculationClient = calculationClient != null ?
+      calculationClient : new CalculationServiceClient(vertx, this.executor);
+
+    this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, this.executor);
+    this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
+  }
+
+  private ExecutorService createDefaultExecutor() {
+    return Executors.newSingleThreadExecutor(r -> {
       Thread t = new Thread(r, "Data-Processing-Executor");
       t.setDaemon(true);
       return t;
     });
-
-    this.calculationClient = new CalculationServiceClient(vertx, executor);
-    this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, executor);
-    this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
   }
-
-  public HandleDataService(Vertx vertx, DependencyInjector dependencyInjector) {
-    this(vertx, dependencyInjector, WebClient.create(vertx));
-  }
-
 
   public Handler<String> handleTextMessage(Promise<JsonObject> promise) {
     return message -> {

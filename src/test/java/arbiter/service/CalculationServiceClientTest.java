@@ -28,7 +28,6 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-@Disabled
 class CalculationServiceClientTest {
 
   @Mock
@@ -48,10 +47,14 @@ class CalculationServiceClientTest {
 
   private CalculationServiceClient calculationServiceClient;
   private MockedStatic<AppConfig> mockedAppConfig;
+  private MockedStatic<WebClient> mockedWebClient;
 
   @BeforeEach
   void setUp() {
     mockedAppConfig = Mockito.mockStatic(AppConfig.class);
+    mockedWebClient = Mockito.mockStatic(WebClient.class);
+    mockedWebClient.when(() -> WebClient.wrap(any())).thenReturn(webClient);
+
     calculationServiceClient = new CalculationServiceClient(vertx, executorService);
   }
 
@@ -59,6 +62,9 @@ class CalculationServiceClientTest {
   void tearDown() {
     if (mockedAppConfig != null) {
       mockedAppConfig.close();
+    }
+    if (mockedWebClient != null) {
+      mockedWebClient.close();
     }
   }
 
@@ -73,6 +79,7 @@ class CalculationServiceClientTest {
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
     when(mockHttpResponse.statusCode()).thenReturn(200);
     when(mockHttpResponse.bodyAsString()).thenReturn("Success");
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPostRequest(jsonData);
 
@@ -103,6 +110,7 @@ class CalculationServiceClientTest {
     when(webClient.postAbs(testUrl)).thenReturn(mockHttpRequest);
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPostRequest(jsonData);
 
@@ -127,6 +135,7 @@ class CalculationServiceClientTest {
     ArgumentCaptor<Function<HttpResponse<Buffer>, Future<Void>>> composeCaptor =
       ArgumentCaptor.forClass(Function.class);
     when(mockFuture.compose(composeCaptor.capture())).thenReturn(Future.succeededFuture());
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPostRequest(jsonData);
 
@@ -153,6 +162,7 @@ class CalculationServiceClientTest {
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
     when(mockHttpResponse.statusCode()).thenReturn(201);
     when(mockHttpResponse.bodyAsString()).thenReturn("Created");
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPostRequest(jsonData);
 
@@ -172,6 +182,7 @@ class CalculationServiceClientTest {
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.succeededFuture(mockHttpResponse));
     when(mockHttpResponse.statusCode()).thenReturn(200);
     when(mockHttpResponse.bodyAsString()).thenReturn("Success");
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPutRequest(jsonData, unitId);
 
@@ -204,6 +215,7 @@ class CalculationServiceClientTest {
     when(webClient.putAbs(testUrl)).thenReturn(mockHttpRequest);
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpRequest.sendBuffer(any())).thenReturn(Future.failedFuture(exception));
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     invokeSendPutRequest(jsonData, unitId);
 
@@ -222,6 +234,7 @@ class CalculationServiceClientTest {
     when(mockHttpRequest.putHeader(anyString(), anyString())).thenReturn(mockHttpRequest);
     when(mockHttpResponse.statusCode()).thenReturn(500);
     when(mockHttpResponse.bodyAsString()).thenReturn("Internal Server Error");
+    when(mockHttpRequest.timeout(anyLong())).thenReturn(mockHttpRequest);
 
     @SuppressWarnings("unchecked")
     Future<HttpResponse<Buffer>> mockFuture = mock(Future.class);

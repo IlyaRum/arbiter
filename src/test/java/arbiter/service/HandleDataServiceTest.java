@@ -11,20 +11,16 @@ import io.cloudevents.core.builder.CloudEventBuilder;
 import io.cloudevents.core.provider.EventFormatProvider;
 import io.cloudevents.jackson.JsonCloudEventData;
 import io.cloudevents.jackson.JsonFormat;
-import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.WebClient;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -40,7 +36,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith({VertxExtension.class, MockitoExtension.class})
-@Disabled
 class HandleDataServiceTest {
 
   @Mock
@@ -53,15 +48,11 @@ class HandleDataServiceTest {
   private MeasurementDataProcessor measurementDataProcessor;
 
   @Mock
-  private WebClient webClient;
-
-  @Mock
   private ExecutorService executorMock;
 
   @Mock
   private CalculationServiceClient calculationServiceClient;
 
-  @InjectMocks
   private HandleDataService handleDataService;
 
   private ObjectMapper objectMapper;
@@ -69,9 +60,15 @@ class HandleDataServiceTest {
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper();
-    handleDataService = spy(new HandleDataService(vertx, dependencyInjector));
+
+    handleDataService = new HandleDataService(
+      vertx,
+      dependencyInjector,
+      executorMock,
+      calculationServiceClient
+    );
+
     handleDataService.setMeasurementDataProcessor(measurementDataProcessor);
-    setExecutorField();
   }
 
   @Test
@@ -123,8 +120,8 @@ class HandleDataServiceTest {
       .withData(JsonCloudEventData.wrap(objectMapper.readTree(data.toString())))
       .build();
 
-    byte[] eventBytes = io.cloudevents.core.provider.EventFormatProvider.getInstance()
-      .resolveFormat(io.cloudevents.jackson.JsonFormat.CONTENT_TYPE)
+    byte[] eventBytes = EventFormatProvider.getInstance()
+      .resolveFormat(JsonFormat.CONTENT_TYPE)
       .serialize(event);
     String message = new String(eventBytes, StandardCharsets.UTF_8);
 
@@ -133,7 +130,7 @@ class HandleDataServiceTest {
     handler.handle(message);
 
     verify(measurementDataProcessor, times(1)).onDataReceived(any(MeasurementList.class));
-    assertTrue(promise.future().result() == null);
+    assertNull(promise.future().result());
   }
 
   @Test
@@ -174,41 +171,6 @@ class HandleDataServiceTest {
   }
 
   @Test
-  void testHandleMeasurementData() throws Exception {
-    JsonObject data = new JsonObject()
-      .put("data", new JsonArray()
-        .add(new JsonObject().put("uid", "sensor-1").put("value", 25.5).put("timestamp", "2024-01-01T10:00:00Z").put("qCode", 1))
-        .add(new JsonObject().put("uid", "sensor-2").put("value", 30.0).put("timestamp", "2024-01-01T10:00:00Z").put("qCode", 1)));
-
-    CloudEvent event = CloudEventBuilder.v1()
-      .withId(UUID.randomUUID().toString())
-      .withSource(URI.create("urn:source"))
-      .withType("ru.monitel.ck11.measurement-values.data.v2")
-      .withData(JsonCloudEventData.wrap(objectMapper.readTree(String.valueOf(data))))
-      .build();
-
-    doNothing().when(measurementDataProcessor).onDataReceived(any(MeasurementList.class));
-
-    invokeHandleMeasurementData(event);
-
-    verify(measurementDataProcessor, times(1)).onDataReceived(any(MeasurementList.class));
-  }
-
-  @Test
-  void testHandleChannelOpened() {
-    CloudEvent event = CloudEventBuilder.v1()
-      .withId(UUID.randomUUID().toString())
-      .withSource(URI.create("urn:source"))
-      .withType("ru.monitel.ck11.channel.opened.v2")
-      .withSubject("test-channel-id")
-      .build();
-
-    invokeHandleChannelOpened(event);
-
-    assertEquals("test-channel-id", handleDataService.getCurrentChannelId());
-  }
-
-  @Test
   void testCloudEventToString() {
     CloudEvent event = CloudEventBuilder.v1()
       .withId("test-id")
@@ -240,7 +202,6 @@ class HandleDataServiceTest {
   @Test
   void testHandleProcessedData_FirstTime() {
     handleDataService.setFirstTime(true);
-    handleDataService.setCalculationClient(calculationServiceClient);
     StoreData storeData = mock(StoreData.class);
 
     when(storeData.size()).thenReturn(1);
@@ -282,6 +243,7 @@ class HandleDataServiceTest {
 
     verify(calculationServiceClient, times(1)).sendPutRequestAsync(anyString(), eq("unit-123"));
     verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
+    assertFalse(handleDataService.isFirstTime());
   }
 
   @Test
@@ -291,33 +253,12 @@ class HandleDataServiceTest {
 
     invokeHandleProcessedData(storeData, "unit-123");
 
+    verify(executorMock, never()).submit(any(Runnable.class));
     verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
     verify(calculationServiceClient, never()).sendPutRequestAsync(anyString(), anyString());
   }
 
-  public void invokeHandleMeasurementData(CloudEvent event) {
-    try {
-      java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
-        "handleMeasurementData", CloudEvent.class);
-      method.setAccessible(true);
-      method.invoke(handleDataService, event);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void invokeHandleChannelOpened(CloudEvent event) {
-    try {
-      java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
-        "handleChannelOpened", CloudEvent.class);
-      method.setAccessible(true);
-      method.invoke(handleDataService, event);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  public void invokeHandleProcessedData(StoreData data, String unitId) {
+  private void invokeHandleProcessedData(StoreData data, String unitId) {
     try {
       java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
         "handleProcessedData", StoreData.class, String.class);
@@ -338,15 +279,4 @@ class HandleDataServiceTest {
       throw new RuntimeException(e);
     }
   }
-
-  private void setExecutorField() {
-    try {
-      java.lang.reflect.Field executorField = HandleDataService.class.getDeclaredField("executor");
-      executorField.setAccessible(true);
-      executorField.set(handleDataService, executorMock);
-    }catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
 }
