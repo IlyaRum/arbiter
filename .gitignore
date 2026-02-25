@@ -192,3 +192,6 @@ src/main/resources/config.properties
 /src/main/resources/arbiter_server_one_section.json
 /src/main/resources/arbiter_server_one_section_parameters.json
 /src/main/resources/arbiter_server_v1.json
+/arbiter-calc-service/
+/src/main/resources/arbiter_server_old.json
+/src/main/resources/arbiter_server_arpm.json
