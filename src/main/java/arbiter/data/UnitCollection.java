@@ -1,5 +1,6 @@
 package arbiter.data;
 
+import arbiter.config.ConfigFileLoader;
 import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
@@ -11,7 +12,6 @@ import io.vertx.core.json.JsonObject;
 
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import static arbiter.constants.UnitCollectionConstants.*;
@@ -53,38 +53,18 @@ public class UnitCollection {
   private Integer heartBeatInterval;
   private boolean watchDogWait = false;
 
-  private Vertx vertx;
-
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
-    this.vertx = vertx;
     this.version = versionInfo;
     this.commonField = new CommonField();
-    loadConfigAsync(configFile);
+    loadConfigFile(vertx, configFile);
   }
 
-  private void loadConfigAsync(String configFile) {
-    vertx.executeBlocking(() -> {
-        try {
-          var buffer = vertx.fileSystem().readFileBlocking(configFile);
-          loadConfig(buffer);;
-          return null;
-        } catch (Exception e) {
-          logger.error("Failed to load config: " + e.getMessage(), e);
-          throw new RuntimeException("Config loading failed", e);
-        }
-      }, false)
-      .onSuccess(v -> {
-        logger.info("Config loaded successfully");
-        initFuture.complete(null);
-      })
-      .onFailure(err -> {
-        logger.error("Loading configFile failed: " + err.getMessage());
-        initFuture.completeExceptionally(err);
-        vertx.close().onComplete(v -> System.exit(1));
-      });
+  private void loadConfigFile(Vertx vertx, String configFile) {
+    ConfigFileLoader configFileLoader = new ConfigFileLoader(vertx);
+    this.initFuture = configFileLoader.loadConfigFileAsync(configFile, this);
   }
 
-  private void loadConfig(Buffer buffer) {
+  public void loadConfigData(Buffer buffer) {
     try {
       this.config = new JsonObject(buffer);
 
