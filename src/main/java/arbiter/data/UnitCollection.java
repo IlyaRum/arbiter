@@ -3,12 +3,14 @@ package arbiter.data;
 import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -18,6 +20,7 @@ import static arbiter.util.ConfigValidator.*;
 public class UnitCollection {
   private String version;
   private String oikAddress;
+  private String authUrl;
   private String oikUser;
   private String oikPassword;
   private boolean oikDebug;
@@ -30,6 +33,7 @@ public class UnitCollection {
   private List<Unit> units = new CopyOnWriteArrayList<>();
   private List<Measurement> writeBuffer = new CopyOnWriteArrayList<>();
   private static final Logger logger = LoggerFactory.getLogger(UnitCollection.class);
+  private CompletableFuture<Void> initFuture = new CompletableFuture<>();
 
   private boolean writeEnable;
   private boolean skipCycle;
@@ -54,86 +58,88 @@ public class UnitCollection {
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.vertx = vertx;
     this.version = versionInfo;
-
     this.commonField = new CommonField();
-
     loadConfigAsync(configFile);
   }
 
   private void loadConfigAsync(String configFile) {
-    this.vertx.executeBlocking(() -> {
-        loadConfig(configFile);
-        return null;
+    vertx.executeBlocking(() -> {
+        try {
+          var buffer = vertx.fileSystem().readFileBlocking(configFile);
+          loadConfig(buffer);;
+          return null;
+        } catch (Exception e) {
+          logger.error("Failed to load config: " + e.getMessage(), e);
+          throw new RuntimeException("Config loading failed", e);
+        }
       }, false)
+      .onSuccess(v -> {
+        logger.info("Config loaded successfully");
+        initFuture.complete(null);
+      })
       .onFailure(err -> {
         logger.error("Loading configFile failed: " + err.getMessage());
-        vertx.close().onComplete(v -> {
-          System.exit(1);
-        });
+        initFuture.completeExceptionally(err);
+        vertx.close().onComplete(v -> System.exit(1));
       });
   }
 
-  private void loadConfig(String configFile) {
-    vertx.fileSystem().readFile(configFile)
-      .onSuccess(buffer -> {
-        try {
-        this.config = new JsonObject(buffer);
+  private void loadConfig(Buffer buffer) {
+    try {
+      this.config = new JsonObject(buffer);
 
-        JsonObject oikField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_OIK), CONFIG_KEY_OIK);
-        this.oikAddress = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS), CONFIG_KEY_OIK);
-        this.oikUser = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_USER), CONFIG_KEY_USER);
-        this.oikPassword = (String) validateFieldName(oikField.getString(CONFIG_KEY_PASSWORD), CONFIG_KEY_PASSWORD);
-        this.oikDebug = yesNo(oikField, CONFIG_KEY_DEBUG);
+      JsonObject oikField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_OIK), CONFIG_KEY_OIK);
+      this.oikAddress = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS), CONFIG_KEY_ADDRESS);
+      this.authUrl = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS_AUTH), CONFIG_KEY_ADDRESS_AUTH);
+      this.oikUser = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_USER), CONFIG_KEY_USER);
+      this.oikPassword = (String) validateFieldName(oikField.getString(CONFIG_KEY_PASSWORD), CONFIG_KEY_PASSWORD);
+      this.oikDebug = yesNo(oikField, CONFIG_KEY_DEBUG);
 
-        this.writeEnable = yesNo(config, CONFIG_KEY_WRITE_ENABLE);
-        this.eventUID = validateFieldNameAndValueUuid(CONFIG_KEY_EVENT_UID, config);
-        this.writeEventUID = validateFieldNameAndValueUuid(CONFIG_KEY_WRITE_EVENT_UID, config);
-        this.instance = config.getString(CONFIG_KEY_INSTANCE);
+      this.writeEnable = yesNo(config, CONFIG_KEY_WRITE_ENABLE);
+      this.eventUID = validateFieldNameAndValueUuid(CONFIG_KEY_EVENT_UID, config);
+      this.writeEventUID = validateFieldNameAndValueUuid(CONFIG_KEY_WRITE_EVENT_UID, config);
+      this.instance = config.getString(CONFIG_KEY_INSTANCE);
 
-        this.skipCycle = yesNo(config, CONFIG_KEY_SKIP_CYCLE);
-        this.minusHK = yesNo(config, CONFIG_KEY_MINUS_HK);
-        this.eventDelta = validateFieldName(config, CONFIG_KEY_EVENT_DELTA, config.getInteger(CONFIG_KEY_EVENT_DELTA, 0));
-        this.port = validateFieldName(config, CONFIG_KEY_PORT, config.getInteger(CONFIG_KEY_PORT, 8080));
-        this.requestDelay = validateFieldName(config, CONFIG_KEY_REQUEST_DELAY, config.getInteger(CONFIG_KEY_REQUEST_DELAY, 1000));
+      this.skipCycle = yesNo(config, CONFIG_KEY_SKIP_CYCLE);
+      this.minusHK = yesNo(config, CONFIG_KEY_MINUS_HK);
+      this.eventDelta = validateFieldName(config, CONFIG_KEY_EVENT_DELTA, config.getInteger(CONFIG_KEY_EVENT_DELTA, 0));
+      this.port = validateFieldName(config, CONFIG_KEY_PORT, config.getInteger(CONFIG_KEY_PORT, 8080));
+      this.requestDelay = validateFieldName(config, CONFIG_KEY_REQUEST_DELAY, config.getInteger(CONFIG_KEY_REQUEST_DELAY, 1000));
 
-        this.connectAttempt = validateFieldName(config, CONFIG_KEY_CONNECT_ATTEMPT, config.getInteger(CONFIG_KEY_CONNECT_ATTEMPT, 100));
-        this.oikConnectTimeout = validateFieldName(config, CONFIG_KEY_OIK_CONNECT_TIMEOUT, config.getInteger(CONFIG_KEY_OIK_CONNECT_TIMEOUT, 1000));
+      this.connectAttempt = validateFieldName(config, CONFIG_KEY_CONNECT_ATTEMPT, config.getInteger(CONFIG_KEY_CONNECT_ATTEMPT, 100));
+      this.oikConnectTimeout = validateFieldName(config, CONFIG_KEY_OIK_CONNECT_TIMEOUT, config.getInteger(CONFIG_KEY_OIK_CONNECT_TIMEOUT, 1000));
 
-        JsonObject hasWriteHeartBeat = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_WATCHDOG), CONFIG_KEY_WATCHDOG);
-        if (hasWriteHeartBeat != null) {
-          this.heartBeatUID = validateFieldNameAndValueUuidInSection(CONFIG_KEY_HEARTBEAT_ID, hasWriteHeartBeat, CONFIG_KEY_WATCHDOG);
-          this.heartBeatInterval = validateFieldName(hasWriteHeartBeat, CONFIG_KEY_HEARTBEAT_INTERVAL, hasWriteHeartBeat.getInteger(CONFIG_KEY_HEARTBEAT_INTERVAL, 60));
-          this.watchDogWait = yesNo(hasWriteHeartBeat, CONFIG_KEY_WATCHDOG_WAIT);
-        }
+      JsonObject hasWriteHeartBeat = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_WATCHDOG), CONFIG_KEY_WATCHDOG);
+      if (hasWriteHeartBeat != null) {
+        this.heartBeatUID = validateFieldNameAndValueUuidInSection(CONFIG_KEY_HEARTBEAT_ID, hasWriteHeartBeat, CONFIG_KEY_WATCHDOG);
+        this.heartBeatInterval = validateFieldName(hasWriteHeartBeat, CONFIG_KEY_HEARTBEAT_INTERVAL, hasWriteHeartBeat.getInteger(CONFIG_KEY_HEARTBEAT_INTERVAL, 60));
+        this.watchDogWait = yesNo(hasWriteHeartBeat, CONFIG_KEY_WATCHDOG_WAIT);
+      }
 
-        if (eventUID != null) {
-          checkEvent = true;
-          if (eventUID.isEmpty()) {
+      if (eventUID != null) {
+        checkEvent = true;
+        if (eventUID.isEmpty()) {
+          checkEvent = false;
+        } else {
+          if (writeEventUID.isEmpty()) {
             checkEvent = false;
-          } else {
-            if (writeEventUID.isEmpty()) {
-              checkEvent = false;
-            }
           }
         }
+      }
 
-        JsonArray unitsArray = (JsonArray) validateFieldNameAndValue(config.getJsonArray(CONFIG_KEY_UNITS_ARRAY), CONFIG_KEY_UNITS_ARRAY);
-          for (int i = 0; i < unitsArray.size(); i++) {
-            this.unit = new Unit(i, unitsArray.getJsonObject(i));
-            units.add(unit);
-          }
+      JsonArray unitsArray = (JsonArray) validateFieldNameAndValue(config.getJsonArray(CONFIG_KEY_UNITS_ARRAY), CONFIG_KEY_UNITS_ARRAY);
+      for (int i = 0; i < unitsArray.size(); i++) {
+        this.unit = new Unit(i, unitsArray.getJsonObject(i));
+        units.add(unit);
+      }
 
-        initializeCommonFields();
+      initializeCommonFields();
 
-        //connect();
+      //connect();
 
-      } catch (Exception e) {
+    } catch (Exception e) {
       handleConfigError("Ошибка при обработке конфигурационного файла: " + e.getMessage(), e);
     }
-      })
-      .onFailure(err -> {
-        handleConfigError("Ошибка при загрузке конфигурационного файла: " + err.getMessage(), err);
-      });
   }
 
   private void handleConfigError(String errorMsg, Throwable err) {
@@ -258,6 +264,13 @@ public class UnitCollection {
     commonField.setOikConnectTimeout(oikConnectTimeout);
   }
 
+  public CompletableFuture<Void> getInitFuture() {
+    return initFuture;
+  }
+
+  public String getAuthUrl() {
+    return authUrl;
+  }
 }
 
 

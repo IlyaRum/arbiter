@@ -27,15 +27,15 @@ public class DependencyInjector {
   private HandleDataService handleDataService;
 
 
-  public DependencyInjector(Vertx vertx) {
+  public DependencyInjector(Vertx vertx, UnitCollection unitCollection) {
     this.vertx = vertx;
+    this.unitCollection = unitCollection;
     initializeManagers();
     initializeServices();
     initializeControllers();
   }
 
   private void initializeManagers(){
-    unitCollection = new UnitCollection(vertx, AppConfig.getArbiterConfigJsonFile(), "1.0.0");
     webSocketManager = new WebSocketManager(this);
     subscriptionManager = new SubscriptionManager(this);
   }
@@ -44,7 +44,7 @@ public class DependencyInjector {
     webSocketService = new WebSocketService(vertx, this);
     subscriptionService = new SubscriptionService(vertx);
     eventSubscriptionService = new EventSubscriptionService(vertx, this);
-    tokenService = new TokenService(vertx, AppConfig.getAuthTokenUrl(), AppConfig.getAuthBasicCredentials());
+    tokenService = new TokenService(vertx, unitCollection.getAuthUrl(), AppConfig.getAuthBasicCredentials());
     handleDataService = new HandleDataService(vertx, this);
   }
 

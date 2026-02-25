@@ -29,7 +29,6 @@ public class AppConfig {
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
 
   private static String authBasicCredentials;
-  private static String authTokenUrl;
   private static String subscriptionsAddUrl;
   private static String subscriptionsChangeUrl;
   private static String subscriptionsDeleteUrl;
@@ -39,7 +38,6 @@ public class AppConfig {
   private static String calcSrvUrl;
 
   public static void loadConfig() {
-    // Чтение конфигурации из файла или системных свойств
     String configFile = System.getProperty("config.file", "config.properties");
 
     try {
@@ -55,7 +53,6 @@ public class AppConfig {
       props.load(new FileInputStream(filePath));
 
       authBasicCredentials = props.getProperty("auth.basic.credentials");
-      authTokenUrl = props.getProperty("auth.token.url");
       subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
       subscriptionsChangeUrl = props.getProperty("subscriptions.change.url");
       subscriptionsDeleteUrl = props.getProperty("subscriptions.delete.url");
@@ -65,7 +62,6 @@ public class AppConfig {
       calcSrvUrl = props.getProperty("calc-srv.absolute.url");
 
       if (authBasicCredentials == null ||
-        authTokenUrl == null ||
         subscriptionsAddUrl == null ||
         subscriptionsChangeUrl == null ||
         subscriptionsDeleteUrl == null) {
@@ -75,10 +71,6 @@ public class AppConfig {
     } catch (IOException e) {
       throw new RuntimeException("Failed to load configuration file: " + configFile, e);
     }
-  }
-
-  public static String getAuthTokenUrl() {
-    return authTokenUrl;
   }
 
   public static String getAuthBasicCredentials() {

@@ -1,6 +1,7 @@
 package arbiter.initialization;
 
 import arbiter.config.AppConfig;
+import arbiter.data.UnitCollection;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.logging.Logger;
@@ -20,7 +21,8 @@ public class ApplicationInitializer {
     logger.info("------------------------------");
     logger.info("Starting Vert.x application...");
     AppConfig.loadConfig();
-    DependencyInjector dependencyInjector = new DependencyInjector(vertx);
-    return CompletableFuture.completedFuture(dependencyInjector);
+    UnitCollection unitCollection = new UnitCollection(vertx, AppConfig.getArbiterConfigJsonFile(), "1.0.0");
+    return unitCollection.getInitFuture()
+      .thenApply(v -> new DependencyInjector(vertx, unitCollection));
   }
 }
