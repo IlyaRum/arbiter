@@ -3,6 +3,8 @@ package arbiter.data.model;
 public class OikData {
   //ОИК.адрес
   private String address;
+  //ОИК Адрес авторизации
+  private String authUrl;
   //ОИК.пользователь
   private String user;
   //ОИК.пароль
@@ -13,8 +15,9 @@ public class OikData {
   public OikData() {
   }
 
-  public OikData(String address, String user, String password, boolean debug) {
+  public OikData(String address, String authUrl, String user, String password, boolean debug) {
     this.address = address;
+    this.authUrl = authUrl;
     this.user = user;
     this.password = password;
     this.debug = debug;
@@ -26,6 +29,14 @@ public class OikData {
 
   public void setAddress(String address) {
     this.address = address;
+  }
+
+  public String getAuthUrl() {
+    return authUrl;
+  }
+
+  public void setAuthUrl(String authUrl) {
+    this.authUrl = authUrl;
   }
 
   public String getUser() {

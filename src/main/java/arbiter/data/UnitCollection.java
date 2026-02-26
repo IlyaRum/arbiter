@@ -225,6 +225,7 @@ public class UnitCollection {
 
   private void initializeCommonFields() {
     commonField.setOikAddress(oikAddress);
+    commonField.setAuthUrl(authUrl);
     commonField.setUser(oikUser);
     commonField.setPassword(oikPassword);
     commonField.setDebug(oikDebug);

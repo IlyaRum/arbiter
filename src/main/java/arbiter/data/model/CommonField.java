@@ -53,6 +53,14 @@ public class CommonField {
     this.oikData.setAddress(oikAddress);
   }
 
+  public String getAuthUrl() {
+    return oikData.getAuthUrl();
+  }
+
+  public void setAuthUrl(String authUrl) {
+    oikData.setAuthUrl(authUrl);
+  }
+
   public String getUser() {
     return oikData.getUser();
   }
