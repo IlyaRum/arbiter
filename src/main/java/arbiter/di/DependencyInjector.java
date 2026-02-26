@@ -44,7 +44,7 @@ public class DependencyInjector {
     webSocketService = new WebSocketService(vertx, this);
     subscriptionService = new SubscriptionService(vertx, unitCollection.getMeasurementUrl());
     eventSubscriptionService = new EventSubscriptionService(vertx, this);
-    tokenService = new TokenService(vertx, unitCollection.getAuthUrl(), AppConfig.getAuthBasicCredentials());
+    tokenService = new TokenService(vertx, unitCollection.getAuthUrl(), unitCollection.getOikUser(), unitCollection.getOikPassword());
     handleDataService = new HandleDataService(vertx, this);
   }
 

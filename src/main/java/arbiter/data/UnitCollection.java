@@ -1,6 +1,7 @@
 package arbiter.data;
 
 import arbiter.config.ConfigFileLoader;
+import arbiter.config.SecurityConfig;
 import arbiter.data.model.*;
 import arbiter.measurement.Measurement;
 import io.vertx.core.Vertx;
@@ -265,6 +266,14 @@ public class UnitCollection {
 
   public String getRuntimeUrl() {
     return runtimeUrl;
+  }
+
+  public String getOikUser() {
+    return oikUser;
+  }
+
+  public String getOikPassword() {
+    return  SecurityConfig.decodePassword(oikPassword);
   }
 }
 

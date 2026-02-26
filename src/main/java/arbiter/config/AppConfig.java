@@ -61,8 +61,7 @@ public class AppConfig {
       arbiterConfigJsonFile = props.getProperty("arbiter.config.json");
       calcSrvUrl = props.getProperty("calc-srv.absolute.url");
 
-      if (authBasicCredentials == null ||
-        subscriptionsAddUrl == null ||
+      if (subscriptionsAddUrl == null ||
         subscriptionsChangeUrl == null ||
         subscriptionsDeleteUrl == null) {
         throw new RuntimeException("Missing required properties in config file");

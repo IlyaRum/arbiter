@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import arbiter.config.Base64Config;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
@@ -15,7 +16,7 @@ public class TokenService {
   private final String authTokenUrl;
   private final String authBasicCredentials;
 
-  public TokenService(Vertx vertx, String authTokenUrl, String authBasicCredentials) {
+  public TokenService(Vertx vertx, String authTokenUrl, String login, String password) {
     HttpClientOptions options = new HttpClientOptions()
       .setSsl(true)
       .setTrustAll(true)
@@ -23,7 +24,7 @@ public class TokenService {
 
     this.insecureClient = WebClient.wrap(vertx.createHttpClient(options));
     this.authTokenUrl = authTokenUrl;
-    this.authBasicCredentials = authBasicCredentials;
+    this.authBasicCredentials = Base64Config.encodeToBase64(login + ":" + password);
   }
 
   public CompletableFuture<String> getTokenAsync() {
