@@ -32,6 +32,8 @@ public class CommonFieldDto {
         ? new OikData(
         commonField.getOikAddress(),
         commonField.getAuthUrl(),
+        commonField.getMeasurementUrl(),
+        commonField.getRuntimeUrl(),
         commonField.getUser(),
         commonField.getPassword(),
         commonField.isDebug()

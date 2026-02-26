@@ -3,8 +3,12 @@ package arbiter.data.model;
 public class OikData {
   //ОИК.адрес
   private String address;
-  //ОИК Адрес авторизации
+  //ОИК адрес получения токена
   private String authUrl;
+  //ОИК адрес получения измерений
+  private String measurementUrl;
+  //ОИК адрес событий реального времени
+  private String runtimeUrl;
   //ОИК.пользователь
   private String user;
   //ОИК.пароль
@@ -15,9 +19,11 @@ public class OikData {
   public OikData() {
   }
 
-  public OikData(String address, String authUrl, String user, String password, boolean debug) {
+  public OikData(String address, String authUrl, String measurementUrl, String runtimeUrl, String user, String password, boolean debug) {
     this.address = address;
     this.authUrl = authUrl;
+    this.measurementUrl = measurementUrl;
+    this.runtimeUrl = runtimeUrl;
     this.user = user;
     this.password = password;
     this.debug = debug;
@@ -37,6 +43,22 @@ public class OikData {
 
   public void setAuthUrl(String authUrl) {
     this.authUrl = authUrl;
+  }
+
+  public String getMeasurementUrl() {
+    return measurementUrl;
+  }
+
+  public void setMeasurementUrl(String measurementUrl) {
+    this.measurementUrl = measurementUrl;
+  }
+
+  public String getRuntimeUrl() {
+    return runtimeUrl;
+  }
+
+  public void setRuntimeUrl(String runtimeUrl) {
+    this.runtimeUrl = runtimeUrl;
   }
 
   public String getUser() {

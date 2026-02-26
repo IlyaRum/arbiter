@@ -61,6 +61,22 @@ public class CommonField {
     oikData.setAuthUrl(authUrl);
   }
 
+  public String getMeasurementUrl() {
+    return oikData.getMeasurementUrl();
+  }
+
+  public void setMeasurementUrl(String measurementUrl) {
+    oikData.setMeasurementUrl(measurementUrl);
+  }
+
+  public String getRuntimeUrl() {
+    return oikData.getRuntimeUrl();
+  }
+
+  public void setRuntimeUrl(String runtimeUrl) {
+    oikData.setRuntimeUrl(runtimeUrl);
+  }
+
   public String getUser() {
     return oikData.getUser();
   }
