@@ -4,7 +4,9 @@ public class UnitCollectionConstants {
 
   public static final String CONFIG_KEY_OIK = "ОИК";
   public static final String CONFIG_KEY_ADDRESS = "адрес";
-  public static final String CONFIG_KEY_ADDRESS_AUTH = "адрес авторизации";
+  public static final String CONFIG_KEY_ADDRESS_MEASUREMENT = "адрес получения измерений";
+  public static final String CONFIG_KEY_ADDRESS_RT_EVENT = "адрес событий реального времени";
+  public static final String CONFIG_KEY_ADDRESS_AUTH = "адрес получения токена";
   public static final String CONFIG_KEY_USER = "пользователь";
   public static final String CONFIG_KEY_PASSWORD = "пароль";
   public static final String CONFIG_KEY_DEBUG = "отладка";

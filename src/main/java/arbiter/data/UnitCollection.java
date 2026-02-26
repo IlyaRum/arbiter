@@ -21,6 +21,8 @@ public class UnitCollection {
   private String version;
   private String oikAddress;
   private String authUrl;
+  private String measurementUrl;
+  private String runtimeUrl;
   private String oikUser;
   private String oikPassword;
   private boolean oikDebug;
@@ -71,6 +73,8 @@ public class UnitCollection {
       JsonObject oikField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_OIK), CONFIG_KEY_OIK);
       this.oikAddress = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS), CONFIG_KEY_ADDRESS);
       this.authUrl = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS_AUTH), CONFIG_KEY_ADDRESS_AUTH);
+      this.measurementUrl = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS_MEASUREMENT), CONFIG_KEY_ADDRESS_MEASUREMENT);
+      this.runtimeUrl = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_ADDRESS_RT_EVENT), CONFIG_KEY_ADDRESS_RT_EVENT);
       this.oikUser = (String) validateFieldNameAndValue(oikField.getString(CONFIG_KEY_USER), CONFIG_KEY_USER);
       this.oikPassword = (String) validateFieldName(oikField.getString(CONFIG_KEY_PASSWORD), CONFIG_KEY_PASSWORD);
       this.oikDebug = yesNo(oikField, CONFIG_KEY_DEBUG);
@@ -251,6 +255,14 @@ public class UnitCollection {
 
   public String getAuthUrl() {
     return authUrl;
+  }
+
+  public String getMeasurementUrl() {
+    return measurementUrl;
+  }
+
+  public String getRuntimeUrl() {
+    return runtimeUrl;
   }
 }
 

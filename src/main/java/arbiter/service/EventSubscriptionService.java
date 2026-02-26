@@ -74,7 +74,7 @@ public class EventSubscriptionService extends ABaseService{
     String eventUID = dependencyInjector.getUnitCollection().getEventUID();
     List<String> eventTypes = new ArrayList<>();
     eventTypes.add("ru.monitel.ck11.rt-events." + eventUID + ".v1");
-    logger.debug("channelId: " + channelId + ", eventTypes: " + eventTypes);
+    logger.info("channelId: " + channelId + ", eventTypes: " + eventTypes);
     return dependencyInjector.getEventSubscriptionService().addEventSubscription(channelId, eventTypes, token).toCompletionStage();
   }
 
@@ -82,7 +82,7 @@ public class EventSubscriptionService extends ABaseService{
   private Future<Object> addEventSubscription(String channelId, List<String> types, String token) {
     String url = String.format(AppConfig.getEventSubscriptionsAddUrl(), channelId);
 
-    logger.debug(url);
+    logger.info(url);
 
     JsonArray eventTypes = new JsonArray();
     JsonObject requestBody = new JsonObject();

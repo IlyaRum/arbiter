@@ -17,9 +17,10 @@ public class SubscriptionService extends ABaseService {
 
   private final WebClient webClient;
   private static final Logger logger = LoggerFactory.getLogger(SubscriptionService.class);
+  private final String measurementUrl;
 
 
-  public SubscriptionService(Vertx vertx) {
+  public SubscriptionService(Vertx vertx, String measurementUrl) {
     super(vertx);
     WebClientOptions options = new WebClientOptions()
       .setKeepAlive(true)
@@ -29,6 +30,7 @@ public class SubscriptionService extends ABaseService {
       .setVerifyHost(false); //Отключает проверку hostname
 
     this.webClient = WebClient.wrap(vertx.createHttpClient(options));
+    this.measurementUrl = measurementUrl;
   }
 
   public void handleCreateSubscription(RoutingContext ctx) {
@@ -64,9 +66,9 @@ public class SubscriptionService extends ABaseService {
   }
 
   public Future<JsonObject> createSubscription(String channelId, String token) {
-    String url = String.format(AppConfig.getSubscriptionsAddUrl(), channelId);
+    String url = String.format(AppConfig.getSubscriptionsAddUrl(), measurementUrl, channelId);
 
-    logger.debug(url);
+    logger.info(url);
 
     JsonObject json = new JsonObject()
       .put("subscriptionType", "actual")
@@ -132,9 +134,9 @@ public class SubscriptionService extends ABaseService {
 
   public Future<JsonObject> changeSubscription(String channelId, String subscriptionId, List<String> add, List<String> remove, String token) {
 
-    String url = String.format(AppConfig.getSubscriptionsChangeUrl(), channelId, subscriptionId);
+    String url = String.format(AppConfig.getSubscriptionsChangeUrl(), measurementUrl, channelId, subscriptionId);
 
-    logger.debug(url);
+    logger.info(url);
 
     JsonObject requestBody = new JsonObject();
     JsonArray addArray = new JsonArray();
@@ -203,9 +205,9 @@ public class SubscriptionService extends ABaseService {
 
   public Future<Void> deleteSubscription(String channelId, String subscriptionId, String token) {
 
-    String url = String.format(AppConfig.getSubscriptionsDeleteUrl(), channelId, subscriptionId);
+    String url = String.format(AppConfig.getSubscriptionsDeleteUrl(), measurementUrl, channelId, subscriptionId);
 
-    logger.debug(url);
+    logger.info(url);
 
     return webClient.deleteAbs(url)
       .putHeader("Content-Type", "application/json")
