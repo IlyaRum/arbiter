@@ -97,7 +97,12 @@ public class AppConfig {
   }
 
   public static String getArbiterConfigJsonFile() {
-    return arbiterConfigJsonFile;
+    String filePath = ".\\" + arbiterConfigJsonFile;
+    File file = new File(filePath);
+    if (!file.exists()) {
+      filePath = ".\\src\\main\\resources\\" + arbiterConfigJsonFile;
+    }
+    return filePath;
   }
 
   public static String getCalcSrvAbsoluteUrl() {
