@@ -7,6 +7,8 @@ import arbiter.di.DependencyInjector;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -16,9 +18,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +46,15 @@ class MeasurementDataProcessorTest {
   @Mock
   private ExecutorService executorMock;
 
+  @Captor
+  private ArgumentCaptor<Runnable> runnableCaptor;
+
+  @Captor
+  private ArgumentCaptor<StoreData> storeDataCaptor;
+
+  @Captor
+  private ArgumentCaptor<String> stringCaptor;
+
   private MeasurementDataProcessor processor;
   private Instant currentTime;
 
@@ -67,50 +77,164 @@ class MeasurementDataProcessorTest {
   @Test
   void testOnDataReceived_Exception_LogsError() {
     MeasurementList list = mock(MeasurementList.class);
-    when(list.size()).thenThrow(new RuntimeException("Test exception"));
+    when(dependencyInjector.getUnitCollection()).thenThrow(new RuntimeException("Test exception"));
 
     assertDoesNotThrow(() -> processor.onDataReceived(list));
     verify(dataReadyCallback, never()).onDataReady(any(StoreData.class), any());
+    verify(executorMock, never()).submit(any(Runnable.class));
   }
 
   @Test
-  void testOnDataReceived_WithMeasurement_ProcessesParameters() {
+  void testOnDataReceived_FirstCall_ShouldCaptureSnapshotAndProcessMeasurements() {
+    // Arrange
     double paramValue = 42.5;
-
     Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = createMockUnit();
-
     Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
     when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
 
     List<Parameter> parameters = new ArrayList<>();
     parameters.add(parameter);
-
     setupUnitWithParameters(unit, parameters);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
-
     setupDependencyInjectorWithUnits(units);
 
-    doAnswer(invocation -> {
-      Runnable task = invocation.getArgument(0);
-      task.run();
-      return null;
-    }).when(executorMock).submit(any(Runnable.class));
+    processor.onDataReceived(list);
+
+    verify(executorMock, times(1)).submit(runnableCaptor.capture());
+
+    verify(parameter).setData(eq(paramValue), eq(currentTime), eq(Q_CODE));
+
+    assertFalse(processor.isFirstTime());
+  }
+
+  @Test
+  void testOnDataReceived_FirstCall_ShouldSendPostRequestWithSnapshot() {
+    double paramValue = 42.5;
+    Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
+    MeasurementList list = createMeasurementList(measurement);
+
+    Unit unit = createMockUnit();
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
+
+    List<Parameter> parameters = new ArrayList<>();
+    parameters.add(parameter);
+    setupUnitWithParameters(unit, parameters);
+
+    List<Unit> units = new ArrayList<>();
+    units.add(unit);
+    setupDependencyInjectorWithUnits(units);
+
+    processor.onDataReceived(list);
+
+    verify(executorMock, times(1)).submit(runnableCaptor.capture());
+
+    Runnable postTask = runnableCaptor.getValue();
+    postTask.run();
+
+    verify(dataReadyCallback, times(1)).onDataReady(storeDataCaptor.capture(), isNull());
+
+    StoreData capturedData = storeDataCaptor.getValue();
+    assertNotNull(capturedData);
+    assertEquals(1, capturedData.size());
+  }
+
+  @Test
+  void testOnDataReceived_SecondCall_ShouldNotSendPostRequest() {
+    double firstValue = 42.5;
+    double secondValue = 50.0;
+    Instant secondTime = Instant.now();
+
+    Measurement firstMeasurement = createMeasurement(PARAM_ID, firstValue, currentTime, Q_CODE);
+    MeasurementList firstList = createMeasurementList(firstMeasurement);
+
+    Measurement secondMeasurement = createMeasurement(PARAM_ID, secondValue, secondTime, Q_CODE);
+    MeasurementList secondList = createMeasurementList(secondMeasurement);
+
+    Unit unit = createMockUnit();
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(anyDouble(), any(Instant.class))).thenReturn(true);
+
+    List<Parameter> parameters = new ArrayList<>();
+    parameters.add(parameter);
+    setupUnitWithParameters(unit, parameters);
+
+    List<Unit> units = new ArrayList<>();
+    units.add(unit);
+    setupDependencyInjectorWithUnits(units);
+
+    processor.onDataReceived(firstList);
+
+    reset(executorMock, dataReadyCallback);
+
+    processor.onDataReceived(secondList);
+
+    verify(executorMock, never()).submit(any(Runnable.class));
+    verify(dataReadyCallback, never()).onDataReady(any(StoreData.class), isNull());
+  }
+
+  @Test
+  void testOnDataReceived_MultipleCalls_ShouldProcessAllMeasurements() {
+    double firstValue = 42.5;
+    double secondValue = 50.0;
+    Instant secondTime = Instant.now();
+
+    Measurement firstMeasurement = createMeasurement(PARAM_ID, firstValue, currentTime, Q_CODE);
+    MeasurementList firstList = createMeasurementList(firstMeasurement);
+
+    Measurement secondMeasurement = createMeasurement(PARAM_ID, secondValue, secondTime, Q_CODE);
+    MeasurementList secondList = createMeasurementList(secondMeasurement);
+
+    Unit unit = createMockUnit();
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(eq(firstValue), eq(currentTime))).thenReturn(true);
+    when(parameter.isDataDifferent(eq(secondValue), eq(secondTime))).thenReturn(true);
+
+    List<Parameter> parameters = new ArrayList<>();
+    parameters.add(parameter);
+    setupUnitWithParameters(unit, parameters);
+
+    List<Unit> units = new ArrayList<>();
+    units.add(unit);
+    setupDependencyInjectorWithUnits(units);
+
+    processor.onDataReceived(firstList);
+    processor.onDataReceived(secondList);
+
+    verify(parameter, times(2)).setData(anyDouble(), any(Instant.class), anyInt());
+  }
+
+  @Test
+  void testOnDataReceived_WithMeasurement_ProcessesParameters() {
+    double paramValue = 42.5;
+    Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
+    MeasurementList list = createMeasurementList(measurement);
+
+    Unit unit = createMockUnit();
+    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
+    when(parameter.isDataDifferent(eq(paramValue), eq(currentTime))).thenReturn(true);
+
+    List<Parameter> parameters = new ArrayList<>();
+    parameters.add(parameter);
+    setupUnitWithParameters(unit, parameters);
+
+    List<Unit> units = new ArrayList<>();
+    units.add(unit);
+    setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
 
     verify(parameter).setData(eq(paramValue), eq(currentTime), eq(Q_CODE));
-    verify(dataReadyCallback, timeout(1000)).onDataReady(any(StoreData.class), isNull());
   }
 
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesTopologies() {
     double topologyValue = 1.0;
-
     Measurement measurement = createMeasurement(TOPOLOGY_ID, topologyValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
 
@@ -120,12 +244,10 @@ class MeasurementDataProcessorTest {
 
     List<Topology> topologies = new ArrayList<>();
     topologies.add(topology);
-
-    setupUnitWithTopologies(unit,topologies);
+    setupUnitWithTopologies(unit, topologies);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
-
     setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
@@ -136,7 +258,6 @@ class MeasurementDataProcessorTest {
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesElements() {
     double elementValue = 10.5;
-
     Measurement measurement = createMeasurement(ELEMENT_ID, elementValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
 
@@ -146,12 +267,10 @@ class MeasurementDataProcessorTest {
 
     List<Element> elements = new ArrayList<>();
     elements.add(element);
-
-    setupUnitWithElements(unit,elements);
+    setupUnitWithElements(unit, elements);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
-
     setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
@@ -162,23 +281,19 @@ class MeasurementDataProcessorTest {
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesInfluencingFactors() {
     double factorValue = 5.5;
-
     Measurement measurement = createMeasurement(FACTOR_ID, factorValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = createMockUnit();
-
     InfluencingFactor factor = createMockInfluencingFactor(FACTOR_ID);
     when(factor.isDataDifferent(eq(factorValue), eq(currentTime))).thenReturn(true);
 
     List<InfluencingFactor> factors = new ArrayList<>();
     factors.add(factor);
-
     setupUnitWithInfluencingFactors(unit, factors);
 
-    List<Unit> units = new ArrayList<Unit>();
+    List<Unit> units = new ArrayList<>();
     units.add(unit);
-
     setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
@@ -189,80 +304,29 @@ class MeasurementDataProcessorTest {
   @Test
   void testOnDataReceived_WithMeasurement_ProcessesRepairSchema() {
     double compositionValue = 3.5;
-
     Measurement measurement = createMeasurement(COMPOSITION_ID, compositionValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
 
     Unit unit = createMockUnit();
-
-    RepairSchema repairSchema = createMockRepairSchema(COMPOSITION_ID, compositionValue);
-
+    RepairSchema repairSchema = createMockRepairSchema(COMPOSITION_ID, compositionValue, currentTime);
     setupUnitWithRepairSchema(unit, repairSchema);
 
     List<Unit> units = new ArrayList<>();
     units.add(unit);
-
     setupDependencyInjectorWithUnits(units);
 
     processor.onDataReceived(list);
 
-    verify(repairSchema.getRepairGroupValues().get(0).getValues().get(0)).setData(eq(compositionValue), eq(currentTime), eq(Q_CODE));
+    Composition composition = repairSchema.getRepairGroupValues().get(0).getValues().get(0);
+    verify(composition).setData(eq(compositionValue), eq(currentTime), eq(Q_CODE));
   }
 
   @Test
   void testOnDataReceived_ExceptionInProcessing_LogsError() {
     MeasurementList list = createMeasurementList(createMeasurement("test-id", 1.0, Instant.now(), 1));
-
     when(dependencyInjector.getUnitCollection()).thenThrow(new RuntimeException("Test exception"));
 
-    processor.onDataReceived(list);
-
     assertDoesNotThrow(() -> processor.onDataReceived(list));
-  }
-
-  @Test
-  void testOnDataReceived_SecondTime_CreatesBatchAggregator() {
-    double firstValue = 42.5;
-    double secondValue = 50.0;
-    Instant secondTime = Instant.now();
-
-    Measurement measurement = createMeasurement(PARAM_ID, firstValue, currentTime, Q_CODE);
-    MeasurementList firstList = createMeasurementList(measurement);
-
-    Unit unit = createMockUnit();
-
-    Parameter parameter = createMockParameter(PARAM_ID, PARAM_NAME);
-    when(parameter.isDataDifferent(eq(firstValue), eq(currentTime))).thenReturn(true);
-    when(parameter.isDataDifferent(eq(secondValue), eq(secondTime))).thenReturn(true);
-
-    List<Parameter> parameters = new ArrayList<>();
-    parameters.add(parameter);
-
-    setupUnitWithParameters(unit,parameters);
-
-    List<Unit> units = new ArrayList<>();
-    units.add(unit);
-
-    setupDependencyInjectorWithUnits(units);
-
-    doAnswer(invocation -> {
-      Runnable task = invocation.getArgument(0);
-      task.run();
-      return null;
-    }).when(executorMock).submit(any(Runnable.class));
-
-    processor.onDataReceived(firstList);
-
-    verify(dataReadyCallback, times(1)).onDataReady(any(StoreData.class), isNull());
-    reset(dataReadyCallback);
-    verify(dataReadyCallback, times(0)).onDataReady(any(StoreData.class), isNull());
-
-    Measurement secondMeasurement = createMeasurement(PARAM_ID, secondValue, secondTime, Q_CODE);
-    MeasurementList secondList = createMeasurementList(secondMeasurement);
-
-    processor.onDataReceived(secondList);
-
-    verify(dataReadyCallback, never()).onDataReady(any(StoreData.class), eq(null));
   }
 
   private Measurement createMeasurement(String uid, double value, Instant time, int qCode) {
@@ -316,13 +380,13 @@ class MeasurementDataProcessorTest {
     return factor;
   }
 
-  private RepairSchema createMockRepairSchema(String compositionId, double compositionValue) {
+  private RepairSchema createMockRepairSchema(String compositionId, double compositionValue, Instant time) {
     RepairSchema repairSchema = mock(RepairSchema.class);
     RepairGroupValue repairGroupValue = mock(RepairGroupValue.class);
     Composition composition = mock(Composition.class);
 
     when(composition.getId()).thenReturn(compositionId);
-    when(composition.isDataDifferent(eq(compositionValue), eq(currentTime))).thenReturn(true);
+    when(composition.isDataDifferent(eq(compositionValue), eq(time))).thenReturn(true);
 
     List<Composition> compositions = new ArrayList<>();
     compositions.add(composition);

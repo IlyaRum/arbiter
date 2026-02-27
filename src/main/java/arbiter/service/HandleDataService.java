@@ -31,7 +31,6 @@ public class HandleDataService extends ABaseService {
   private static final EventFormat JSON_FORMAT = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
   private static final Logger logger = LoggerFactory.getLogger(HandleDataService.class);
 
-  private boolean firstTime = true;
   private String currentChannelId;
   private MeasurementDataProcessor measurementDataProcessor;
   private final ExecutorService executor;
@@ -156,11 +155,10 @@ public class HandleDataService extends ABaseService {
 
     executor.submit(() -> {
       try {
-        if (firstTime) {
+        if (unitId == null) {
           String jsonPostData = convertStoreDataToJson(storeData);
           calculationClient.sendPostRequestAsync(jsonPostData);
-          firstTime = false;
-        } else if (unitId != null) {
+        } else  {
 //          JsonObject jsonWrapper = new JsonObject();
 //          jsonWrapper.put("section", storeData.getUnitDataList());
 //          String jsonPutData = jsonWrapper.encode();
@@ -198,14 +196,6 @@ public class HandleDataService extends ABaseService {
 
   public String getCurrentChannelId() {
     return currentChannelId;
-  }
-
-  public boolean isFirstTime() {
-    return firstTime;
-  }
-
-  public void setFirstTime(boolean firstTime) {
-    this.firstTime = firstTime;
   }
 
   public void setMeasurementDataProcessor(MeasurementDataProcessor measurementDataProcessor) {

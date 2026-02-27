@@ -41,14 +41,10 @@ public class MeasurementDataProcessor {
         measurementChangeTracker = new MeasurementChangeTracker(dependencyInjector, dataReadyCallback, singleThreadExecutor);
       }
 
-      if (measurementChangeTracker != null) {
-        measurementChangeTracker.processAndTrackChanges(list);
-
         if (firstTime && dataReadyCallback != null) {
-          firstTime = false;
           StoreData initialData = getAllCurrentData();
           if (initialData != null && initialData.size() > 0) {
-            logger.info("Данные всех измерений подготовлены в StoreData. Размер: " + initialData.size());
+            logger.info("Срез всех измерений подготовлен для POST запроса. Размер: " + initialData.size());
             singleThreadExecutor.submit(() -> {
               try {
                 dataReadyCallback.onDataReady(initialData, null);
@@ -57,8 +53,12 @@ public class MeasurementDataProcessor {
               }
             });
           }
+          firstTime = false;
+          logger.debug("Флаг firstTime сброшен после обработки первого среза измерений");
         }
-      }
+        if (measurementChangeTracker != null) {
+          measurementChangeTracker.processAndTrackChanges(list);
+        }
     } catch (Exception e) {
       logger.error("Ошибка при обработке данных измерений", e);
     }
@@ -88,5 +88,9 @@ public class MeasurementDataProcessor {
    */
   public void setDataReadyCallback(DataReadyCallback callback) {
     this.dataReadyCallback = callback;
+  }
+
+  public boolean isFirstTime() {
+    return firstTime;
   }
 }

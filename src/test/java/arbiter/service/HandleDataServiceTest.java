@@ -21,6 +21,8 @@ import io.vertx.junit5.VertxTestContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -53,6 +55,15 @@ class HandleDataServiceTest {
   @Mock
   private CalculationServiceClient calculationServiceClient;
 
+  @Captor
+  private ArgumentCaptor<Runnable> runnableCaptor;
+
+  @Captor
+  private ArgumentCaptor<MeasurementList> measurementListCaptor;
+
+  @Captor
+  private ArgumentCaptor<String> stringCaptor;
+
   private HandleDataService handleDataService;
 
   private ObjectMapper objectMapper;
@@ -77,12 +88,14 @@ class HandleDataServiceTest {
     Handler<String> handler = handleDataService.handleTextMessage(promise);
 
     String eventId = UUID.randomUUID().toString();
+    String channelId = "channel-123";
+
     CloudEvent event = CloudEventBuilder.v1()
       .withId(eventId)
       .withSource(URI.create("urn:source"))
       .withType("ru.monitel.ck11.channel.opened.v2")
-      .withSubject("channel-123")
-      .withData("application/json", "{\"channelId\": \"channel-123\"}".getBytes())
+      .withSubject(channelId)
+      .withData("application/json", ("{\"channelId\": \"" + channelId + "\"}").getBytes())
       .withTime(OffsetDateTime.now())
       .build();
 
@@ -97,7 +110,7 @@ class HandleDataServiceTest {
         assertNotNull(json);
         assertTrue(json.containsKey("id"));
         assertEquals(eventId, json.getString("id"));
-        assertEquals("channel-123", handleDataService.getCurrentChannelId());
+        assertEquals(channelId, handleDataService.getCurrentChannelId());
       });
       testContext.completeNow();
     }));
@@ -129,7 +142,12 @@ class HandleDataServiceTest {
 
     handler.handle(message);
 
-    verify(measurementDataProcessor, times(1)).onDataReceived(any(MeasurementList.class));
+    verify(measurementDataProcessor, times(1)).onDataReceived(measurementListCaptor.capture());
+    MeasurementList capturedList = measurementListCaptor.getValue();
+
+    assertNotNull(capturedList);
+    assertEquals(2, capturedList.size());
+
     assertNull(promise.future().result());
   }
 
@@ -168,6 +186,7 @@ class HandleDataServiceTest {
     handler.handle(message);
 
     assertFalse(promise.future().failed());
+    assertNull(promise.future().result());
   }
 
   @Test
@@ -200,62 +219,198 @@ class HandleDataServiceTest {
   }
 
   @Test
-  void testHandleProcessedData_FirstTime() {
-    handleDataService.setFirstTime(true);
+  void testHandleProcessedData_WithNullUnitId_ShouldSendPostRequest() {
     StoreData storeData = mock(StoreData.class);
-
     when(storeData.size()).thenReturn(1);
 
-    doNothing().when(calculationServiceClient).sendPostRequestAsync(anyString());
+    invokeHandleProcessedData(storeData, null);
 
-    doAnswer(invocation -> {
-      Runnable task = invocation.getArgument(0);
-      task.run();
-      return null;
-    }).when(executorMock).submit(any(Runnable.class));
+    verify(executorMock, times(1)).submit(runnableCaptor.capture());
 
-    invokeHandleProcessedData(storeData, "unit-123");
+    Runnable capturedTask = runnableCaptor.getValue();
+    capturedTask.run();
 
-    verify(calculationServiceClient, times(1)).sendPostRequestAsync(anyString());
+    verify(calculationServiceClient, times(1)).sendPostRequestAsync(stringCaptor.capture());
     verify(calculationServiceClient, never()).sendPutRequestAsync(anyString(), anyString());
-    assertFalse(handleDataService.isFirstTime());
+
+    String capturedJson = stringCaptor.getValue();
+    assertNotNull(capturedJson);
   }
 
   @Test
-  void testHandleProcessedData_NotFirstTime() {
-    handleDataService.setFirstTime(false);
-    handleDataService.setCalculationClient(calculationServiceClient);
+  void testHandleProcessedData_WithUnitId_ShouldSendPutRequest() {
+    String unitId = "test-unit-123";
     StoreData storeData = mock(StoreData.class);
     UnitDto unitDto = mock(UnitDto.class);
 
     when(storeData.size()).thenReturn(1);
     when(storeData.getUnitDataList()).thenReturn(List.of(unitDto));
 
-    doNothing().when(calculationServiceClient).sendPutRequestAsync(anyString(), anyString());
+    invokeHandleProcessedData(storeData, unitId);
 
-    doAnswer(invocation -> {
-      Runnable task = invocation.getArgument(0);
-      task.run();
-      return null;
-    }).when(executorMock).submit(any(Runnable.class));
+    verify(executorMock, times(1)).submit(runnableCaptor.capture());
 
-    invokeHandleProcessedData(storeData, "unit-123");
+    Runnable capturedTask = runnableCaptor.getValue();
+    capturedTask.run();
 
-    verify(calculationServiceClient, times(1)).sendPutRequestAsync(anyString(), eq("unit-123"));
+    verify(calculationServiceClient, times(1)).sendPutRequestAsync(stringCaptor.capture(), eq(unitId));
     verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
-    assertFalse(handleDataService.isFirstTime());
+
+    String capturedJson = stringCaptor.getValue();
+    assertNotNull(capturedJson);
   }
 
   @Test
-  void testHandleProcessedData_EmptyData() {
+  void testHandleProcessedData_EmptyData_ShouldNotSendAnyRequest() {
     StoreData storeData = mock(StoreData.class);
     when(storeData.size()).thenReturn(0);
 
     invokeHandleProcessedData(storeData, "unit-123");
+    invokeHandleProcessedData(storeData, null);
 
     verify(executorMock, never()).submit(any(Runnable.class));
     verify(calculationServiceClient, never()).sendPostRequestAsync(anyString());
     verify(calculationServiceClient, never()).sendPutRequestAsync(anyString(), anyString());
+  }
+
+  @Test
+  void testHandleProcessedData_ExceptionInProcessing_ShouldNotBreak() {
+    StoreData storeData = mock(StoreData.class);
+    when(storeData.size()).thenReturn(1);
+
+    HandleDataService realService = new HandleDataService(
+      vertx,
+      dependencyInjector,
+      executorMock,
+      calculationServiceClient
+    );
+    HandleDataService spyService = spy(realService);
+
+    assertDoesNotThrow(() -> {
+      java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
+        "handleProcessedData", StoreData.class, String.class);
+      method.setAccessible(true);
+      method.invoke(spyService, storeData, "unit-123");
+    });
+
+    verify(executorMock, times(1)).submit(any(Runnable.class));
+  }
+
+  @Test
+  void testHandleProcessedData_ExceptionInProcessing_ShouldLogErrorButNotBreak() {
+    StoreData storeData = mock(StoreData.class);
+    when(storeData.size()).thenReturn(1);
+
+    doThrow(new RuntimeException("Test exception"))
+      .when(calculationServiceClient).sendPostRequestAsync(anyString());
+
+    invokeHandleProcessedData(storeData, null);
+
+    verify(executorMock, times(1)).submit(runnableCaptor.capture());
+
+    Runnable capturedTask = runnableCaptor.getValue();
+
+    assertDoesNotThrow(() -> {
+      capturedTask.run();
+    });
+
+    verify(calculationServiceClient, times(1)).sendPostRequestAsync(anyString());
+  }
+
+  @Test
+  void testHandleProcessedData_MultipleCalls_ShouldMaintainOrder() {
+    StoreData storeData1 = mock(StoreData.class);
+    StoreData storeData2 = mock(StoreData.class);
+    UnitDto unitDto = mock(UnitDto.class);
+
+    when(storeData1.size()).thenReturn(1);
+    when(storeData2.size()).thenReturn(1);
+    when(storeData2.getUnitDataList()).thenReturn(List.of(unitDto));
+
+    List<String> callOrder = new ArrayList<>();
+
+    doAnswer(invocation -> {
+      Runnable task = invocation.getArgument(0);
+      callOrder.add("submit");
+      task.run();
+      return null;
+    }).when(executorMock).submit(any(Runnable.class));
+
+    doAnswer(invocation -> {
+      callOrder.add("post");
+      return null;
+    }).when(calculationServiceClient).sendPostRequestAsync(anyString());
+
+    doAnswer(invocation -> {
+      callOrder.add("put:" + invocation.getArgument(1));
+      return null;
+    }).when(calculationServiceClient).sendPutRequestAsync(anyString(), anyString());
+
+    invokeHandleProcessedData(storeData1, null);
+    invokeHandleProcessedData(storeData2, "unit-123");
+
+    verify(executorMock, times(2)).submit(any(Runnable.class));
+
+    assertEquals(4, callOrder.size());
+    assertEquals("submit", callOrder.get(0));
+    assertEquals("post", callOrder.get(1));
+    assertEquals("submit", callOrder.get(2));
+    assertTrue(callOrder.get(3).startsWith("put:"));
+  }
+
+  @Test
+  void testHandleTextMessage_StreamStartedEvent() {
+    Promise<JsonObject> promise = Promise.promise();
+    Handler<String> handler = handleDataService.handleTextMessage(promise);
+
+    CloudEvent event = CloudEventBuilder.v1()
+      .withId(UUID.randomUUID().toString())
+      .withSource(URI.create("urn:source"))
+      .withType("ru.monitel.ck11.events.stream-started.v2")
+      .build();
+
+    byte[] eventBytes = Objects.requireNonNull(EventFormatProvider.getInstance()
+        .resolveFormat(JsonFormat.CONTENT_TYPE))
+      .serialize(event);
+    String message = new String(eventBytes, StandardCharsets.UTF_8);
+
+    handler.handle(message);
+
+    assertFalse(promise.future().failed());
+    assertNull(promise.future().result());
+  }
+
+  @Test
+  void testHandleTextMessage_StreamBrokenEvent() {
+    Promise<JsonObject> promise = Promise.promise();
+    Handler<String> handler = handleDataService.handleTextMessage(promise);
+
+    CloudEvent event = CloudEventBuilder.v1()
+      .withId(UUID.randomUUID().toString())
+      .withSource(URI.create("urn:source"))
+      .withType("ru.monitel.ck11.events.stream-broken.v2")
+      .build();
+
+    byte[] eventBytes = Objects.requireNonNull(EventFormatProvider.getInstance()
+        .resolveFormat(JsonFormat.CONTENT_TYPE))
+      .serialize(event);
+    String message = new String(eventBytes, StandardCharsets.UTF_8);
+
+    handler.handle(message);
+
+    assertFalse(promise.future().failed());
+    assertNull(promise.future().result());
+  }
+
+  @Test
+  void testGettersAndSetters() {
+    CalculationServiceClient newClient = mock(CalculationServiceClient.class);
+    MeasurementDataProcessor newProcessor = mock(MeasurementDataProcessor.class);
+
+    handleDataService.setCalculationClient(newClient);
+    handleDataService.setMeasurementDataProcessor(newProcessor);
+
+    assertEquals(newClient, handleDataService.getCalculationClient());
   }
 
   private void invokeHandleProcessedData(StoreData data, String unitId) {
@@ -265,18 +420,18 @@ class HandleDataServiceTest {
       method.setAccessible(true);
       method.invoke(handleDataService, data, unitId);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to invoke handleProcessedData", e);
     }
   }
 
-  public String invokeConvertStoreDataToJson(Object objects) {
+  private String invokeConvertStoreDataToJson(Object objects) {
     try {
       java.lang.reflect.Method method = HandleDataService.class.getDeclaredMethod(
         "convertStoreDataToJson", Object.class);
       method.setAccessible(true);
       return (String) method.invoke(handleDataService, objects);
     } catch (Exception e) {
-      throw new RuntimeException(e);
+      throw new RuntimeException("Failed to invoke convertStoreDataToJson", e);
     }
   }
 }
