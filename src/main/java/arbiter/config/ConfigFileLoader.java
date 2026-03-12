@@ -9,41 +9,32 @@ import io.vertx.core.json.JsonObject;
 
 import java.util.concurrent.CompletableFuture;
 
-import static arbiter.constants.UnitCollectionConstants.CONFIG_KEY_OIK;
-import static arbiter.constants.UnitCollectionConstants.CONFIG_KEY_PASSWORD;
-
+/**
+ * Обработчик процесса загрузки конфигурационного файла
+ */
 public class ConfigFileLoader {
 
   private static final Logger logger = LoggerFactory.getLogger(ConfigFileLoader.class);
 
+  private final ConfigFileManager fileManager;
+  private final ConfigPasswordEncoder passwordEncoder;
   private final Vertx vertx;
 
   public ConfigFileLoader(Vertx vertx) {
     this.vertx = vertx;
+    this.fileManager = new ConfigFileManager(vertx);
+    this.passwordEncoder = new ConfigPasswordEncoder(fileManager);
   }
 
   public CompletableFuture<Void> loadConfigFileAsync(String configFile, UnitCollection collection) {
     CompletableFuture<Void> initFuture = new CompletableFuture<>();
+
     vertx.executeBlocking(() -> {
         try {
-          var buffer = vertx.fileSystem().readFileBlocking(configFile);
-
-          JsonObject config = new JsonObject(buffer);
-          JsonObject oikField = config.getJsonObject(CONFIG_KEY_OIK);
-          if (oikField != null) {
-            String newPassword = oikField.getString(CONFIG_KEY_PASSWORD);
-            if (newPassword != null && !SecurityConfig.isEncoded(newPassword)) {
-              String encodePassword = SecurityConfig.encodePassword(newPassword);
-              logger.info("Encoded password: '" + encodePassword + "'");
-              oikField.put(CONFIG_KEY_PASSWORD, encodePassword);
-              Buffer updatedBuffer = Buffer.buffer(config.encodePrettily());
-              vertx.fileSystem().writeFileBlocking(configFile, updatedBuffer);
-              logger.info("Password in " + configFile + " has been overwritten successfully");
-              collection.loadConfigData(updatedBuffer);
-            } else {
-              collection.loadConfigData(buffer);
-            }
-          }
+          JsonObject config = fileManager.readConfigFile(configFile);
+          JsonObject processedConfig = passwordEncoder.processPasswordEncoding(configFile, config);
+          Buffer buffer = fileManager.configToBuffer(processedConfig);
+          collection.loadConfigData(buffer);
           return null;
         } catch (Exception e) {
           logger.error("Failed to load config: " + e.getMessage(), e);
