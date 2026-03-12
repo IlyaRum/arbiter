@@ -21,9 +21,13 @@ public class ConfigFileLoader {
   private final Vertx vertx;
 
   public ConfigFileLoader(Vertx vertx) {
+    this(vertx, new ConfigFileManager(vertx), new ConfigPasswordEncoder(new ConfigFileManager(vertx)));
+  }
+
+  public ConfigFileLoader(Vertx vertx, ConfigFileManager fileManager, ConfigPasswordEncoder passwordEncoder) {
+    this.fileManager = fileManager;
+    this.passwordEncoder = passwordEncoder;
     this.vertx = vertx;
-    this.fileManager = new ConfigFileManager(vertx);
-    this.passwordEncoder = new ConfigPasswordEncoder(fileManager);
   }
 
   public CompletableFuture<Void> loadConfigFileAsync(String configFile, UnitCollection collection) {

@@ -7,6 +7,7 @@ import io.vertx.core.json.JsonObject;
 import static arbiter.constants.UnitCollectionConstants.CONFIG_KEY_OIK;
 import static arbiter.constants.UnitCollectionConstants.CONFIG_KEY_PASSWORD;
 import static arbiter.util.ConfigValidator.validateFieldName;
+import static arbiter.util.ConfigValidator.validateFieldNameAndValue;
 
 /**
  * Обработчик кодирования паролей в конфигурационных файлах.
@@ -20,7 +21,7 @@ public class ConfigPasswordEncoder {
   }
 
   public JsonObject processPasswordEncoding(String configFile, JsonObject config) {
-    JsonObject oikField = config.getJsonObject(CONFIG_KEY_OIK);
+    JsonObject oikField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_OIK), CONFIG_KEY_OIK);
     if (oikField != null) {
       String password = (String) validateFieldName(oikField.getString(CONFIG_KEY_PASSWORD), CONFIG_KEY_PASSWORD);;
       if (password != null && !password.isEmpty() && !SecurityConfig.isEncoded(password)) {
