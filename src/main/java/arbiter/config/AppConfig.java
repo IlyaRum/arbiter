@@ -36,6 +36,7 @@ public class AppConfig {
   private static String devFlag;
   private static String arbiterConfigJsonFile;
   private static String calcSrvUrl;
+  private static String oikSertCrt;
 
   public static void loadConfig() {
     String configFile = System.getProperty("config.file", "config.properties");
@@ -60,6 +61,7 @@ public class AppConfig {
       devFlag =props.getProperty("dev.flag");
       arbiterConfigJsonFile = props.getProperty("arbiter.config.json");
       calcSrvUrl = props.getProperty("calc-srv.absolute.url");
+      oikSertCrt = props.getProperty("oik.sert.crt");
 
       if (subscriptionsAddUrl == null ||
         subscriptionsChangeUrl == null ||
@@ -107,5 +109,9 @@ public class AppConfig {
 
   public static String getCalcSrvAbsoluteUrl() {
     return calcSrvUrl;
+  }
+
+  public static String getOikSertCrt() {
+    return oikSertCrt;
   }
 }
