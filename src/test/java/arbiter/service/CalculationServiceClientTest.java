@@ -54,7 +54,7 @@ class CalculationServiceClientTest {
     mockedAppConfig = Mockito.mockStatic(AppConfig.class);
     mockedWebClient = Mockito.mockStatic(WebClient.class);
     mockedWebClient.when(() -> WebClient.wrap(any())).thenReturn(webClient);
-
+    mockedAppConfig.when(AppConfig::getOikCertCrt).thenReturn("/cert.crt");
     calculationServiceClient = new CalculationServiceClient(vertx, executorService);
   }
 

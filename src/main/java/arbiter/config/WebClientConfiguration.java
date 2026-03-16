@@ -8,9 +8,6 @@ import io.vertx.ext.web.client.WebClientOptions;
  */
 public class WebClientConfiguration {
 
-  private static final PemTrustOptions trustOptions = new PemTrustOptions()
-    .addCertPath(AppConfig.getOikCertCrt());
-
   private static final boolean TRUST_ALL = AppConfig.isTrustAll();
 
   public static WebClientOptions createWebClientOptions() {
@@ -23,6 +20,8 @@ public class WebClientConfiguration {
         .setTrustAll(true)
         .setVerifyHost(false);
     } else {
+      PemTrustOptions trustOptions = new PemTrustOptions().addCertPath(AppConfig.getOikCertCrt());
+
       options
         .setSsl(true)
         .setTrustAll(false)
