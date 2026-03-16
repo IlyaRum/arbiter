@@ -1,7 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
-import arbiter.config.ClientConfiguration;
+import arbiter.config.WebClientConfiguration;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -26,7 +26,7 @@ public class CalculationServiceClient {
   private final ExecutorService executor;
 
   public CalculationServiceClient(Vertx vertx, ExecutorService executor) {
-    this(vertx, executor, ClientConfiguration.createDefaultWebClientOptions());
+    this(vertx, executor, WebClientConfiguration.createWebClientOptions());
   }
 
   protected CalculationServiceClient(Vertx vertx, ExecutorService executor, WebClientOptions options) {

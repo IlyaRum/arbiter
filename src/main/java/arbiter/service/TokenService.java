@@ -2,9 +2,8 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.config.Base64Config;
-import arbiter.config.ClientConfiguration;
+import arbiter.config.WebClientConfiguration;
 import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
@@ -18,7 +17,7 @@ public class TokenService {
   private final String authBasicCredentials;
 
   public TokenService(Vertx vertx, String authTokenUrl, String login, String password) {
-    this.insecureClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
+    this.insecureClient = WebClient.wrap(vertx.createHttpClient(WebClientConfiguration.createWebClientOptions()));
     this.authTokenUrl = authTokenUrl;
     this.authBasicCredentials = Base64Config.encodeToBase64(login + ":" + password);
   }

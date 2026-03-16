@@ -1,7 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
-import arbiter.config.ClientConfiguration;
+import arbiter.config.WebClientConfiguration;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.logging.Logger;
@@ -10,7 +10,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 import java.util.List;
 
@@ -23,7 +22,7 @@ public class SubscriptionService extends ABaseService {
 
   public SubscriptionService(Vertx vertx, String measurementUrl) {
     super(vertx);
-    this.webClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
+    this.webClient = WebClient.wrap(vertx.createHttpClient(WebClientConfiguration.createWebClientOptions()));
     this.measurementUrl = measurementUrl;
   }
 

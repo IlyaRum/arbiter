@@ -1,7 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
-import arbiter.config.ClientConfiguration;
+import arbiter.config.WebClientConfiguration;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -11,7 +11,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.client.WebClientOptions;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +26,7 @@ public class EventSubscriptionService extends ABaseService{
   public EventSubscriptionService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
-    this.webClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
+    this.webClient = WebClient.wrap(vertx.createHttpClient(WebClientConfiguration.createWebClientOptions()));
   }
 
   public void handleAddEventSubscription(RoutingContext context) {
