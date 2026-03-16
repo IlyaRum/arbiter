@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import arbiter.config.ClientConfiguration;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -26,15 +27,7 @@ public class EventSubscriptionService extends ABaseService{
   public EventSubscriptionService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
-
-    WebClientOptions options = new WebClientOptions()
-      .setKeepAlive(true)
-      .setConnectTimeout(5000)
-      .setSsl(true)
-      .setTrustAll(true) //отключает проверку сертификатов
-      .setVerifyHost(false); //Отключает проверку hostname
-
-    this.webClient = WebClient.wrap(vertx.createHttpClient(options));
+    this.webClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
   }
 
   public void handleAddEventSubscription(RoutingContext context) {

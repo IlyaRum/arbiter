@@ -1,6 +1,7 @@
 package arbiter.service;
 
 import arbiter.config.AppConfig;
+import arbiter.config.ClientConfiguration;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
 import io.vertx.core.internal.logging.Logger;
@@ -22,14 +23,7 @@ public class SubscriptionService extends ABaseService {
 
   public SubscriptionService(Vertx vertx, String measurementUrl) {
     super(vertx);
-    WebClientOptions options = new WebClientOptions()
-      .setKeepAlive(true)
-      .setConnectTimeout(5000)
-      .setSsl(true)
-      .setTrustAll(true) //отключает проверку сертификатов
-      .setVerifyHost(false); //Отключает проверку hostname
-
-    this.webClient = WebClient.wrap(vertx.createHttpClient(options));
+    this.webClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
     this.measurementUrl = measurementUrl;
   }
 

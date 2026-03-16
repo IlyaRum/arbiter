@@ -2,10 +2,10 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.config.Base64Config;
+import arbiter.config.ClientConfiguration;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.PemTrustOptions;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.client.WebClient;
 
@@ -18,15 +18,7 @@ public class TokenService {
   private final String authBasicCredentials;
 
   public TokenService(Vertx vertx, String authTokenUrl, String login, String password) {
-    PemTrustOptions trustOptions = new PemTrustOptions()
-      .addCertPath(AppConfig.getOikSertCrt());
-
-    HttpClientOptions options = new HttpClientOptions()
-      .setSsl(true)
-      .setTrustAll(false)
-      .setTrustOptions(trustOptions)
-      .setVerifyHost(false)
-      .setLogActivity(true);
+    HttpClientOptions options = ClientConfiguration.createSecureHttpClientOptions();
 
     this.insecureClient = WebClient.wrap(vertx.createHttpClient(options));
     this.authTokenUrl = authTokenUrl;
