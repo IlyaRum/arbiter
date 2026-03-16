@@ -102,7 +102,6 @@ public class Unit {
       }
       repairSchema.setRepairGroupValues(repairGroupValues);
 
-    // Инициализация параметров и результатов
     JsonArray paramsArray = (JsonArray) validateFieldNameAndValueInSection(config.getJsonArray(CONFIG_KEY_PARAMETERS), CONFIG_KEY_PARAMETERS, CONFIG_KEY_UNITS_ARRAY);
     for (int i = 0; i < paramsArray.size(); i++) {
       JsonObject paramObj = paramsArray.getJsonObject(i);

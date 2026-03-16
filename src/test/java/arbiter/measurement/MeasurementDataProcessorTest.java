@@ -86,7 +86,6 @@ class MeasurementDataProcessorTest {
 
   @Test
   void testOnDataReceived_FirstCall_ShouldCaptureSnapshotAndProcessMeasurements() {
-    // Arrange
     double paramValue = 42.5;
     Measurement measurement = createMeasurement(PARAM_ID, paramValue, currentTime, Q_CODE);
     MeasurementList list = createMeasurementList(measurement);
