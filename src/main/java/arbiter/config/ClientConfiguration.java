@@ -9,24 +9,16 @@ import io.vertx.ext.web.client.WebClientOptions;
  */
 public class ClientConfiguration {
 
-  public static HttpClientOptions createSecureHttpClientOptions() {
-    PemTrustOptions trustOptions = new PemTrustOptions()
-      .addCertPath(AppConfig.getOikSertCrt());
-
-    return new HttpClientOptions()
-      .setSsl(true)
-      .setTrustAll(false)
-      .setTrustOptions(trustOptions)
-      .setVerifyHost(false)
-      .setLogActivity(true);
-  }
+  private static final PemTrustOptions trustOptions = new PemTrustOptions()
+    .addCertPath(AppConfig.getOikSertCrt());
 
   public static WebClientOptions createDefaultWebClientOptions() {
     return new WebClientOptions()
       .setKeepAlive(true)
       .setConnectTimeout(5000)
       .setSsl(true)
-      .setTrustAll(true)
+      .setTrustAll(false)
+      .setTrustOptions(trustOptions)
       .setVerifyHost(false);
   }
 }

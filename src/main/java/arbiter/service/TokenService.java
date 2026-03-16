@@ -18,9 +18,7 @@ public class TokenService {
   private final String authBasicCredentials;
 
   public TokenService(Vertx vertx, String authTokenUrl, String login, String password) {
-    HttpClientOptions options = ClientConfiguration.createSecureHttpClientOptions();
-
-    this.insecureClient = WebClient.wrap(vertx.createHttpClient(options));
+    this.insecureClient = WebClient.wrap(vertx.createHttpClient(ClientConfiguration.createDefaultWebClientOptions()));
     this.authTokenUrl = authTokenUrl;
     this.authBasicCredentials = Base64Config.encodeToBase64(login + ":" + password);
   }
