@@ -3,6 +3,7 @@ package arbiter.util;
 import io.vertx.core.json.JsonObject;
 import arbiter.config.AppConfig;
 
+import java.util.Properties;
 import java.util.regex.Pattern;
 
 /**
@@ -159,6 +160,14 @@ public final class ConfigValidator {
     if (!value.equalsIgnoreCase("да") && !value.equalsIgnoreCase("нет")) {
       throw new IllegalStateException("Критическая ошибка: значение '" + value + "' для поля '"
         + fieldName + "' в конфигурационном файле " + ARBITER_CONFIG_JSON_FILE + " не валидно.");
+    }
+    return value;
+  }
+
+  public static String checkValueProperty(Properties props, String key, String configFile){
+    String value = props.getProperty(key);
+    if(value == null || value.isEmpty()){
+      throw new IllegalStateException("Отсутствует обязательное свойство '" + key + "' в конфигурационном файле " + configFile);
     }
     return value;
   }

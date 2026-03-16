@@ -1,8 +1,12 @@
 package arbiter.config;
 
+import arbiter.util.ConfigValidator;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 
 public class AppConfig {
@@ -28,7 +32,6 @@ public class AppConfig {
 
   public static final String CLOUDEVENTS_PROTOCOL = "cloudevents.json";
 
-  private static String authBasicCredentials;
   private static String subscriptionsAddUrl;
   private static String subscriptionsChangeUrl;
   private static String subscriptionsDeleteUrl;
@@ -36,7 +39,8 @@ public class AppConfig {
   private static String devFlag;
   private static String arbiterConfigJsonFile;
   private static String calcSrvUrl;
-  private static String oikSertCrt;
+  private static String oikCertCrt;
+  private static Boolean isTrust;
 
   public static void loadConfig() {
     String configFile = System.getProperty("config.file", "config.properties");
@@ -53,29 +57,19 @@ public class AppConfig {
 
       props.load(new FileInputStream(filePath));
 
-      authBasicCredentials = props.getProperty("auth.basic.credentials");
-      subscriptionsAddUrl = props.getProperty("subscriptions.add.url");
-      subscriptionsChangeUrl = props.getProperty("subscriptions.change.url");
-      subscriptionsDeleteUrl = props.getProperty("subscriptions.delete.url");
+      subscriptionsAddUrl = ConfigValidator.checkValueProperty(props, "subscriptions.add.url", configFile);
+      subscriptionsChangeUrl = ConfigValidator.checkValueProperty(props, "subscriptions.change.url", configFile);
+      subscriptionsDeleteUrl = ConfigValidator.checkValueProperty(props, "subscriptions.delete.url", configFile);
       eventSubscriptionsAddUrl = props.getProperty("event.subscriptions.add");
-      devFlag =props.getProperty("dev.flag");
-      arbiterConfigJsonFile = props.getProperty("arbiter.config.json");
-      calcSrvUrl = props.getProperty("calc-srv.absolute.url");
-      oikSertCrt = props.getProperty("oik.sert.crt");
-
-      if (subscriptionsAddUrl == null ||
-        subscriptionsChangeUrl == null ||
-        subscriptionsDeleteUrl == null) {
-        throw new RuntimeException("Missing required properties in config file");
-      }
+      devFlag = props.getProperty("dev.flag");
+      arbiterConfigJsonFile = ConfigValidator.checkValueProperty(props,"arbiter.config.json", configFile);
+      calcSrvUrl = ConfigValidator.checkValueProperty(props, "calc-srv.absolute.url", configFile);
+      oikCertCrt = ConfigValidator.checkValueProperty(props, "oik.cert.crt", configFile);
+      isTrust = Boolean.parseBoolean(props.getProperty("trust.all", "false"));
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to load configuration file: " + configFile, e);
     }
-  }
-
-  public static String getAuthBasicCredentials() {
-    return authBasicCredentials;
   }
 
   public static String getSubscriptionsAddUrl() {
@@ -111,7 +105,11 @@ public class AppConfig {
     return calcSrvUrl;
   }
 
-  public static String getOikSertCrt() {
-    return oikSertCrt;
+  public static String getOikCertCrt() {
+    return oikCertCrt;
+  }
+
+  public static boolean isTrustAll() {
+    return isTrust;
   }
 }
