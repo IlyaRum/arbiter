@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.util.Properties;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -129,7 +130,7 @@ class ConfigValidatorTest {
     String sectionName = "sectionName";
     IllegalStateException exception = assertThrows(
       IllegalStateException.class,
-      () -> ConfigValidator.validateFieldNameInSection(null, fieldName , sectionName)
+      () -> ConfigValidator.validateFieldNameInSection(null, fieldName, sectionName)
     );
     assertTrue(exception.getMessage().contains("Критическая ошибка: отсутствует обязательное поле '" + fieldName + "' в секции '" + sectionName));
   }
@@ -230,5 +231,25 @@ class ConfigValidatorTest {
       () -> ConfigValidator.validateBooleanValue(invalidValue, "fieldName")
     );
     assertTrue(exception.getMessage().contains("не валидно"));
+  }
+
+  @Test
+  @DisplayName("Валидация наличия не нулевого поля")
+  void checkValueProperty_WithNoNullValue_ShouldPass() {
+    Properties prop = new Properties();
+    prop.setProperty("prop1", "value1");
+    String result = ConfigValidator.checkValueProperty(prop, "prop1", "configFile");
+    assertEquals("value1", result);
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"prop1", "prop2"})
+  @DisplayName("Исключение если значение для свойства null или пустое")
+  void checkValueProperty_WithNullValue_ShouldThrowException(String key) {
+    Properties properties = new Properties();
+    properties.setProperty("prop1", "");
+    IllegalStateException exception = assertThrows(IllegalStateException.class,
+      () -> ConfigValidator.checkValueProperty(properties, key, "configFile"));
+    assertTrue(exception.getMessage().contains("Отсутствует обязательное свойство"));
   }
 }

@@ -16,8 +16,6 @@ public final class ConfigValidator {
 
   private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
 
-  private static final String ARBITER_CONFIG_JSON_FILE = AppConfig.getArbiterConfigJsonFile();
-
   private ConfigValidator() {
     throw new UnsupportedOperationException("Utility class cannot be instantiated");
   }
@@ -27,9 +25,9 @@ public final class ConfigValidator {
       String message = (sectionName != null)
               ? "Критическая ошибка: отсутствует обязательное поле '" + fieldName
               + "' в секции '" + sectionName + "' в конфигурационном файле: "
-              + ARBITER_CONFIG_JSON_FILE
+              + getArbiterConfigJsonFile()
               : "Критическая ошибка: отсутствует обязательное поле '" + fieldName
-              + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE;
+              + "' в конфигурационном файле: " + getArbiterConfigJsonFile();
       throw new IllegalStateException(message);
     }
   }
@@ -39,9 +37,9 @@ public final class ConfigValidator {
       String message = (sectionName != null)
               ? "Критическая ошибка: значение поля '" + fieldName
               + "' в секции '" + sectionName + "' в конфигурационном файле "
-              + ARBITER_CONFIG_JSON_FILE + " не может быть пустым."
+              + getArbiterConfigJsonFile() + " не может быть пустым."
               : "Критическая ошибка: значение поля '" + fieldName
-              + "' в конфигурационном файле " + ARBITER_CONFIG_JSON_FILE
+              + "' в конфигурационном файле " + getArbiterConfigJsonFile()
               + " не может быть пустым.";
       throw new IllegalStateException(message);
     }
@@ -88,7 +86,7 @@ public final class ConfigValidator {
   public static Integer validateFieldName(JsonObject config, String fieldName, Integer value) {
     if (!config.containsKey(fieldName)) {
       throw new IllegalStateException("Критическая ошибка: отсутствует обязательное поле '"
-        + fieldName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+        + fieldName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
     }
     return value;
   }
@@ -99,7 +97,7 @@ public final class ConfigValidator {
   public static Integer validateFieldNameInSection(JsonObject config, String fieldName, Integer value, String sectionName) {
     if (!config.containsKey(fieldName)) {
       throw new IllegalStateException("Критическая ошибка: отсутствует обязательное поле '"
-        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
     }
     return value;
   }
@@ -111,19 +109,19 @@ public final class ConfigValidator {
   public static String validateFieldNameAndValueUuid(String fieldName, JsonObject config) {
     if (!config.containsKey(fieldName)) {
       throw new IllegalStateException("Критическая ошибка: отсутствует обязательное поле '"
-        + fieldName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+        + fieldName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
     }
     String uuid = config.getString(fieldName);
     if(uuid != null && !uuid.isEmpty()) {
       if(!UUID_PATTERN.matcher(uuid).matches()){
         throw new IllegalArgumentException("Критическая ошибка: не валидный uuid '" + uuid + "' в поле '"
-          + fieldName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+          + fieldName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
       }
       return uuid;
     }
     else {
       throw new IllegalStateException("Критическая ошибка: значение поля '"
-        + fieldName + "' в конфигурационном файле " + ARBITER_CONFIG_JSON_FILE
+        + fieldName + "' в конфигурационном файле " + getArbiterConfigJsonFile()
         + " не может быть пустым.");
     }
   }
@@ -136,19 +134,19 @@ public final class ConfigValidator {
 
     if (!config.containsKey(fieldName)) {
       throw new IllegalStateException("Критическая ошибка: отсутствует обязательное поле '"
-        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
     }
     String uuid = config.getString(fieldName);
     if(uuid != null && !uuid.isEmpty()) {
       if(!UUID_PATTERN.matcher(uuid).matches()){
         throw new IllegalArgumentException("Критическая ошибка: не валидный uuid '" + uuid + "' в поле '"
-          + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + ARBITER_CONFIG_JSON_FILE);
+          + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле: " + getArbiterConfigJsonFile());
       }
       return uuid;
     }
     else {
       throw new IllegalStateException("Критическая ошибка: значение поля '"
-        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле " + ARBITER_CONFIG_JSON_FILE
+        + fieldName + "' в секции '"+ sectionName + "' в конфигурационном файле " + getArbiterConfigJsonFile()
         + " не может быть пустым.");
     }
   }
@@ -159,16 +157,23 @@ public final class ConfigValidator {
   public static String validateBooleanValue(String value, String fieldName) {
     if (!value.equalsIgnoreCase("да") && !value.equalsIgnoreCase("нет")) {
       throw new IllegalStateException("Критическая ошибка: значение '" + value + "' для поля '"
-        + fieldName + "' в конфигурационном файле " + ARBITER_CONFIG_JSON_FILE + " не валидно.");
+        + fieldName + "' в конфигурационном файле " + getArbiterConfigJsonFile() + " не валидно.");
     }
     return value;
   }
 
+  /**
+   * Проверяет наличие поля key в configFile
+   */
   public static String checkValueProperty(Properties props, String key, String configFile){
     String value = props.getProperty(key);
     if(value == null || value.isEmpty()){
       throw new IllegalStateException("Отсутствует обязательное свойство '" + key + "' в конфигурационном файле " + configFile);
     }
     return value;
+  }
+
+  private static String getArbiterConfigJsonFile() {
+    return AppConfig.getArbiterConfigJsonFile();
   }
 }
