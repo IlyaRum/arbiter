@@ -1,0 +1,11 @@
+{
+  "subscriptions.add.url": "%s/data/subscriptions/channels/%s/subscriptions",
+  "subscriptions.change.url": "%s/data/subscriptions/channels/%s/subscriptions/%s",
+  "subscriptions.delete.url": "%s/data/subscriptions/channels/%s/subscriptions/%s",
+  "event.subscriptions.add": "https://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/event-subscriptions/channels/%s/event-types/add",
+  "dev.flag": "local",
+  "arbiter.config.json": "arbiter_server.json",
+  "oik.cert.crt": "src/main/resources/ia-oc-w-aiptst.cdu.so.crt",
+  "trust.all": "false",
+  "calc-srv.absolute.url": "http://calc.com/data"
+}

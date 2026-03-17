@@ -1,12 +1,14 @@
 package arbiter.config;
 
 import arbiter.util.ConfigValidator;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 public class AppConfig {
@@ -43,7 +45,7 @@ public class AppConfig {
   private static Boolean isTrust;
 
   public static void loadConfig() {
-    String configFile = System.getProperty("config.file", "config.properties");
+    String configFile = System.getProperty("config.file", "configData.json");
 
     try {
       Properties props = new Properties();
@@ -51,11 +53,13 @@ public class AppConfig {
       File file = new File(filePath);
       if (!file.exists()) {
         filePath = ".\\src\\main\\resources\\" + configFile;
+        file = new File(filePath);
       }
 
       System.out.println("Config file is here: " + filePath);
 
-      props.load(new FileInputStream(filePath));
+      ObjectMapper mapper = new ObjectMapper();
+      props.putAll(mapper.readValue(file, new TypeReference<>() {}));
 
       subscriptionsAddUrl = ConfigValidator.checkValueProperty(props, "subscriptions.add.url", configFile);
       subscriptionsChangeUrl = ConfigValidator.checkValueProperty(props, "subscriptions.change.url", configFile);
