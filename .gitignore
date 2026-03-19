@@ -195,3 +195,4 @@ src/main/resources/config.properties
 /arbiter-calc-service/
 /src/main/resources/arbiter_server_old.json
 /src/main/resources/arbiter_server_arpm.json
+/src/main/resources/ia-oc-w-aiptst.cdu.so.crt
