@@ -19,6 +19,7 @@ public class AppConfig {
   public static final String INFO = "/info";
   public static final String METRICS = "/metrics";
   public static final String RECONNECTION_STATS = "/reconnection-stats";
+  public static final String HEALTH = "/health";
 
   public static final String CORE_PREFIX = "/api/public/core/v" + CORE_VERSION;
   public static final String MEASUREMENT_PREFIX = "/api/public/measurement-values/v" + MEASUREMENT_VERSION;

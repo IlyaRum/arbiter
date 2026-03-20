@@ -117,7 +117,8 @@ public class MainVerticle extends AbstractVerticle {
       dependencyInjector.getWebSocketController(),
       dependencyInjector.getMonitoringController(),
       dependencyInjector.getSubscriptionController(),
-      dependencyInjector.getEventSubscriptionController()
+      dependencyInjector.getEventSubscriptionController(),
+      dependencyInjector.getHealthCheckController()
     );
 
     Router router = mainRouter.createRouter();

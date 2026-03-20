@@ -1,10 +1,7 @@
 package arbiter.di;
 
 import arbiter.config.AppConfig;
-import arbiter.controller.EventSubscriptionController;
-import arbiter.controller.MonitoringController;
-import arbiter.controller.SubscriptionController;
-import arbiter.controller.WebSocketController;
+import arbiter.controller.*;
 import arbiter.initialization.SubscriptionManager;
 import arbiter.initialization.WebSocketManager;
 import arbiter.service.*;
@@ -25,6 +22,7 @@ public class DependencyInjector {
   private TokenService tokenService;
   private UnitCollection unitCollection;
   private HandleDataService handleDataService;
+  private HealthCheckController healthCheckController;
 
 
   public DependencyInjector(Vertx vertx, UnitCollection unitCollection) {
@@ -50,6 +48,7 @@ public class DependencyInjector {
 
   private void initializeControllers() {
     monitoringController = new MonitoringController(vertx, this);
+    healthCheckController = new HealthCheckController(vertx);
     webSocketController = new WebSocketController(vertx, this);
     subscriptionController = new SubscriptionController(vertx, this);
     eventSubscriptionController = new EventSubscriptionController(vertx, this);
@@ -99,5 +98,9 @@ public class DependencyInjector {
 
   public HandleDataService getHandleDataService() {
     return handleDataService;
+  }
+
+  public HealthCheckController getHealthCheckController() {
+    return healthCheckController;
   }
 }
