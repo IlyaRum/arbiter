@@ -14,7 +14,6 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -24,35 +23,21 @@ import java.util.function.Consumer;
 public class WebSocketService extends ABaseService {
   private final WebSocketClient webSocketClient;
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
-  private final Map<String, MemoryData> store = new HashMap<>();
   private final DependencyInjector dependencyInjector;
+  private final PingPongService pingPongService;
 
 
   //TODO[IER] Пересмотреть обработчики событий для внешнего управления
   private Runnable closeHandler; // Изменено с Consumer<Void> на Runnable
   private Consumer<Throwable> exceptionHandler;
-
-  // Поля для ping-pong логики
-  private volatile boolean pongReceived = true;
-  private volatile Instant lastPingTime;
-  private Long pingTimerId = null;
-  private Long pongTimeoutTimerId = null;
-  private static final int DEFAULT_PING_INTERVAL_SECONDS = 30;
-  private static final int PONG_TIMEOUT_SECONDS = 30; // Таймаут ожидания pong
   private Runnable reconnectHandler;
-  // Настройки ping-pong из конфигурации
-  private int pingIntervalSeconds = DEFAULT_PING_INTERVAL_SECONDS;
-
-
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
   public WebSocketService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
-
-    loadPingPongConfig();
-
-
+    this.pingPongService = createPingPongService(vertx);
+    pingPongService.loadPingPongConfig();
 
     this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
         .setSsl(false)
@@ -64,6 +49,17 @@ public class WebSocketService extends ABaseService {
       //.setTryUsePerFrameCompression(true)
       //.setTryUsePerMessageCompression(true)
     );
+  }
+
+  private PingPongService createPingPongService(Vertx vertx) {
+    PingPongService.PingPongHandler handler = new PingPongService.PingPongHandler() {
+      @Override
+      public void onPongTimeout(String errorMsg) {
+        closeConnectionWithError(errorMsg);
+      }
+    };
+
+    return  new PingPongService(vertx, handler);
   }
 
   private Future<JsonObject> connectToWebSocketServer(String token, RoutingContext context) {
@@ -96,7 +92,7 @@ public class WebSocketService extends ABaseService {
             setupWebSocketHandlers(webSocket, promise);
 
             if(AppConfig.isEnablePing()){
-              startPingPongTimer(webSocket);
+              pingPongService.startPingPongTimer(webSocket);
             }
 
             // Таймаут на установление соединения и получение первого сообщения
@@ -113,98 +109,11 @@ public class WebSocketService extends ABaseService {
     return promise.future();
   }
 
-  /**
-   * Загрузка настроек ping-pong из конфигурации
-   */
-  private void loadPingPongConfig() {
-    try {
-      String pingIntervalStr = AppConfig.getPingInterval();
-      if (pingIntervalStr != null && !pingIntervalStr.isEmpty()) {
-        pingIntervalSeconds = Integer.parseInt(pingIntervalStr);
-        logger.info("Ping-pong interval set to '" + pingIntervalSeconds + "' seconds");
-      }
-    } catch (Exception e) {
-      logger.warn("Failed to load ping interval from config, using default: '" + DEFAULT_PING_INTERVAL_SECONDS + "' seconds");
-    }
-  }
-
-  /**
-   * Запуск периодической отправки ping
-   */
-  private void startPingPongTimer(WebSocket webSocket) {
-    stopPingPongTimer();
-
-    this.lastPingTime = Instant.now();
-
-    pingTimerId = vertx.setPeriodic(pingIntervalSeconds * 1000, timerId -> {
-      if (webSocket != null && !webSocket.isClosed()) {
-        sendPing(webSocket);
-      } else {
-        stopPingPongTimer();
-      }
-    });
-    logger.debug("Ping-pong timer started with interval: '" + pingIntervalSeconds + "' seconds");
-  }
-
-  /**
-   * Остановка ping-pong таймера
-   */
-  private void stopPingPongTimer() {
-    if (pingTimerId != null) {
-      vertx.cancelTimer(pingTimerId);
-      pingTimerId = null;
-      logger.info("Ping-pong timer stopped");
-    }
-  }
-
-  /**
-   * Отправка ping и проверка предыдущего pong
-   */
-  private void sendPing(WebSocket webSocket) {
-    try {
-      Instant now = Instant.now();
-      long secondsSinceLastPing = java.time.Duration.between(lastPingTime, now).getSeconds();
-
-      if (secondsSinceLastPing >= pingIntervalSeconds) {
-        lastPingTime = now;
-
-        if (!pongReceived) {
-          logger.warn("PONG not received within '" + PONG_TIMEOUT_SECONDS + "' seconds, closing connection");
-          closeConnectionWithError("PONG timeout - no response from server");
-        }
-        else {
-          logger.info("Sending PING to server");
-          webSocket.writeFrame(WebSocketFrame.pingFrame(io.vertx.core.buffer.Buffer.buffer("ping")));
-          pongReceived = false;
-
-          cancelPongTimeoutTimer();
-
-          pongTimeoutTimerId = vertx.setTimer(PONG_TIMEOUT_SECONDS * 1000, timeoutId -> {
-            if (!pongReceived) {
-              logger.error("PONG not received after ping timeout");
-              closeConnectionWithError("PONG timeout - no response from server");
-            }
-            pongTimeoutTimerId = null;
-          });
-        }
-      }
-    } catch (Exception e) {
-      logger.error("Error in ping logic", e);
-      closeConnectionWithError("Ping error: " + e.getMessage());
-    }
-  }
-
-  private void cancelPongTimeoutTimer() {
-    if (pongTimeoutTimerId != null) {
-      vertx.cancelTimer(pongTimeoutTimerId);
-      pongTimeoutTimerId = null;
-    }
-  }
 
   private void closeConnectionWithError(String errorMsg) {
     logger.error(errorMsg);
-    cancelPongTimeoutTimer();
-    stopPingPongTimer();
+    pingPongService.cancelPongTimeoutTimer();//Проверить нужен ли??
+    pingPongService.stopPingPongTimer();
 
     WebSocket webSocket = currentWebSocket.get();
     if (webSocket != null && !webSocket.isClosed()) {
@@ -226,9 +135,8 @@ public class WebSocketService extends ABaseService {
     webSocket.closeHandler(v -> {
       logger.info("WebSocket connection closed");
 
-      stopPingPongTimer();
-      pongReceived = true;
-      lastPingTime = Instant.now();
+      pingPongService.stopPingPongTimer();
+      pingPongService.reset();
 
       if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket connection closed unexpectedly");
@@ -239,11 +147,7 @@ public class WebSocketService extends ABaseService {
       }
     });
 
-    webSocket.pongHandler(pong -> {
-      pongReceived = true;
-      logger.info("PONG received");
-      cancelPongTimeoutTimer();
-    });
+
 
     // Обработка ошибок
     webSocket.exceptionHandler(error -> {
