@@ -7,8 +7,6 @@ import io.vertx.core.http.WebSocketFrame;
 import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 
-import java.time.Instant;
-
 public class PingPongService {
 
   private static final Logger logger = LoggerFactory.getLogger(PingPongService.class);
@@ -17,7 +15,6 @@ public class PingPongService {
   private PingPongHandler pingPongHandler;
 
   private volatile boolean pongReceived = true;
-  private volatile Instant lastPingTime;
   private Long pingTimerId = null;
   private Long pongTimeoutTimerId = null;
   private static final int DEFAULTS_PONG_TIMEOUT_SECONDS = 30;
@@ -123,8 +120,6 @@ public class PingPongService {
 
     stop();
 
-    this.lastPingTime = Instant.now();
-
     webSocket.pongHandler(pong -> {
       pongReceived = true;
       logger.info("PONG received");
@@ -141,7 +136,6 @@ public class PingPongService {
     cancelPingTimer();
     cancelPongTimeoutTimer();
     pongReceived = true;
-    lastPingTime = null;
   }
 
   /**
@@ -160,7 +154,6 @@ public class PingPongService {
    */
   public void reset(){
     pongReceived = true;
-    lastPingTime = Instant.now();
     cancelPongTimeoutTimer();
   }
 
