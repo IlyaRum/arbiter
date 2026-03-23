@@ -44,16 +44,18 @@ public class AppConfig {
   private static String calcSrvUrl;
   private static String oikCertCrt;
   private static Boolean isTrust;
+  private static String pingInterval;
+  private static Boolean enablePing;
 
   public static void loadConfig() {
     String configFile = System.getProperty("config.file", "configData.json");
 
     try {
       Properties props = new Properties();
-      String filePath = ".\\" + configFile;
+      String filePath = "./" + configFile;
       File file = new File(filePath);
       if (!file.exists()) {
-        filePath = ".\\src\\main\\resources\\" + configFile;
+        filePath = "./src/main/resources/" + configFile;
         file = new File(filePath);
       }
 
@@ -71,6 +73,8 @@ public class AppConfig {
       calcSrvUrl = ConfigValidator.checkValueProperty(props, "calc-srv.absolute.url", configFile);
       oikCertCrt = ConfigValidator.checkValueProperty(props, "oik.cert.crt", configFile);
       isTrust = Boolean.parseBoolean(props.getProperty("trust.all", "false"));
+      pingInterval =  ConfigValidator.checkValueProperty(props, "ping.interval.seconds", configFile);
+      enablePing = Boolean.parseBoolean(props.getProperty("ping.enable", "true"));
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to load configuration file: " + configFile, e);
@@ -116,5 +120,13 @@ public class AppConfig {
 
   public static boolean isTrustAll() {
     return isTrust;
+  }
+
+  public static String getPingInterval() {
+    return pingInterval;
+  }
+
+  public static Boolean isEnablePing() {
+    return enablePing;
   }
 }

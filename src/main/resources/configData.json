@@ -7,5 +7,7 @@
   "arbiter.config.json": "arbiter_server.json",
   "oik.cert.crt": "src/main/resources/ia-oc-w-aiptst.cdu.so.crt",
   "trust.all": "false",
-  "calc-srv.absolute.url": "http://calc.com/data"
+  "calc-srv.absolute.url": "http://calc.com/data",
+  "ping.interval.seconds": "30",
+  "ping.enable": "true"
 }

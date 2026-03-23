@@ -453,7 +453,6 @@ public class MeasurementChangeTracker {
     unitTrackedFactorChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedRepairChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
     unitTrackedUnitResultChanges.computeIfAbsent(unitId, k -> new ConcurrentHashMap<>());
-    logger.debug("Структуры состояния инициализированы для сечения: " + unitId);
   }
 
   /**
