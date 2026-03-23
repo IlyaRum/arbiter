@@ -20,9 +20,10 @@ public class PingPongService {
   private volatile Instant lastPingTime;
   private Long pingTimerId = null;
   private Long pongTimeoutTimerId = null;
-  private static final int PONG_TIMEOUT_SECONDS = 30;
+  private static final int DEFAULTS_PONG_TIMEOUT_SECONDS = 30;
   private static final int DEFAULT_PING_INTERVAL_SECONDS = 30;
   private int pingIntervalSeconds = DEFAULT_PING_INTERVAL_SECONDS;
+  private int pongTimeoutSeconds = DEFAULTS_PONG_TIMEOUT_SECONDS;
 
   public PingPongService(Vertx vertx) {
     this.vertx = vertx;
@@ -38,16 +39,36 @@ public class PingPongService {
   }
 
   /**
-   * Загрузка настроек ping-pong из конфигурации
+   * Загрузка настроек ping из конфигурации
    */
   public void loadPingConfig() {
     try {
       String pingIntervalStr = AppConfig.getPingInterval();
       if (pingIntervalStr != null && !pingIntervalStr.isEmpty()) {
         pingIntervalSeconds = Integer.parseInt(pingIntervalStr);
+        if(AppConfig.isEnablePing()) {
+          logger.info("Ping interval set to '" + pingIntervalSeconds + "' seconds");
+        }
       }
     } catch (Exception e) {
       logger.warn("Failed to load ping interval from config, using default: '" + DEFAULT_PING_INTERVAL_SECONDS + "' seconds");
+    }
+  }
+
+  /**
+   * Загрузка настроек pong из конфигурации
+   */
+  public void loadPongConfig() {
+    try {
+      String pongIntervalStr = AppConfig.getPongInterval();
+      if (pongIntervalStr != null && !pongIntervalStr.isEmpty()) {
+        pongTimeoutSeconds = Integer.parseInt(pongIntervalStr);
+        if(AppConfig.isEnablePing()) {
+          logger.info("Waiting for pong within '" + pongTimeoutSeconds + "' seconds");
+        }
+      }
+    } catch (Exception e) {
+      logger.warn("Failed to load pong timeout from config, using default: '" + DEFAULT_PING_INTERVAL_SECONDS + "' seconds");
     }
   }
 
@@ -63,7 +84,7 @@ public class PingPongService {
         lastPingTime = now;
 
         if (!pongReceived) {
-          logger.warn("PONG not received within '" + PONG_TIMEOUT_SECONDS + "' seconds, closing connection");
+          logger.warn("PONG not received within '" + pongTimeoutSeconds + "' seconds, closing connection");
           //closeConnectionWithError("PONG timeout - no response from server");
           if (pingPongHandler != null) {
             pingPongHandler.onPongTimeout("PONG timeout - no response from server");
@@ -89,10 +110,9 @@ public class PingPongService {
   private void startPongTimeoutTimer() {
     cancelPongTimeoutTimer();
 
-    pongTimeoutTimerId = vertx.setTimer(PONG_TIMEOUT_SECONDS * 1000, timeoutId -> {
+    pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds * 1000, timeoutId -> {
       if (!pongReceived) {
-        logger.error("PONG not received after ping timeout");
-        //closeConnectionWithError("PONG timeout - no response from server");
+        logger.error("PONG not received after timeout '" + pongTimeoutSeconds + "' seconds");
         if (pingPongHandler != null) {
           pingPongHandler.onPongTimeout("PONG timeout - no response from server");
         }

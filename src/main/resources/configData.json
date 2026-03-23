@@ -9,5 +9,6 @@
   "trust.all": "false",
   "calc-srv.absolute.url": "http://calc.com/data",
   "ping.interval.seconds": "30",
-  "ping.enable": "true"
+  "ping.enable": "true",
+  "pong.timeout.seconds": "30"
 }

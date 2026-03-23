@@ -45,6 +45,7 @@ public class AppConfig {
   private static String oikCertCrt;
   private static Boolean isTrust;
   private static String pingInterval;
+  private static String pongInterval;
   private static Boolean enablePing;
 
   public static void loadConfig() {
@@ -73,7 +74,8 @@ public class AppConfig {
       calcSrvUrl = ConfigValidator.checkValueProperty(props, "calc-srv.absolute.url", configFile);
       oikCertCrt = ConfigValidator.checkValueProperty(props, "oik.cert.crt", configFile);
       isTrust = Boolean.parseBoolean(props.getProperty("trust.all", "false"));
-      pingInterval =  ConfigValidator.checkValueProperty(props, "ping.interval.seconds", configFile);
+      pingInterval =  props.getProperty("ping.interval.seconds", configFile);
+      pongInterval =  props.getProperty("pong.timeout.seconds", configFile);
       enablePing = Boolean.parseBoolean(props.getProperty("ping.enable", "true"));
 
     } catch (IOException e) {
@@ -128,5 +130,9 @@ public class AppConfig {
 
   public static Boolean isEnablePing() {
     return enablePing;
+  }
+
+  public static String getPongInterval() {
+    return pongInterval;
   }
 }
