@@ -77,26 +77,18 @@ public class PingPongService {
    */
   private void sendPing(WebSocket webSocket) {
     try {
-      Instant now = Instant.now();
-      long secondsSinceLastPing = java.time.Duration.between(lastPingTime, now).getSeconds();
-
-      if (secondsSinceLastPing >= pingIntervalSeconds) {
-        lastPingTime = now;
-
-        if (!pongReceived) {
-          logger.warn("PONG not received within '" + pongTimeoutSeconds + "' seconds, closing connection");
-          //closeConnectionWithError("PONG timeout - no response from server");
-          if (pingPongHandler != null) {
-            pingPongHandler.onPongTimeout("PONG timeout - no response from server");
-          }
+      if (!pongReceived) {
+        logger.warn("PONG not received within '" + pongTimeoutSeconds + "' seconds, closing connection");
+        //closeConnectionWithError("PONG timeout - no response from server");
+        if (pingPongHandler != null) {
+          pingPongHandler.onPongTimeout("PONG timeout - no response from server");
         }
-        else {
-          logger.info("Sending PING to server");
-          webSocket.writeFrame(WebSocketFrame.pingFrame(io.vertx.core.buffer.Buffer.buffer("ping")));
-          pongReceived = false;
+      } else {
+        logger.info("Sending PING to server");
+        webSocket.writeFrame(WebSocketFrame.pingFrame(io.vertx.core.buffer.Buffer.buffer("ping")));
+        pongReceived = false;
 
-          startPongTimeoutTimer();
-        }
+        startPongTimeoutTimer();
       }
     } catch (Exception e) {
       logger.error("Error in ping logic", e);
