@@ -8,7 +8,6 @@ import io.vertx.core.internal.logging.Logger;
 import io.vertx.core.internal.logging.LoggerFactory;
 
 import java.time.Instant;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class PingPongService {
 
@@ -17,16 +16,12 @@ public class PingPongService {
   private final Vertx vertx;
   private PingPongHandler pingPongHandler;
 
-  // Поля для ping-pong логики
   private volatile boolean pongReceived = true;
-  //private final AtomicBoolean pongReceived = new AtomicBoolean(true);
-  private static final int PONG_TIMEOUT_SECONDS = 30; // Таймаут ожидания pong
   private volatile Instant lastPingTime;
   private Long pingTimerId = null;
   private Long pongTimeoutTimerId = null;
+  private static final int PONG_TIMEOUT_SECONDS = 30;
   private static final int DEFAULT_PING_INTERVAL_SECONDS = 30;
-
-  // Настройки ping-pong из конфигурации
   private int pingIntervalSeconds = DEFAULT_PING_INTERVAL_SECONDS;
 
   public PingPongService(Vertx vertx) {
@@ -45,12 +40,11 @@ public class PingPongService {
   /**
    * Загрузка настроек ping-pong из конфигурации
    */
-  public void loadPingPongConfig() {
+  public void loadPingConfig() {
     try {
       String pingIntervalStr = AppConfig.getPingInterval();
       if (pingIntervalStr != null && !pingIntervalStr.isEmpty()) {
         pingIntervalSeconds = Integer.parseInt(pingIntervalStr);
-        logger.info("Ping-pong interval set to '" + pingIntervalSeconds + "' seconds");
       }
     } catch (Exception e) {
       logger.warn("Failed to load ping interval from config, using default: '" + DEFAULT_PING_INTERVAL_SECONDS + "' seconds");
@@ -110,12 +104,12 @@ public class PingPongService {
   /**
    * Запуск периодической отправки ping
    */
-  public void startPingPongTimer(WebSocket webSocket) {
+  public void startPingTimer(WebSocket webSocket) {
     if (webSocket == null) {
       throw new IllegalArgumentException("WebSocket cannot be null");
     }
 
-    stopPingPongTimer();
+    stop();
 
     this.lastPingTime = Instant.now();
 
@@ -128,33 +122,43 @@ public class PingPongService {
     pingTimerId = vertx.setPeriodic(pingIntervalSeconds * 1000, timerId -> {
       sendPing(webSocket);
     });
-    logger.debug("Ping-pong timer started with interval: '" + pingIntervalSeconds + "' seconds");
+    logger.info("Ping timer started with interval: '" + pingIntervalSeconds + "' seconds");
+  }
+
+  public void stop() {
+    cancelPingTimer();
+    cancelPongTimeoutTimer();
+    pongReceived = true;
+    lastPingTime = null;
   }
 
   /**
-   * Остановка ping-pong таймера
+   * Отмена периодического ping таймера
    */
-  public void stopPingPongTimer() {
+  public void cancelPingTimer() {
     if (pingTimerId != null) {
       vertx.cancelTimer(pingTimerId);
       pingTimerId = null;
-      logger.info("Ping-pong timer stopped");
+      logger.info("Ping timer stopped");
     }
   }
 
+  /**
+   * Сброс состояния для переподключения
+   */
   public void reset(){
     pongReceived = true;
     lastPingTime = Instant.now();
+    cancelPongTimeoutTimer();
   }
 
+  /**
+   * Отмена таймера ожидания pong
+   */
   public void cancelPongTimeoutTimer() {
     if (pongTimeoutTimerId != null) {
       vertx.cancelTimer(pongTimeoutTimerId);
       pongTimeoutTimerId = null;
     }
-  }
-
-  public void setPingPongHandler(PingPongHandler pingPongHandler) {
-    this.pingPongHandler = pingPongHandler;
   }
 }

@@ -2,7 +2,6 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import arbiter.constants.CloudEventStrings;
-import arbiter.data.MemoryData;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Future;
 import io.vertx.core.Handler;
@@ -14,8 +13,6 @@ import io.vertx.core.internal.logging.LoggerFactory;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -37,7 +34,7 @@ public class WebSocketService extends ABaseService {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
     this.pingPongService = createPingPongService(vertx);
-    pingPongService.loadPingPongConfig();
+    pingPongService.loadPingConfig();
 
     this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
         .setSsl(false)
@@ -55,6 +52,7 @@ public class WebSocketService extends ABaseService {
     PingPongService.PingPongHandler handler = new PingPongService.PingPongHandler() {
       @Override
       public void onPongTimeout(String errorMsg) {
+        //TODO[IER] Добавить реконнект подписки
         closeConnectionWithError(errorMsg);
       }
     };
@@ -92,7 +90,7 @@ public class WebSocketService extends ABaseService {
             setupWebSocketHandlers(webSocket, promise);
 
             if(AppConfig.isEnablePing()){
-              pingPongService.startPingPongTimer(webSocket);
+              pingPongService.startPingTimer(webSocket);
             }
 
             // Таймаут на установление соединения и получение первого сообщения
@@ -112,8 +110,8 @@ public class WebSocketService extends ABaseService {
 
   private void closeConnectionWithError(String errorMsg) {
     logger.error(errorMsg);
-    pingPongService.cancelPongTimeoutTimer();//Проверить нужен ли??
-    pingPongService.stopPingPongTimer();
+    pingPongService.cancelPongTimeoutTimer();
+    pingPongService.cancelPingTimer();
 
     WebSocket webSocket = currentWebSocket.get();
     if (webSocket != null && !webSocket.isClosed()) {
@@ -135,8 +133,7 @@ public class WebSocketService extends ABaseService {
     webSocket.closeHandler(v -> {
       logger.info("WebSocket connection closed");
 
-      pingPongService.stopPingPongTimer();
-      pingPongService.reset();
+      pingPongService.stop();
 
       if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket connection closed unexpectedly");
