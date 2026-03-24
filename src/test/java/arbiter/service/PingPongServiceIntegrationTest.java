@@ -30,8 +30,6 @@ class PingPongServiceIntegrationTest {
   private PingPongService pingPongService;
   private TestPingPongHandler testHandler;
   private MockedStatic<AppConfig> appConfigMock;
-  private AtomicLong receivedPingId;
-  private AtomicBoolean pongSent;
   private AtomicLong serverReceivedPingId;
   private AtomicInteger serverReceivedPingCount;
   private AtomicInteger serverSentPongCount;
@@ -47,13 +45,12 @@ class PingPongServiceIntegrationTest {
     this.vertx = vertx;
     this.testHandler = new TestPingPongHandler(testContext);
     this.pingPongService = new PingPongService(vertx, testHandler);
-    this.pongSent = new AtomicBoolean(false);
 
-    this.receivedPingId = new AtomicLong();
     this.serverSentPong = new AtomicBoolean(false);
     this.serverReceivedPingId = new AtomicLong(0);
     this.serverReceivedPingCount = new AtomicInteger(0);
     this.serverSentPongCount = new AtomicInteger(0);
+
     this.clientReceivedPongCount = new AtomicInteger(0);
     this.clientLastReceivedPongId = new AtomicLong();
 
@@ -140,8 +137,6 @@ class PingPongServiceIntegrationTest {
         clientWebSocket = webSocket;
         System.out.println("Client: Connected to server");
 
-        // Устанавливаем обработчик PONG на клиенте для мониторинга
-        // Это важно для проверки, что клиент получает PONG от сервера
         clientWebSocket.pongHandler(pongBuffer -> {
           if (pongBuffer != null && pongBuffer.length() >= 8) {
             long receivedPongId = pongBuffer.getLong(0);
@@ -154,46 +149,20 @@ class PingPongServiceIntegrationTest {
           }
         });
 
-        // Запускаем PingPongService, который:
-        // 1. Установит свой pongHandler на клиентский WebSocket
-        // 2. Начнет периодически отправлять PING
-        // ВАЖНО: PingPongService вызовет webSocket.pongHandler(this::handlePong)
-        // Это перезапишет наш обработчик выше! Нужно учитывать это.
         pingPongService.startPingTimer(clientWebSocket);
 
         System.out.println("Client: PingPongService started");
 
-        // Ждем выполнения нескольких ping-pong циклов
         vertx.setTimer(5000, timerId -> {
           testContext.verify(() -> {
-            // Проверяем, что сервер получил PING (счетчик был увеличен в обработчике)
-            System.out.println("Server received PING count: " + serverReceivedPingCount.get());
-            System.out.println("Server sent PONG count: " + serverSentPongCount.get());
-            System.out.println("Client timeout error: " + testHandler.getErrorMessage());
-            // Проверяем, что сервер получил PING
-            assertTrue(serverReceivedPingCount.get() >= 1,
-              "Server should receive at least 1 PING. Actual: " + serverReceivedPingCount.get());
-
-            // Проверяем, что сервер отправил PONG
-            assertTrue(serverSentPong.get(),
-              "Server should send PONG response");
-
-            // Проверяем, что клиент получил PONG через свой pongHandler
-            // ВАЖНО: Поскольку PingPongService устанавливает свой обработчик,
-            // мы не можем полагаться на clientReceivedPongCount.
-            // Вместо этого проверяем, что PingPongService не вызвал onPongTimeout
-            assertNull(testHandler.getErrorMessage(),
-              "PingPongService should not report timeout. Error: " + testHandler.getErrorMessage());
-
-            // Дополнительно проверяем, что PingPongService корректно обработал PONG
-            // Для этого можно проверить внутреннее состояние через отражение,
-            // но лучше добавить метод в PingPongService для проверки
+            assertTrue(serverReceivedPingCount.get() >= 1,"Server should receive at least 1 PING. Actual: " + serverReceivedPingCount.get());
+            assertTrue(serverSentPong.get(),"Server should send PONG response");
+            assertNull(testHandler.getErrorMessage(),"PingPongService should not report timeout. Error: " + testHandler.getErrorMessage());
           });
           testContext.completeNow();
         });
       })
       .onFailure(testContext::failNow);
-
     assertTrue(testContext.awaitCompletion(10, TimeUnit.SECONDS));
   }
 
