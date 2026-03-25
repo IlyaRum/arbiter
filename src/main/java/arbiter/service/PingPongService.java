@@ -16,7 +16,6 @@ public class PingPongService {
   private PingPongHandler pingPongHandler;
 
   private volatile boolean pongReceived = true;
-  private volatile Long lastPingId = null;
   private Long pingTimerId = null;
   private Long pongTimeoutTimerId = null;
   private static final int DEFAULTS_PONG_TIMEOUT_SECONDS = 30;
@@ -88,19 +87,15 @@ public class PingPongService {
           pingPongHandler.onPongTimeout("PONG timeout - no response from server");
         }
       } else {
-        long pingId = System.currentTimeMillis();
-        lastPingId = pingId;
-        Buffer pingData = Buffer.buffer().appendLong(pingId);
-        logger.info("Sending PING to server with id: '" + pingId + "'");
-        webSocket.writeFrame(WebSocketFrame.pingFrame(pingData));
+        logger.info("Sending PING to server");
+        webSocket.writeFrame(WebSocketFrame.pingFrame(io.vertx.core.buffer.Buffer.buffer("ping")));
         pongReceived = false;
 
-        startPongTimeoutTimer(pingId);
+        startPongTimeoutTimer();
       }
     } catch (Exception e) {
       logger.error("Error in ping logic", e);
       pongReceived = true;
-      lastPingId = null;
       //closeConnectionWithError("Ping error: " + e.getMessage());
       if (pingPongHandler != null) {
         pingPongHandler.onPongTimeout("Ping error: " + e.getMessage());
@@ -108,14 +103,13 @@ public class PingPongService {
     }
   }
 
-  private void startPongTimeoutTimer(long pingId) {
+  private void startPongTimeoutTimer() {
     cancelPongTimeoutTimer();
 
     pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds * 1000, timeoutId -> {
-      if (!pongReceived && lastPingId != null && lastPingId == pingId) {
-        logger.error("PONG not received after timeout '" + pongTimeoutSeconds + "' seconds for PING id '" + pingId + "'");
+      if (!pongReceived) {
+        logger.error("PONG not received after timeout '" + pongTimeoutSeconds + "' seconds ");
         pongReceived = true;
-        lastPingId = null;
         //closeConnectionWithError("PONG timeout - no response from server");
         if (pingPongHandler != null) {
           pingPongHandler.onPongTimeout("PONG timeout - no response from server");
@@ -135,7 +129,7 @@ public class PingPongService {
 
     stop();
 
-    webSocket.pongHandler(this::handlePong);
+    webSocket.pongHandler(pong -> handlePong());
 
     pingTimerId = vertx.setPeriodic(pingIntervalSeconds * 1000, timerId -> {
       sendPing(webSocket);
@@ -143,28 +137,16 @@ public class PingPongService {
     logger.info("Ping timer started with interval: '" + pingIntervalSeconds + "' seconds");
   }
 
-  private void handlePong(Buffer pong) {
+  private void handlePong() {
     if (pongReceived) {
       logger.debug("Received unsolicited PONG");
       return;
     }
 
     try {
-      if (pong != null && pong.length() >= 8) {
-        long receivedPingId = pong.getLong(0);
-        Long expectedPingId = lastPingId;
-        if (expectedPingId != null && receivedPingId == expectedPingId) {
-          logger.info("PONG received: '" + receivedPingId + "'");
-          pongReceived = true;
-          cancelPongTimeoutTimer();
-        } else {
-          logger.warn("Invalid PONG data: expected id " + expectedPingId + ", got '" + receivedPingId + "'");
-        }
-      } else {
-        logger.info("PONG received without data");
-        pongReceived = true;
-        cancelPongTimeoutTimer();
-      }
+      pongReceived = true;
+      logger.info("PONG received");
+      cancelPongTimeoutTimer();
     } catch (Exception e) {
       logger.error("Error handling PONG", e);
     }
@@ -175,7 +157,6 @@ public class PingPongService {
     cancelPingTimer();
     cancelPongTimeoutTimer();
     pongReceived = true;
-    lastPingId = null;
     if (hadActiveTimers) {
       logger.info("PingPongService stopped");
     }
@@ -197,7 +178,6 @@ public class PingPongService {
    */
   public void reset(){
     pongReceived = true;
-    lastPingId = null;
     cancelPongTimeoutTimer();
     logger.debug("PingPongService reset");
   }
