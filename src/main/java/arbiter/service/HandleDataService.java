@@ -55,7 +55,8 @@ public class HandleDataService extends ABaseService {
 
     this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, this.executor);
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
-    subscribeToReconnectionEvents();
+    //subscribeToReconnectionEvents();
+    subscribeToWebSocketCloseEvents();
   }
 
   private ExecutorService createDefaultExecutor() {
@@ -220,19 +221,37 @@ public class HandleDataService extends ABaseService {
     return mapper;
   }
 
-  /**
-   * Подписка на события переподключения WebSocket
-   */
-  private void subscribeToReconnectionEvents() {
-    vertx.eventBus().consumer("websocket.reconnected", message -> {
-      logger.info("Получено событие о переподключении WebSocket");
-      JsonObject eventData = (JsonObject) message.body();
-      logger.debug("Данные события: " + eventData);
+//  /**
+//   * Подписка на события переподключения WebSocket
+//   */
+//  private void subscribeToReconnectionEvents() {
+//    vertx.eventBus().consumer("websocket.reconnected", message -> {
+//      logger.info("Получено событие о переподключении WebSocket");
+//      JsonObject eventData = (JsonObject) message.body();
+//      logger.debug("Данные события: " + eventData);
+//
+//      if (measurementDataProcessor != null) {
+//        measurementDataProcessor.resetFirstTime();
+//        logger.info("Сброшен флаг firstTime после переподключения");
+//      }
+//    });
+//  }
 
+  /**
+   * Подписка на события закрытия WebSocket
+   */
+  private void subscribeToWebSocketCloseEvents() {
+    vertx.eventBus().consumer("websocket.closed", message -> {
+      logger.info("Получено событие о закрытии WebSocket");
+
+      // Сбрасываем состояние MeasurementDataProcessor
       if (measurementDataProcessor != null) {
-        measurementDataProcessor.resetFirstTime();
-        logger.info("Сброшен флаг firstTime после переподключения");
+        measurementDataProcessor.reset();
+        logger.info("Сброшено состояние MeasurementDataProcessor после закрытия WebSocket");
       }
+
+      // Очищаем текущий channelId
+      currentChannelId = null;
     });
   }
 

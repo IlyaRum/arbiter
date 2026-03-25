@@ -987,4 +987,27 @@ public class MeasurementChangeTracker {
   private String getUnitIdentifier(UnitDto unitDto) {
     return unitDto.getName();
   }
+
+  /**
+   * Полный сброс состояния трекера для всех сечений
+   */
+  public void reset() {
+    logger.info("Начало полного сброса MeasurementChangeTracker");
+
+    unitInitialDataLoaded.clear();
+    unitPreviousParameterValues.clear();
+    unitPreviousTopologyValues.clear();
+    unitPreviousElementValues.clear();
+    unitPreviousFactorValues.clear();
+    unitPreviousRepairValues.clear();
+    unitPreviousUnitResultValues.clear();
+    unitTrackedParameterChanges.clear();
+    unitTrackedTopologyChanges.clear();
+    unitTrackedElementChanges.clear();
+    unitTrackedFactorChanges.clear();
+    unitTrackedRepairChanges.clear();
+    unitTrackedUnitResultChanges.clear();
+
+    logger.info("MeasurementChangeTracker полностью сброшен. Все структуры очищены.");
+  }
 }

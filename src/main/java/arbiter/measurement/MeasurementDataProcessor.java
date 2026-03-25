@@ -98,4 +98,20 @@ public class MeasurementDataProcessor {
   public boolean isFirstTime() {
     return firstTime;
   }
+
+  /**
+   * Полный сброс состояния процессора и трекера изменений
+   */
+  public void reset() {
+    logger.info("Полный сброс состояния MeasurementDataProcessor");
+
+    if (measurementChangeTracker != null) {
+      measurementChangeTracker.reset();
+      logger.info("MeasurementChangeTracker сброшен");
+    }
+
+    resetFirstTime();
+
+    logger.info("MeasurementDataProcessor полностью сброшен");
+  }
 }
