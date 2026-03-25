@@ -55,6 +55,7 @@ public class HandleDataService extends ABaseService {
 
     this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, this.executor);
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
+    subscribeToReconnectionEvents();
   }
 
   private ExecutorService createDefaultExecutor() {
@@ -218,4 +219,21 @@ public class HandleDataService extends ABaseService {
     mapper.enable(SerializationFeature.INDENT_OUTPUT);
     return mapper;
   }
+
+  /**
+   * Подписка на события переподключения WebSocket
+   */
+  private void subscribeToReconnectionEvents() {
+    vertx.eventBus().consumer("websocket.reconnected", message -> {
+      logger.info("Получено событие о переподключении WebSocket");
+      JsonObject eventData = (JsonObject) message.body();
+      logger.debug("Данные события: " + eventData);
+
+      if (measurementDataProcessor != null) {
+        measurementDataProcessor.resetFirstTime();
+        logger.info("Сброшен флаг firstTime после переподключения");
+      }
+    });
+  }
+
 }

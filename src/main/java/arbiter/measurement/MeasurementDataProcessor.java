@@ -83,6 +83,11 @@ public class MeasurementDataProcessor {
     return result;
   }
 
+  public void resetFirstTime() {
+    this.firstTime = true;
+    logger.info("Сброшен флаг firstTime для повторной отправки первоначальных данных при переподключении");
+  }
+
   /**
    * Устанавливает callback для уведомления о готовых данных
    */
