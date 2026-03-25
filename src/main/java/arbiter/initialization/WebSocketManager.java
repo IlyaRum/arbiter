@@ -60,7 +60,7 @@ public class WebSocketManager {
     isReconnecting.set(true);
     int attempt = reconnectAttempts.incrementAndGet();
 
-    logger.info(String.format("))) попытка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
+    logger.info(String.format("Попытка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
 
     WebSocketService webSocketService = dependencyInjector.getWebSocketService();
     return webSocketService.connectToWebSocketServer(currentToken)
@@ -86,7 +86,7 @@ public class WebSocketManager {
         .thenApply(eventResult -> subscriptionResult))
        .exceptionally(throwable -> {
         isReconnecting.set(false);
-        logger.error(String.format("((( ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
+        logger.error(String.format("Ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
 
         if (attempt < maxReconnectAttempts.get()) {
           scheduleReconnect();
@@ -136,6 +136,14 @@ public class WebSocketManager {
       .end("Принудительное переподключение");
 
     return reconnect();
+  }
+
+  public void forceReconnect(String errorMsg) {
+    logger.error(errorMsg);
+    reconnectAttempts.set(0);
+    WebSocketService webSocketService = dependencyInjector.getWebSocketService();
+    webSocketService.closeConnection();
+    reconnect();
   }
 
   /**

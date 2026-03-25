@@ -53,8 +53,9 @@ public class WebSocketService extends ABaseService {
     PingPongService.PingPongHandler handler = new PingPongService.PingPongHandler() {
       @Override
       public void onPongTimeout(String errorMsg) {
-        //TODO[IER] Добавить реконнект подписки
-        closeConnectionWithError(errorMsg);
+        pingPongService.cancelPongTimeoutTimer();
+        pingPongService.cancelPingTimer();
+        dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
       }
     };
 
@@ -133,6 +134,7 @@ public class WebSocketService extends ABaseService {
 
     webSocket.closeHandler(v -> {
       logger.info("WebSocket connection closed");
+      logger.info("Checking connect after close: " + isConnected());
 
       pingPongService.stop();
 

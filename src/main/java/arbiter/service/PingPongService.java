@@ -106,7 +106,7 @@ public class PingPongService {
   private void startPongTimeoutTimer() {
     cancelPongTimeoutTimer();
 
-    pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds * 1000, timeoutId -> {
+    pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds, timeoutId -> {
       if (!pongReceived) {
         logger.error("PONG not received after timeout '" + pongTimeoutSeconds + "' seconds ");
         pongReceived = true;
