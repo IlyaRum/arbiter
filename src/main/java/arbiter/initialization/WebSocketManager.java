@@ -84,10 +84,6 @@ public class WebSocketManager {
       })
       .thenCompose(subscriptionResult -> dependencyInjector.getEventSubscriptionService().addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
         .thenApply(eventResult -> subscriptionResult))
-//      .thenApply(subscriptionResult -> {
-//        dependencyInjector.getVertx().eventBus().publish("websocket.reconnected", subscriptionResult);
-//        return subscriptionResult;
-//      })
        .exceptionally(throwable -> {
         isReconnecting.set(false);
         logger.error(String.format("Ошибка переподключения к ОИК %d из %d", attempt, maxReconnectAttempts.get()));
@@ -145,8 +141,7 @@ public class WebSocketManager {
   public void forceReconnect(String errorMsg) {
     logger.error(errorMsg);
     reconnectAttempts.set(0);
-    WebSocketService webSocketService = dependencyInjector.getWebSocketService();
-    webSocketService.closeConnection();
+    dependencyInjector.getWebSocketService().closeConnection();
     reconnect();
   }
 
