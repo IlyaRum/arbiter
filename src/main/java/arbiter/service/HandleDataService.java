@@ -225,15 +225,12 @@ public class HandleDataService extends ABaseService {
    */
   private void subscribeToWebSocketCloseEvents() {
     vertx.eventBus().consumer("websocket.closed", message -> {
-      logger.info("Получено событие о закрытии WebSocket");
+      logger.info("Получено 'websocket.closed' событие.");
 
       if (measurementDataProcessor != null) {
         measurementDataProcessor.reset();
-        logger.info("Сброшено состояние MeasurementDataProcessor после закрытия WebSocket");
       }
-
       currentChannelId = null;
     });
   }
-
 }

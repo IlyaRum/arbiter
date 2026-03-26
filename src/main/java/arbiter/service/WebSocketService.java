@@ -178,10 +178,7 @@ public class WebSocketService extends ABaseService {
     try {
       Vertx vertx = dependencyInjector.getVertx();
       if (vertx != null) {
-        JsonObject eventData = new JsonObject()
-          .put("timestamp", System.currentTimeMillis())
-          .put("reason", str);
-        vertx.eventBus().publish("websocket.closed", eventData);
+        vertx.eventBus().publish("websocket.closed", str);
         logger.debug("Опубликовано событие о закрытии WebSocket: " + str);
       }
     } catch (Exception e) {
