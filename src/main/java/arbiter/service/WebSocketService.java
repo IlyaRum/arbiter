@@ -170,19 +170,19 @@ public class WebSocketService extends ABaseService {
     if (webSocket != null) {
       webSocket.close((short) 1000, "Manual closure");
       currentWebSocket.set(null);
-      publishCloseEvent("Websocket connection closed");
+      publishEvent("websocket.closed", "Websocket connection closed");
     }
   }
 
-  private void publishCloseEvent(String str) {
+  private void publishEvent(String address, String str) {
     try {
       Vertx vertx = dependencyInjector.getVertx();
       if (vertx != null) {
-        vertx.eventBus().publish("websocket.closed", str);
-        logger.debug("Опубликовано событие о закрытии WebSocket: " + str);
+        vertx.eventBus().publish(address, str);
+        logger.debug("Опубликовано событие " + address + " : " + str);
       }
     } catch (Exception e) {
-      logger.error("Ошибка при публикации события о закрытии: " + e.getMessage());
+      logger.error("Ошибка при публикации события: " + address + " : " + e.getMessage());
     }
   }
 
