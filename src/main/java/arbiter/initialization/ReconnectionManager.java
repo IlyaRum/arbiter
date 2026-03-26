@@ -23,7 +23,7 @@ public class ReconnectionManager {
   //TODO[IER] Вынести Задержку между попытками в configData.json
   private final AtomicInteger reconnectDelayMs = new AtomicInteger(10000);
   private long reconnectTimerId = -1;
-  private String channelId;
+  //private String channelId;
 
   public ReconnectionManager(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
@@ -121,20 +121,35 @@ public class ReconnectionManager {
       .thenApply(jsonObject -> {
         isReconnecting.set(false);
         reconnectAttempts.set(0);
-        channelId = jsonObject.getString("subject");
+        String channelId = jsonObject.getString("subject");
         logger.info("[reconnect] channelId: " + channelId);
-        return channelId;
+        return jsonObject;
       })
-      .thenCompose(channelId -> dependencyInjector.getSubscriptionManager().createSubscription(channelId, currentToken))
+      .thenCompose(jsonObject -> {
+        String channelId = jsonObject.getString("subject");
+        logger.info("[reconnect] channelId: " + channelId);
+        return dependencyInjector.getSubscriptionManager()
+          .createSubscription(channelId, currentToken)
+          .thenApply(subscriptionResult -> {
+            JsonObject valueObject = subscriptionResult.getJsonObject("value");
+            String subscriptionId = valueObject.getString("subscriptionId");
+            logger.info("[reconnect] subscriptionId: " + subscriptionId);
+            return new JsonObject()
+              .put("channelId", channelId)
+              .put("subscriptionId", subscriptionId)
+              .put("subscriptionResult", subscriptionResult);
+          });
+      })
       .thenCompose(subscriptionResult -> {
-        JsonObject valueObject = subscriptionResult.getJsonObject("value");
-        String subscriptionId = valueObject.getString("subscriptionId");
-        logger.info("[reconnect] subscriptionId: " + subscriptionId);
+        String channelId = subscriptionResult.getString("channelId");
+        String subscriptionId = subscriptionResult.getString("subscriptionId");
         return dependencyInjector.getSubscriptionManager()
           .changeSubscription(channelId, subscriptionId, currentToken)
           .thenApply(finalResult -> new JsonObject().put("channelId", channelId));
       })
-      .thenCompose(subscriptionResult -> dependencyInjector.getEventSubscriptionService().addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
+      .thenCompose(subscriptionResult ->
+        dependencyInjector.getEventSubscriptionService()
+          .addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
         .thenApply(eventResult -> subscriptionResult))
       .exceptionally(throwable -> {
         isReconnecting.set(false);
