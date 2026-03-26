@@ -8,7 +8,8 @@
   "oik.cert.crt": "src/main/resources/ia-oc-w-aiptst.cdu.so.crt",
   "trust.all": "false",
   "calc-srv.absolute.url": "http://calc.com/data",
-  "ping.interval.seconds": "30",
   "ping.enable": "true",
-  "pong.timeout.seconds": "30"
+  "ping.interval.seconds": "20",
+  "pong.timeout.seconds": "20",
+  "websocket.reconnect.interval.seconds": "10"
 }

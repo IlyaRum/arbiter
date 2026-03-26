@@ -62,7 +62,7 @@ public class PingPongService {
       if (pongIntervalStr != null && !pongIntervalStr.isEmpty()) {
         pongTimeoutSeconds = Integer.parseInt(pongIntervalStr);
         if(AppConfig.isEnablePing()) {
-          logger.info("Waiting for pong within '" + pongTimeoutSeconds + "' seconds");
+          logger.info("Рong timeout set to '" + pongTimeoutSeconds + "' seconds");
         }
       }
     } catch (Exception e) {

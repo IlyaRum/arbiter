@@ -1,5 +1,6 @@
 package arbiter.initialization;
 
+import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.service.WebSocketService;
 import io.vertx.core.internal.logging.Logger;
@@ -19,8 +20,7 @@ public class ReconnectionManager {
   private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
   private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
   private final AtomicInteger maxReconnectAttempts = new AtomicInteger(100);
-  //TODO[IER] Вынести Задержку между попытками в configData.json
-  private final AtomicInteger reconnectDelayMs = new AtomicInteger(10000);
+  private final AtomicInteger websocketReconnectInterval = new AtomicInteger(10);
   private long reconnectTimerId = -1;
 
   public ReconnectionManager(DependencyInjector dependencyInjector) {
@@ -87,6 +87,9 @@ public class ReconnectionManager {
               });
   }
 
+    /**
+     * Выполняет переподключение с определенным числом попыток
+     */
     public CompletableFuture<JsonObject> reconnectWithAttempts(String currentToken) {
         if (isReconnecting.get() || reconnectAttempts.get() >= maxReconnectAttempts.get()) {
             logger.warn(String.format("Reconnection stopped: attempts=%d, max=%d, reconnecting=%s",
@@ -164,10 +167,10 @@ public class ReconnectionManager {
       dependencyInjector.getVertx().cancelTimer(reconnectTimerId);
     }
 
-    int delay = reconnectDelayMs.get();
-    logger.info(String.format("Планируем переподключение через %d мс", delay));
+    int delay = websocketReconnectInterval.get();
+    logger.info(String.format("Планируем переподключение через %d секунд", delay));
 
-    reconnectTimerId = dependencyInjector.getVertx().setTimer(delay, timerId -> {
+    reconnectTimerId = dependencyInjector.getVertx().setTimer(delay * 1000L, timerId -> {
       reconnectTimerId = -1;
       reconnect(currentToken);
     });
@@ -186,7 +189,7 @@ public class ReconnectionManager {
       return;
     }
 
-    int delay = reconnectDelayMs.get();
+    int delay = websocketReconnectInterval.get();
     logger.info(String.format("Планируем переподключение через %d мс", delay));
 
     reconnectTimerId = dependencyInjector.getVertx().setTimer(delay, timerId -> {
@@ -218,11 +221,30 @@ public class ReconnectionManager {
     return reconnectAttempts.get();
   }
 
-  /**
+    public int getWebsocketReconnectInterval() {
+        return websocketReconnectInterval.get();
+    }
+
+    /**
    * Проверка, выполняется ли переподключение
    */
   public boolean isReconnecting() {
     return isReconnecting.get();
   }
+
+    /**
+     * Загрузка настройки задержки между попытками рекконекта из конфигурации
+     */
+    public void loadWebsocketReconnectIntervalConfig() {
+        try {
+            String reconnectIntervalStr = AppConfig.getWebsocketReconnectInterval();
+            if (reconnectIntervalStr != null && !reconnectIntervalStr.isEmpty()) {
+                websocketReconnectInterval.set(Integer.parseInt(reconnectIntervalStr));
+                    logger.info("Websocket reconnect interval set to '" + websocketReconnectInterval + "' seconds");
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to load websocket reconnect interval from config, using default: '" + websocketReconnectInterval + "' seconds");
+        }
+    }
 
 }

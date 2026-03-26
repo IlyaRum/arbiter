@@ -47,6 +47,7 @@ public class AppConfig {
   private static String pingInterval;
   private static String pongInterval;
   private static Boolean enablePing;
+  private static String websocketReconnectInterval;
 
   public static void loadConfig() {
     String configFile = System.getProperty("config.file", "configData.json");
@@ -77,6 +78,7 @@ public class AppConfig {
       pingInterval =  props.getProperty("ping.interval.seconds", configFile);
       pongInterval =  props.getProperty("pong.timeout.seconds", configFile);
       enablePing = Boolean.parseBoolean(props.getProperty("ping.enable", "true"));
+      websocketReconnectInterval =  props.getProperty("websocket.reconnect.interval.seconds", configFile);
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to load configuration file: " + configFile, e);
@@ -134,5 +136,9 @@ public class AppConfig {
 
   public static String getPongInterval() {
     return pongInterval;
+  }
+
+  public static String getWebsocketReconnectInterval() {
+    return websocketReconnectInterval;
   }
 }

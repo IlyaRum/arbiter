@@ -20,6 +20,7 @@ public class WebSocketManager {
   public WebSocketManager(DependencyInjector dependencyInjector) {
     this.dependencyInjector = dependencyInjector;
     reconnectionManager = new ReconnectionManager(dependencyInjector);
+    reconnectionManager.loadWebsocketReconnectIntervalConfig();
   }
 
   public CompletableFuture<String> connectWebSocket(String token) {
@@ -90,6 +91,7 @@ public class WebSocketManager {
    */
   public void getReconnectionStats(RoutingContext context) {
     JsonObject stats = new JsonObject()
+      .put("websocketReconnectInterval", reconnectionManager.getWebsocketReconnectInterval())
       .put("reconnectAttempts", reconnectionManager.getReconnectAttempts())
       .put("isReconnecting", reconnectionManager.isReconnecting())
       .put("isConnected", isConnected());
