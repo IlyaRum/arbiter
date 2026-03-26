@@ -56,14 +56,14 @@ public class WebSocketManager {
       .putHeader("Content-Type", "application/json")
       .end("Принудительное переподключение");
 
-    return reconnectionManager.reconnect1(currentToken);
+    return reconnectionManager.reconnect(currentToken);
   }
 
   public void forceReconnect(String errorMsg) {
     logger.error(errorMsg);
     reconnectionManager.reconnectAttempts();
     dependencyInjector.getWebSocketService().closeConnection();
-    reconnectionManager.reconnect1(currentToken);
+    reconnectionManager.reconnect(currentToken);
   }
 
   /**
