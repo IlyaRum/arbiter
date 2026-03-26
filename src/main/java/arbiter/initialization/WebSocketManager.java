@@ -40,7 +40,9 @@ public class WebSocketManager {
         return channelId;
       }).exceptionally(throwable -> {
         logger.error("Ошибка подключения: " + throwable.getMessage());
-        scheduleReconnect();
+        //TODO[IER] Нужно реализовать и добавить метод для переподключения веб сокета,
+        //если канал не открылся по какой-то причине
+        //reconnectToWebSocketServer();
         throw new RuntimeException(throwable);
       });
   }
