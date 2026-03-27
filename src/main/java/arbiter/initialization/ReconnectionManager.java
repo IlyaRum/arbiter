@@ -31,65 +31,72 @@ public class ReconnectionManager {
    * Выполняет переподключение с бесконечным числом попыток
    */
   public CompletableFuture<JsonObject> reconnect(String currentToken) {
-      if (currentToken == null) {
-          logger.error("Cannot reconnect: no token available");
-          return CompletableFuture.failedFuture(new RuntimeException("Token not available"));
-      }
+    if (isReconnecting.get()) {
+      logger.warn(String.format("Reconnection stopped: reconnecting=%s", isReconnecting.get()));
+      return CompletableFuture.failedFuture(new RuntimeException("Переподключение уже выполняется"));
+    }
 
-      isReconnecting.set(true);
-      int attempt = reconnectAttempts.incrementAndGet();
+    if (currentToken == null) {
+      logger.error("Cannot reconnect: no token available");
+      return CompletableFuture.failedFuture(new RuntimeException("Token not available"));
+    }
 
-      logger.info(String.format("Попытка переподключения к ОИК %d", attempt));
+    isReconnecting.set(true);
+    int attempt = reconnectAttempts.incrementAndGet();
 
-      WebSocketService webSocketService = dependencyInjector.getWebSocketService();
-      return webSocketService.connectToWebSocketServer(currentToken)
-              .toCompletionStage()
-              .toCompletableFuture()
-              .thenApply(jsonObject -> {
-                  isReconnecting.set(false);
-                  reconnectAttempts.set(0);
-                  String channelId = jsonObject.getString("subject");
-                  logger.info("[reconnect] channelId: " + channelId);
-                  return jsonObject;
-              })
-              .thenCompose(jsonObject -> {
-                  String channelId = jsonObject.getString("subject");
-                  logger.info("[reconnect] channelId: " + channelId);
-                  return dependencyInjector.getSubscriptionManager()
-                          .createSubscription(channelId, currentToken)
-                          .thenApply(subscriptionResult -> {
-                              JsonObject valueObject = subscriptionResult.getJsonObject("value");
-                              String subscriptionId = valueObject.getString("subscriptionId");
-                              logger.info("[reconnect] subscriptionId: " + subscriptionId);
-                              return new JsonObject()
-                                      .put("channelId", channelId)
-                                      .put("subscriptionId", subscriptionId)
-                                      .put("subscriptionResult", subscriptionResult);
-                          });
-              })
-              .thenCompose(subscriptionResult -> {
-                  String channelId = subscriptionResult.getString("channelId");
-                  String subscriptionId = subscriptionResult.getString("subscriptionId");
-                  return dependencyInjector.getSubscriptionManager()
-                          .changeSubscription(channelId, subscriptionId, currentToken)
-                          .thenApply(finalResult -> new JsonObject().put("channelId", channelId));
-              })
-              .thenCompose(subscriptionResult ->
-                      dependencyInjector.getEventSubscriptionService()
-                              .addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
-                              .thenApply(eventResult -> subscriptionResult))
-              .exceptionally(throwable -> {
-                  isReconnecting.set(false);
-                  logger.error(String.format("Ошибка переподключения к ОИК (попытка %d): %s",
-                          attempt, throwable.getMessage()));
-                  scheduleReconnect(currentToken);
-                  throw new RuntimeException(throwable);
-              });
+    logger.info(String.format("Попытка переподключения к ОИК (попытка %d)", attempt));
+
+    WebSocketService webSocketService = dependencyInjector.getWebSocketService();
+    return webSocketService.connectToWebSocketServer(currentToken)
+      .toCompletionStage()
+      .toCompletableFuture()
+      .thenApply(jsonObject -> {
+        isReconnecting.set(false);
+        reconnectAttempts.set(0);
+        String channelId = jsonObject.getString("subject");
+        logger.info("[reconnect] channelId: " + channelId);
+        return jsonObject;
+      })
+      .thenCompose(jsonObject -> {
+        String channelId = jsonObject.getString("subject");
+        logger.info("[reconnect] channelId: " + channelId);
+        return dependencyInjector.getSubscriptionManager()
+          .createSubscription(channelId, currentToken)
+          .thenApply(subscriptionResult -> {
+            JsonObject valueObject = subscriptionResult.getJsonObject("value");
+            String subscriptionId = valueObject.getString("subscriptionId");
+            logger.info("[reconnect] subscriptionId: " + subscriptionId);
+            return new JsonObject()
+              .put("channelId", channelId)
+              .put("subscriptionId", subscriptionId)
+              .put("subscriptionResult", subscriptionResult);
+          });
+      })
+      .thenCompose(subscriptionResult -> {
+        String channelId = subscriptionResult.getString("channelId");
+        String subscriptionId = subscriptionResult.getString("subscriptionId");
+        return dependencyInjector.getSubscriptionManager()
+          .changeSubscription(channelId, subscriptionId, currentToken)
+          .thenApply(finalResult -> new JsonObject().put("channelId", channelId));
+      })
+      .thenCompose(subscriptionResult ->
+        dependencyInjector.getEventSubscriptionService()
+          .addEventSubscription(dependencyInjector, currentToken, subscriptionResult)
+          .thenApply(eventResult -> subscriptionResult))
+      .exceptionally(throwable -> {
+        isReconnecting.set(false);
+        logger.error(String.format("Ошибка переподключения к ОИК (попытка %d): %s",
+          attempt, throwable.getMessage()));
+        scheduleReconnect(currentToken);
+        throw new RuntimeException(throwable);
+      });
   }
 
     /**
      * Выполняет переподключение с определенным числом попыток
      */
+    //TODO[IER] Оставил этот метод на время разработки.
+    // Удалим, если не нужно будет переключение с определенным числом попыток
     public CompletableFuture<JsonObject> reconnectWithAttempts(String currentToken) {
         if (isReconnecting.get() || reconnectAttempts.get() >= maxReconnectAttempts.get()) {
             logger.warn(String.format("Reconnection stopped: attempts=%d, max=%d, reconnecting=%s",
