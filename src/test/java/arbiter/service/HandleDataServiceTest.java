@@ -14,6 +14,7 @@ import io.cloudevents.jackson.JsonFormat;
 import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
@@ -39,11 +40,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith({VertxExtension.class, MockitoExtension.class})
-@Disabled
 class HandleDataServiceTest {
 
   @Mock
   private Vertx vertx;
+
+  @Mock
+  private EventBus eventBus;
 
   @Mock
   private DependencyInjector dependencyInjector;
@@ -73,6 +76,9 @@ class HandleDataServiceTest {
   @BeforeEach
   void setUp() {
     objectMapper = new ObjectMapper();
+
+    when(vertx.eventBus()).thenReturn(eventBus);
+    when(eventBus.consumer(anyString(), any(Handler.class))).thenReturn(null);
 
     handleDataService = new HandleDataService(
       vertx,
