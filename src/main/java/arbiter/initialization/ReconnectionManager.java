@@ -1,6 +1,5 @@
 package arbiter.initialization;
 
-import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import arbiter.service.WebSocketService;
 import io.vertx.core.internal.logging.Logger;
@@ -20,7 +19,7 @@ public class ReconnectionManager {
   private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
   private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
   private final AtomicInteger maxReconnectAttempts = new AtomicInteger(100);
-  private final AtomicInteger websocketReconnectInterval = new AtomicInteger(10);
+  private final AtomicInteger websocketReconnectDelay = new AtomicInteger(10);
   private long reconnectTimerId = -1;
 
   public ReconnectionManager(DependencyInjector dependencyInjector) {
@@ -174,7 +173,7 @@ public class ReconnectionManager {
       dependencyInjector.getVertx().cancelTimer(reconnectTimerId);
     }
 
-    int delay = websocketReconnectInterval.get();
+    int delay = websocketReconnectDelay.get();
     logger.info(String.format("Планируем переподключение через %d секунд", delay));
 
     reconnectTimerId = dependencyInjector.getVertx().setTimer(delay * 1000L, timerId -> {
@@ -196,7 +195,7 @@ public class ReconnectionManager {
       return;
     }
 
-    int delay = websocketReconnectInterval.get();
+    int delay = websocketReconnectDelay.get();
     logger.info(String.format("Планируем переподключение через %d мс", delay));
 
     reconnectTimerId = dependencyInjector.getVertx().setTimer(delay, timerId -> {
@@ -228,8 +227,8 @@ public class ReconnectionManager {
     return reconnectAttempts.get();
   }
 
-    public int getWebsocketReconnectInterval() {
-        return websocketReconnectInterval.get();
+    public int getWebsocketReconnectDelay() {
+        return websocketReconnectDelay.get();
     }
 
     /**
@@ -243,15 +242,8 @@ public class ReconnectionManager {
      * Загрузка настройки задержки между попытками рекконекта из конфигурации
      */
     public void loadWebsocketReconnectIntervalConfig() {
-        try {
-            String reconnectIntervalStr = AppConfig.getWebsocketReconnectInterval();
-            if (reconnectIntervalStr != null && !reconnectIntervalStr.isEmpty()) {
-                websocketReconnectInterval.set(Integer.parseInt(reconnectIntervalStr));
-                    logger.info("Websocket reconnect interval set to '" + websocketReconnectInterval + "' seconds");
-            }
-        } catch (Exception e) {
-            logger.warn("Failed to load websocket reconnect interval from config, using default: '" + websocketReconnectInterval + "' seconds");
-        }
+      websocketReconnectDelay.set(dependencyInjector.getUnitCollection().getWebsocketReconnectDelay());
+      logger.info("Websocket reconnect delay set to '" + websocketReconnectDelay + "' seconds");
     }
 
 }

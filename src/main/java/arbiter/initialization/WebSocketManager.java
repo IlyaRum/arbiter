@@ -91,7 +91,7 @@ public class WebSocketManager {
    */
   public void getReconnectionStats(RoutingContext context) {
     JsonObject stats = new JsonObject()
-      .put("websocketReconnectInterval", reconnectionManager.getWebsocketReconnectInterval())
+      .put("websocketReconnectInterval", reconnectionManager.getWebsocketReconnectDelay())
       .put("reconnectAttempts", reconnectionManager.getReconnectAttempts())
       .put("isReconnecting", reconnectionManager.isReconnecting())
       .put("isConnected", isConnected());

@@ -8,6 +8,5 @@
   "oik.cert.crt": "src/main/resources/ia-oc-w-aiptst.cdu.so.crt",
   "trust.all": "false",
   "calc-srv.absolute.url": "http://calc.com/data",
-  "ping.enable": "true",
-  "websocket.reconnect.interval.seconds": "10"
+  "ping.enable": "true"
 }

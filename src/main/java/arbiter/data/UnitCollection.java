@@ -57,6 +57,10 @@ public class UnitCollection {
   private boolean watchDogWait = false;
 
   //настройки для сокет коннекта
+  private Integer openChanelAttempts;
+  private Integer websocketReconnectDelay;
+  private Integer openChanelTimeout;
+  private Integer websocketReadDataTimeout;
   private Integer pingIntervalSeconds;
   private Integer pongTimeoutSeconds;
 
@@ -107,6 +111,10 @@ public class UnitCollection {
 
       JsonObject hasWebSocketDataField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_WEBSOCKET_CHANNEL_OPEN), CONFIG_KEY_WEBSOCKET_CHANNEL_OPEN);
       if(hasWebSocketDataField != null) {
+        this.openChanelAttempts = validateFieldName(hasWebSocketDataField, CONFIG_KEY_OPEN_CHANNEL_ATTEMPTS, hasWebSocketDataField.getInteger(CONFIG_KEY_OPEN_CHANNEL_ATTEMPTS, 20));
+        this.websocketReconnectDelay = validateFieldName(hasWebSocketDataField, CONFIG_KEY_WEBSOCKET_RECONNECT_DELAY, hasWebSocketDataField.getInteger(CONFIG_KEY_WEBSOCKET_RECONNECT_DELAY, 20));
+        this.openChanelTimeout = validateFieldName(hasWebSocketDataField, CONFIG_KEY_OPEN_CHANNEL_TIMEOUT, hasWebSocketDataField.getInteger(CONFIG_KEY_OPEN_CHANNEL_TIMEOUT, 20));
+        this.websocketReadDataTimeout = validateFieldName(hasWebSocketDataField, CONFIG_KEY_WEBSOCKET_READ_DATA_TIMEOUT, hasWebSocketDataField.getInteger(CONFIG_KEY_WEBSOCKET_READ_DATA_TIMEOUT, 20));
         this.pingIntervalSeconds = validateFieldName(hasWebSocketDataField, CONFIG_KEY_PING_INTERVAL_SECONDS, hasWebSocketDataField.getInteger(CONFIG_KEY_PING_INTERVAL_SECONDS, 30));
         this.pongTimeoutSeconds = validateFieldName(hasWebSocketDataField, CONFIG_KEY_PONG_TIMEOUT_SECONDS, hasWebSocketDataField.getInteger(CONFIG_KEY_PONG_TIMEOUT_SECONDS, 30));
       }
@@ -284,6 +292,22 @@ public class UnitCollection {
 
   public String getOikPassword() {
     return  SecurityConfig.decodePassword(oikPassword);
+  }
+
+  public Integer getOpenChanelAttempts() {
+    return openChanelAttempts;
+  }
+
+  public Integer getWebsocketReconnectDelay() {
+    return websocketReconnectDelay;
+  }
+
+  public Integer getOpenChanelTimeout() {
+    return openChanelTimeout;
+  }
+
+  public Integer getWebsocketReadDataTimeout() {
+    return websocketReadDataTimeout;
   }
 
   public Integer getPingIntervalSeconds() {
