@@ -32,8 +32,8 @@ public class ReconnectionManager {
    */
   public CompletableFuture<JsonObject> reconnect(String currentToken) {
     if (isReconnecting.get()) {
-      logger.warn(String.format("Reconnection stopped: reconnecting=%s", isReconnecting.get()));
-      return CompletableFuture.failedFuture(new RuntimeException("Переподключение уже выполняется"));
+      logger.warn(String.format("Переподключение остановлено: reconnecting=%s", isReconnecting.get()));
+      return CompletableFuture.failedFuture(new RuntimeException("Переподключение остановлено"));
     }
 
     if (currentToken == null) {
