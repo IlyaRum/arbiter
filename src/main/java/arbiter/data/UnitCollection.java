@@ -56,6 +56,10 @@ public class UnitCollection {
   private Integer heartBeatInterval;
   private boolean watchDogWait = false;
 
+  //настройки для сокет коннекта
+  private Integer pingIntervalSeconds;
+  private Integer pongTimeoutSeconds;
+
   public UnitCollection(Vertx vertx, String configFile, String versionInfo) {
     this.version = versionInfo;
     this.commonField = new CommonField();
@@ -99,6 +103,12 @@ public class UnitCollection {
         this.heartBeatUID = validateFieldNameAndValueUuidInSection(CONFIG_KEY_HEARTBEAT_ID, hasWriteHeartBeat, CONFIG_KEY_WATCHDOG);
         this.heartBeatInterval = validateFieldName(hasWriteHeartBeat, CONFIG_KEY_HEARTBEAT_INTERVAL, hasWriteHeartBeat.getInteger(CONFIG_KEY_HEARTBEAT_INTERVAL, 60));
         this.watchDogWait = yesNo(hasWriteHeartBeat, CONFIG_KEY_WATCHDOG_WAIT);
+      }
+
+      JsonObject hasWebSocketDataField = (JsonObject) validateFieldNameAndValue(config.getJsonObject(CONFIG_KEY_WEBSOCKET_CHANNEL_OPEN), CONFIG_KEY_WEBSOCKET_CHANNEL_OPEN);
+      if(hasWebSocketDataField != null) {
+        this.pingIntervalSeconds = validateFieldName(hasWebSocketDataField, CONFIG_KEY_PING_INTERVAL_SECONDS, hasWebSocketDataField.getInteger(CONFIG_KEY_PING_INTERVAL_SECONDS, 30));
+        this.pongTimeoutSeconds = validateFieldName(hasWebSocketDataField, CONFIG_KEY_PONG_TIMEOUT_SECONDS, hasWebSocketDataField.getInteger(CONFIG_KEY_PONG_TIMEOUT_SECONDS, 30));
       }
 
       if (eventUID != null) {
@@ -274,6 +284,14 @@ public class UnitCollection {
 
   public String getOikPassword() {
     return  SecurityConfig.decodePassword(oikPassword);
+  }
+
+  public Integer getPingIntervalSeconds() {
+    return pingIntervalSeconds;
+  }
+
+  public Integer getPongTimeoutSeconds() {
+    return pongTimeoutSeconds;
   }
 }
 

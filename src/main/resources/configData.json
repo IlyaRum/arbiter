@@ -9,7 +9,5 @@
   "trust.all": "false",
   "calc-srv.absolute.url": "http://calc.com/data",
   "ping.enable": "true",
-  "ping.interval.seconds": "20",
-  "pong.timeout.seconds": "20",
   "websocket.reconnect.interval.seconds": "10"
 }

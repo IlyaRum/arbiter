@@ -2,7 +2,6 @@ package arbiter.service;
 
 import arbiter.config.AppConfig;
 import io.vertx.core.Vertx;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.http.WebSocketFrame;
 import io.vertx.core.internal.logging.Logger;
@@ -39,34 +38,20 @@ public class PingPongService {
   /**
    * Загрузка настроек ping из конфигурации
    */
-  public void loadPingConfig() {
-    try {
-      String pingIntervalStr = AppConfig.getPingInterval();
-      if (pingIntervalStr != null && !pingIntervalStr.isEmpty()) {
-        pingIntervalSeconds = Integer.parseInt(pingIntervalStr);
-        if(AppConfig.isEnablePing()) {
-          logger.info("Ping interval set to '" + pingIntervalSeconds + "' seconds");
-        }
-      }
-    } catch (Exception e) {
-      logger.warn("Failed to load ping interval from config, using default: '" + DEFAULT_PING_INTERVAL_SECONDS + "' seconds");
+  public void loadPingConfig(Integer pingIntervalSeconds) {
+    this.pingIntervalSeconds = pingIntervalSeconds;
+    if (AppConfig.isEnablePing()) {
+      logger.info("Ping interval set to '" + pingIntervalSeconds + "' seconds");
     }
   }
 
   /**
    * Загрузка настроек pong из конфигурации
    */
-  public void loadPongConfig() {
-    try {
-      String pongIntervalStr = AppConfig.getPongInterval();
-      if (pongIntervalStr != null && !pongIntervalStr.isEmpty()) {
-        pongTimeoutSeconds = Integer.parseInt(pongIntervalStr);
-        if(AppConfig.isEnablePing()) {
-          logger.info("Рong timeout set to '" + pongTimeoutSeconds + "' seconds");
-        }
-      }
-    } catch (Exception e) {
-      logger.warn("Failed to load pong timeout from config, using default: '" + DEFAULTS_PONG_TIMEOUT_SECONDS + "' seconds");
+  public void loadPongConfig(Integer pongTimeoutSeconds) {
+    this.pongTimeoutSeconds = pongTimeoutSeconds;
+    if (AppConfig.isEnablePing()) {
+      logger.info("Рong timeout set to '" + pongTimeoutSeconds + "' seconds");
     }
   }
 
@@ -106,7 +91,7 @@ public class PingPongService {
   private void startPongTimeoutTimer() {
     cancelPongTimeoutTimer();
 
-    pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds * 1000, timeoutId -> {
+    pongTimeoutTimerId = vertx.setTimer(pongTimeoutSeconds * 1000L, timeoutId -> {
       if (!pongReceived) {
         logger.error("PONG not received after timeout '" + pongTimeoutSeconds + "' seconds ");
         pongReceived = true;
@@ -131,7 +116,7 @@ public class PingPongService {
 
     webSocket.pongHandler(pong -> handlePong());
 
-    pingTimerId = vertx.setPeriodic(pingIntervalSeconds * 1000, timerId -> {
+    pingTimerId = vertx.setPeriodic(pingIntervalSeconds * 1000L, timerId -> {
       sendPing(webSocket);
     });
     logger.info("Ping timer started with interval: '" + pingIntervalSeconds + "' seconds");

@@ -34,8 +34,8 @@ public class WebSocketService extends ABaseService {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
     this.pingPongService = createPingPongService(vertx);
-    pingPongService.loadPingConfig();
-    pingPongService.loadPongConfig();
+    pingPongService.loadPingConfig(dependencyInjector.getUnitCollection().getPingIntervalSeconds());
+    pingPongService.loadPongConfig(dependencyInjector.getUnitCollection().getPongTimeoutSeconds());
 
     this.webSocketClient = vertx.createWebSocketClient(new WebSocketClientOptions()
         .setSsl(false)

@@ -63,8 +63,8 @@ class PingPongServiceIntegrationTest {
     appConfigMock.when(AppConfig::getPingInterval).thenReturn("2");
     appConfigMock.when(AppConfig::getPongInterval).thenReturn("5");
 
-    pingPongService.loadPingConfig();
-    pingPongService.loadPongConfig();
+    pingPongService.loadPingConfig(10);
+    pingPongService.loadPongConfig(10);
 
     HttpServerOptions serverOptions = new HttpServerOptions()
       .setPort(TEST_PORT)

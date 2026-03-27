@@ -27,6 +27,14 @@ public class UnitCollectionConstants {
   public static final String CONFIG_KEY_WATCHDOG_WAIT = "ждать";
   public static final String CONFIG_KEY_UNITS_ARRAY = "сечение";
 
+  public static final String CONFIG_KEY_WEBSOCKET_CHANNEL_OPEN = "открытие канала подписки";
+  public static final String CONFIG_KEY_OPEN_CHANNEL_ATTEMPTS = "количество попыток открыть канал";
+  public static final String CONFIG_KEY_WEBSOCKET_RECONNECT_DELAY = "задержка между попытками открыть канал";
+  public static final String CONFIG_KEY_OPEN_CHANNEL_TIMEOUT = "время ожидания открытие сокет-канала";
+  public static final String CONFIG_KEY_WEBSOCKET_READ_DATA_TIMEOUT = "таймаут чтения данных";
+  public static final String CONFIG_KEY_PING_INTERVAL_SECONDS = "пинг интервал";
+  public static final String CONFIG_KEY_PONG_TIMEOUT_SECONDS = "понг таймаут";
+
   public static final String CONFIG_KEY_UNIT_NAME = "наименование";
   public static final String CONFIG_KEY_UNIT_GROUP = "группа";
   public static final String CONFIG_KEY_UNIT_DIRECTION = "направление";
