@@ -93,6 +93,8 @@ public class WebSocketService extends ABaseService {
 
             if(AppConfig.isEnablePing()){
               pingPongService.startPingTimer(webSocket);
+            }else {
+              logger.warn("Ping is disabled");
             }
 
             // Таймаут на установление соединения и получение первого сообщения

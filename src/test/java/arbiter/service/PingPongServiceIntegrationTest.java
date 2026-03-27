@@ -60,8 +60,6 @@ class PingPongServiceIntegrationTest {
 
     appConfigMock = mockStatic(AppConfig.class);
     appConfigMock.when(AppConfig::isEnablePing).thenReturn(true);
-    appConfigMock.when(AppConfig::getPingInterval).thenReturn("2");
-    appConfigMock.when(AppConfig::getPongInterval).thenReturn("5");
 
     pingPongService.loadPingConfig(10);
     pingPongService.loadPongConfig(10);

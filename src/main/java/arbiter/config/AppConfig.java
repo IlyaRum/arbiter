@@ -2,13 +2,10 @@ package arbiter.config;
 
 import arbiter.util.ConfigValidator;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Map;
 import java.util.Properties;
 
 public class AppConfig {
@@ -44,13 +41,10 @@ public class AppConfig {
   private static String calcSrvUrl;
   private static String oikCertCrt;
   private static Boolean isTrust;
-  private static String pingInterval;
-  private static String pongInterval;
   private static Boolean enablePing;
-  private static String websocketReconnectInterval;
 
   public static void loadConfig() {
-    String configFile = System.getProperty("config.file", "configData.json");
+    String configFile = System.getProperty("config.file", "config.json");
 
     try {
       Properties props = new Properties();
@@ -75,10 +69,7 @@ public class AppConfig {
       calcSrvUrl = ConfigValidator.checkValueProperty(props, "calc-srv.absolute.url", configFile);
       oikCertCrt = ConfigValidator.checkValueProperty(props, "oik.cert.crt", configFile);
       isTrust = Boolean.parseBoolean(props.getProperty("trust.all", "false"));
-      pingInterval =  props.getProperty("ping.interval.seconds", configFile);
-      pongInterval =  props.getProperty("pong.timeout.seconds", configFile);
       enablePing = Boolean.parseBoolean(props.getProperty("ping.enable", "true"));
-      websocketReconnectInterval =  props.getProperty("websocket.reconnect.interval.seconds", configFile);
 
     } catch (IOException e) {
       throw new RuntimeException("Failed to load configuration file: " + configFile, e);
@@ -126,19 +117,7 @@ public class AppConfig {
     return isTrust;
   }
 
-  public static String getPingInterval() {
-    return pingInterval;
-  }
-
   public static Boolean isEnablePing() {
     return enablePing;
-  }
-
-  public static String getPongInterval() {
-    return pongInterval;
-  }
-
-  public static String getWebsocketReconnectInterval() {
-    return websocketReconnectInterval;
   }
 }
