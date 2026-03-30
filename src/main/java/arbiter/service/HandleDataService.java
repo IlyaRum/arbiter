@@ -74,7 +74,7 @@ public class HandleDataService extends ABaseService {
       try {
         logger.info("Input message: " + message);
 
-        if (webSocketService != null) {
+        if (webSocketService != null && webSocketService.isChannelOpened()) {
           webSocketService.resetMessageTimeout();
         }
 
@@ -87,6 +87,11 @@ public class HandleDataService extends ABaseService {
         //logger.debug("eventType: " + eventType);
         if (eventType.equals("ru.monitel.ck11.channel.opened.v2")) {
           handleChannelOpened(event);
+
+          if (webSocketService != null) {
+            webSocketService.onChannelOpened(currentChannelId);
+          }
+
           // Завершаем promise только при получении сообщения об открытии
           if (!promise.future().isComplete()) {
             String data = cloudEventToString(event);

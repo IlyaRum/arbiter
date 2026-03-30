@@ -4,7 +4,6 @@ import arbiter.config.AppConfig;
 import arbiter.constants.CloudEventStrings;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Future;
-import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.*;
@@ -14,20 +13,24 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 public class WebSocketService extends ABaseService {
   private final WebSocketClient webSocketClient;
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
+  private final AtomicBoolean channelOpened = new AtomicBoolean(false);
   private final DependencyInjector dependencyInjector;
   private final PingPongService pingPongService;
   private Long messageTimeoutTimerId;
   private Long connectionTimeoutTimerId;
+  private Long channelOpenTimeoutTimerId;     // Таймаут на открытие канала
   //таймаут чтения данных
   private static final long MESSAGE_TIMEOUT_MS = 60000; // 60 секунд
-  //время открытия сокет канала
   private static final long CONNECTION_TIMEOUT_MS = 30000; // 30 секунд
+  //время ожидания открытия сокет-канала
+  private static final long CHANNEL_OPEN_TIMEOUT_SEC = 15;
 
 
   //TODO[IER] Пересмотреть обработчики событий для внешнего управления
@@ -81,6 +84,8 @@ public class WebSocketService extends ABaseService {
     }
 
     Promise<JsonObject> promise = Promise.promise();
+    channelOpened.set(false);
+    cancelAllTimeouts();
 
     if (Objects.equals(AppConfig.getDevFlag(), "local")) {
       //TODO[IER] Для разработки. Удалить.
@@ -96,6 +101,7 @@ public class WebSocketService extends ABaseService {
             WebSocket webSocket = res.result();
             currentWebSocket.set(webSocket);
             setupWebSocketHandlers(webSocket, promise);
+            startChannelOpenTimeout(promise);
 
             if(AppConfig.isEnablePing()){
               pingPongService.startPingTimer(webSocket);
@@ -103,9 +109,7 @@ public class WebSocketService extends ABaseService {
               logger.warn("Ping is disabled");
             }
 
-            // Таймаут на установление соединения и получение первого сообщения
-            // Таймаут чтения данных
-            vertx.setTimer(CONNECTION_TIMEOUT_MS, timerId -> {
+            connectionTimeoutTimerId = vertx.setTimer(CONNECTION_TIMEOUT_MS, timerId -> {
               if (!promise.future().isComplete()) {
                 promise.tryFail("WebSocket connection timeout - no opening message received");
                 cancelAllTimeouts();
@@ -170,7 +174,6 @@ public class WebSocketService extends ABaseService {
         exceptionHandler.accept(error);
       }
     });
-    startMessageTimeout(webSocket);
   }
 
   /**
@@ -286,17 +289,42 @@ public class WebSocketService extends ABaseService {
   /**
    * Запуск таймаута ожидания сообщений
    */
-  private void startMessageTimeout(WebSocket webSocket) {
-    if (messageTimeoutTimerId != null) {
-      vertx.cancelTimer(messageTimeoutTimerId);
-    }
+  private void startMessageTimeout() {
+    logger.debug("старт таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
+    cancelMessageTimeout();
 
     messageTimeoutTimerId = vertx.setTimer(MESSAGE_TIMEOUT_MS, timerId -> {
-      String errorMsg = "Message timeout: no data received for " + MESSAGE_TIMEOUT_MS + "ms";
-      logger.error(errorMsg);
+        if (channelOpened.get()) {
+          String errorMsg = "Message timeout: no data received for " + MESSAGE_TIMEOUT_MS + "ms";
+          logger.error(errorMsg);
 
-      dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
+          dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
+        }
       messageTimeoutTimerId = null;
+      logger.debug("Обнуляем таимаут чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
+    });
+  }
+
+  /**
+   * Запуск таймаута на открытие канала (получение channel.opened)
+   */
+  private void startChannelOpenTimeout(Promise<JsonObject> promise) {
+    channelOpenTimeoutTimerId = vertx.setTimer(CHANNEL_OPEN_TIMEOUT_SEC * 1000, timerId -> {
+
+      if (!channelOpened.get()) {
+        String errorMsg = String.format(
+          "Channel open timeout: no 'channel.opened' event received within %d seconds",
+          CHANNEL_OPEN_TIMEOUT_SEC
+        );
+        logger.error(errorMsg);
+
+        if (!promise.future().isComplete()) {
+          promise.tryFail(errorMsg);
+        }
+
+        dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
+      }
+      channelOpenTimeoutTimerId = null;
     });
   }
 
@@ -304,16 +332,17 @@ public class WebSocketService extends ABaseService {
    * Сброс таймаута при получении каждого сообщения из СК-11
    */
   public void resetMessageTimeout() {
+    logger.debug("Start сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
     WebSocket webSocket = currentWebSocket.get();
-    if (webSocket != null && !webSocket.isClosed()) {
-      if (messageTimeoutTimerId != null) {
-        vertx.cancelTimer(messageTimeoutTimerId);
-      }
-      startMessageTimeout(webSocket);
+    if (webSocket != null && !webSocket.isClosed() && channelOpened.get()) {
+//      cancelMessageTimeout();
+      logger.debug("End сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
+      startMessageTimeout();
     }
   }
 
   public void cancelMessageTimeout() {
+    logger.debug("Отмена сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
     if (messageTimeoutTimerId != null) {
       vertx.cancelTimer(messageTimeoutTimerId);
       messageTimeoutTimerId = null;
@@ -321,7 +350,36 @@ public class WebSocketService extends ABaseService {
   }
 
   private void cancelAllTimeouts() {
+    cancelConnectionTimeout();
+    cancelChannelOpenTimeout();
     cancelMessageTimeout();
+  }
+
+  public boolean isChannelOpened() {
+    return channelOpened.get();
+  }
+
+  /**
+   * Уведомление об успешном открытии канала
+   */
+  public void onChannelOpened(String channelId) {
+    logger.info("Channel opened successfully: " + channelId);
+    channelOpened.set(true);
+
+    cancelChannelOpenTimeout();
+    if(isConnected()){
+      startMessageTimeout();
+    }
+  }
+
+  private void cancelChannelOpenTimeout() {
+    if (channelOpenTimeoutTimerId != null) {
+      vertx.cancelTimer(channelOpenTimeoutTimerId);
+      channelOpenTimeoutTimerId = null;
+    }
+  }
+
+  private void cancelConnectionTimeout() {
     if (connectionTimeoutTimerId != null) {
       vertx.cancelTimer(connectionTimeoutTimerId);
       connectionTimeoutTimerId = null;
