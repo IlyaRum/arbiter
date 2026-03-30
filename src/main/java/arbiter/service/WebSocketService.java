@@ -22,6 +22,12 @@ public class WebSocketService extends ABaseService {
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
   private final DependencyInjector dependencyInjector;
   private final PingPongService pingPongService;
+  private Long messageTimeoutTimerId;
+  private Long connectionTimeoutTimerId;
+  //таймаут чтения данных
+  private static final long MESSAGE_TIMEOUT_MS = 60000; // 60 секунд
+  //время открытия сокет канала
+  private static final long CONNECTION_TIMEOUT_MS = 30000; // 30 секунд
 
 
   //TODO[IER] Пересмотреть обработчики событий для внешнего управления
@@ -98,9 +104,11 @@ public class WebSocketService extends ABaseService {
             }
 
             // Таймаут на установление соединения и получение первого сообщения
-            vertx.setTimer(30000, timerId -> {
+            // Таймаут чтения данных
+            vertx.setTimer(CONNECTION_TIMEOUT_MS, timerId -> {
               if (!promise.future().isComplete()) {
                 promise.tryFail("WebSocket connection timeout - no opening message received");
+                cancelAllTimeouts();
               }
             });
           } else {
@@ -112,24 +120,24 @@ public class WebSocketService extends ABaseService {
   }
 
 
-  private void closeConnectionWithError(String errorMsg) {
-    logger.error(errorMsg);
-    pingPongService.cancelPongTimeoutTimer();
-    pingPongService.cancelPingTimer();
-
-    WebSocket webSocket = currentWebSocket.get();
-    if (webSocket != null && !webSocket.isClosed()) {
-      webSocket.close((short) 1011, errorMsg);
-    }
-
-    if (exceptionHandler != null) {
-      exceptionHandler.accept(new RuntimeException(errorMsg));
-    }
-
-    if (reconnectHandler != null) {
-      reconnectHandler.run();
-    }
-  }
+//  private void closeConnectionWithError(String errorMsg) {
+//    logger.error(errorMsg);
+//    pingPongService.cancelPongTimeoutTimer();
+//    pingPongService.cancelPingTimer();
+//
+//    WebSocket webSocket = currentWebSocket.get();
+//    if (webSocket != null && !webSocket.isClosed()) {
+//      webSocket.close((short) 1011, errorMsg);
+//    }
+//
+//    if (exceptionHandler != null) {
+//      exceptionHandler.accept(new RuntimeException(errorMsg));
+//    }
+//
+//    if (reconnectHandler != null) {
+//      reconnectHandler.run();
+//    }
+//  }
 
   private void setupWebSocketHandlers(WebSocket webSocket, Promise<JsonObject> promise) {
     webSocket.textMessageHandler(dependencyInjector.getHandleDataService().handleTextMessage(promise));
@@ -139,29 +147,30 @@ public class WebSocketService extends ABaseService {
       logger.info("Checking connect after close: " + isConnected());
 
       pingPongService.stop();
+      cancelAllTimeouts();
 
       if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket connection closed unexpectedly");
       }
-      // Вызываем внешний обработчик закрытия
       if (closeHandler != null) {
         closeHandler.run();
       }
     });
 
-
-
-    // Обработка ошибок
     webSocket.exceptionHandler(error -> {
       logger.error("WebSocket ошибка: " + error.getMessage());
+      pingPongService.stop();
+      cancelAllTimeouts();
+
       if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket ошибка: " + error.getMessage());
       }
-      // Вызываем внешний обработчик ошибок
+
       if (exceptionHandler != null) {
         exceptionHandler.accept(error);
       }
     });
+    startMessageTimeout(webSocket);
   }
 
   /**
@@ -237,15 +246,15 @@ public class WebSocketService extends ABaseService {
     return connectToWebSocketServer(token, null);
   }
 
-  private static Handler<Throwable> closeWebSocket(Promise<JsonObject> promise, WebSocket webSocket) {
-    return error -> {
-      logger.error("WebSocket ошибка: " + error.getMessage());
-      if (!promise.future().isComplete()) {
-        promise.tryFail("WebSocket ошибка: " + error.getMessage());
-      }
-      webSocket.close((short) 1011, "Server error");
-    };
-  }
+//  private static Handler<Throwable> closeWebSocket(Promise<JsonObject> promise, WebSocket webSocket) {
+//    return error -> {
+//      logger.error("WebSocket ошибка: " + error.getMessage());
+//      if (!promise.future().isComplete()) {
+//        promise.tryFail("WebSocket ошибка: " + error.getMessage());
+//      }
+//      webSocket.close((short) 1011, "Server error");
+//    };
+//  }
 
   private String buildUriFromOptions(WebSocketConnectOptions options) {
     String protocol = "wss";
@@ -272,5 +281,50 @@ public class WebSocketService extends ABaseService {
     }
 
     promise.tryFail("Ошибка подключения: " + cause.getMessage());
+  }
+
+  /**
+   * Запуск таймаута ожидания сообщений
+   */
+  private void startMessageTimeout(WebSocket webSocket) {
+    if (messageTimeoutTimerId != null) {
+      vertx.cancelTimer(messageTimeoutTimerId);
+    }
+
+    messageTimeoutTimerId = vertx.setTimer(MESSAGE_TIMEOUT_MS, timerId -> {
+      String errorMsg = "Message timeout: no data received for " + MESSAGE_TIMEOUT_MS + "ms";
+      logger.error(errorMsg);
+
+      dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
+      messageTimeoutTimerId = null;
+    });
+  }
+
+  /**
+   * Сброс таймаута при получении каждого сообщения из СК-11
+   */
+  public void resetMessageTimeout() {
+    WebSocket webSocket = currentWebSocket.get();
+    if (webSocket != null && !webSocket.isClosed()) {
+      if (messageTimeoutTimerId != null) {
+        vertx.cancelTimer(messageTimeoutTimerId);
+      }
+      startMessageTimeout(webSocket);
+    }
+  }
+
+  public void cancelMessageTimeout() {
+    if (messageTimeoutTimerId != null) {
+      vertx.cancelTimer(messageTimeoutTimerId);
+      messageTimeoutTimerId = null;
+    }
+  }
+
+  private void cancelAllTimeouts() {
+    cancelMessageTimeout();
+    if (connectionTimeoutTimerId != null) {
+      vertx.cancelTimer(connectionTimeoutTimerId);
+      connectionTimeoutTimerId = null;
+    }
   }
 }

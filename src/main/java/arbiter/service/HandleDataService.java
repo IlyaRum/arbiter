@@ -35,6 +35,8 @@ public class HandleDataService extends ABaseService {
   private MeasurementDataProcessor measurementDataProcessor;
   private final ExecutorService executor;
   private CalculationServiceClient calculationClient;
+  private WebSocketService webSocketService;
+  private DependencyInjector dependencyInjector;
 
   private static final ObjectMapper MAPPER = createObjectMapper();
 
@@ -47,7 +49,7 @@ public class HandleDataService extends ABaseService {
                            ExecutorService executor,
                            CalculationServiceClient calculationClient) {
     super(vertx);
-
+    this.dependencyInjector = dependencyInjector;
     this.executor = executor != null ? executor : createDefaultExecutor();
 
     this.calculationClient = calculationClient != null ?
@@ -55,6 +57,7 @@ public class HandleDataService extends ABaseService {
 
     this.measurementDataProcessor = new MeasurementDataProcessor(dependencyInjector, this.executor);
     this.measurementDataProcessor.setDataReadyCallback(this::handleProcessedData);
+    this.webSocketService = dependencyInjector.getWebSocketService();
     subscribeToWebSocketCloseEvents();
   }
 
@@ -70,6 +73,10 @@ public class HandleDataService extends ABaseService {
     return message -> {
       try {
         logger.info("Input message: " + message);
+
+        if (webSocketService != null) {
+          webSocketService.resetMessageTimeout();
+        }
 
         EventFormat format = EventFormatProvider.getInstance().resolveFormat(JsonFormat.CONTENT_TYPE);
         CloudEvent event = format.deserialize(message.getBytes(StandardCharsets.UTF_8));
@@ -98,7 +105,9 @@ public class HandleDataService extends ABaseService {
           logger.info("подписка на события стартовала");
         } else if (eventType.equals("ru.monitel.ck11.events.stream-broken.v2")) {
           logger.info("подписка на события остановлена");
-          //close();
+          if (webSocketService != null && webSocketService.isConnected()) {
+            dependencyInjector.getWebSocketManager().forceReconnect("Stream broken: подписка на события была остановлена. Переподключаемся...");
+          }
         }
       } catch (Exception e) {
         logger.error("Ошибка парсинга CloudEvent: " + e.getMessage());
