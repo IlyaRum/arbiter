@@ -794,8 +794,8 @@ public class MeasurementChangeTracker {
         String paramId = param.getId();
         double currentValue = param.getValue();
         previousParameterValues.put(paramId, currentValue);
-        logger.debug("Сохранено начальное значение parameter для сечения '" + unitId +
-          "': " + param.getName() + " = " + currentValue);
+//        logger.debug("Сохранено начальное значение parameter для сечения '" + unitId +
+//          "': " + param.getName() + " = " + currentValue);
       }
     }
   }
@@ -811,8 +811,8 @@ public class MeasurementChangeTracker {
         String id = unitResult.getUid();
         double currentValue = unitResult.getValue();
         previousUnitResultValues.put(id, currentValue);
-        logger.debug("Сохранено начальное значение unitResult для сечения '" + unitId +
-          "': " + unitResult.getName() + " = " + currentValue);
+//        logger.debug("Сохранено начальное значение unitResult для сечения '" + unitId +
+//          "': " + unitResult.getName() + " = " + currentValue);
       }
     }
   }
@@ -827,8 +827,8 @@ public class MeasurementChangeTracker {
       for (Topology topology : unitDto.getTopologyList()) {
         double currentValue = topology.getValue();
         previousTopologyValues.put(topology.getId(), currentValue);
-        logger.debug("Сохранено начальное значение topology для сечения '" + unitId +
-          "': " + topology.getName() + " = " + currentValue);
+//        logger.debug("Сохранено начальное значение topology для сечения '" + unitId +
+//          "': " + topology.getName() + " = " + currentValue);
       }
     }
   }
@@ -843,8 +843,8 @@ public class MeasurementChangeTracker {
       for (Element element : unitDto.getElements()) {
         double currentValue = element.getValue();
         previousElementValues.put(element.getId(), currentValue);
-        logger.debug("Сохранено начальное значение element для сечения '" + unitId +
-          "': " + element.getName() + " = " + currentValue);
+//        logger.debug("Сохранено начальное значение element для сечения '" + unitId +
+//          "': " + element.getName() + " = " + currentValue);
       }
     }
   }
@@ -859,8 +859,8 @@ public class MeasurementChangeTracker {
       for (InfluencingFactor influencingFactor : unitDto.getInfluencingFactors()) {
         double currentValue = influencingFactor.getValue();
         previousInfluencingFactorValues.put(influencingFactor.getId(), currentValue);
-        logger.debug("Сохранено начальное значение influencingFactor для сечения '" + unitId +
-          "': " + influencingFactor.getName() + " = " + currentValue);
+//        logger.debug("Сохранено начальное значение influencingFactor для сечения '" + unitId +
+//          "': " + influencingFactor.getName() + " = " + currentValue);
       }
     }
   }
@@ -876,8 +876,8 @@ public class MeasurementChangeTracker {
             for (Composition composition : repairGroup.getValues()) {
               double currentValue = composition.getValue();
               previousRepairValues.put(composition.getId(), currentValue);
-              logger.debug("Сохранено начальное значение repair для сечения '" + unitId +
-                "': " + composition.getName() + " = " + currentValue);
+//              logger.debug("Сохранено начальное значение repair для сечения '" + unitId +
+//                "': " + composition.getName() + " = " + currentValue);
             }
           }
         }

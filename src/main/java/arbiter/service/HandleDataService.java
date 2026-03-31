@@ -111,6 +111,7 @@ public class HandleDataService extends ABaseService {
         } else if (eventType.equals("ru.monitel.ck11.events.stream-broken.v2")) {
           logger.info("подписка на события остановлена");
           if (webSocketService != null && webSocketService.isConnected()) {
+            webSocketService.cancelAllTimeouts();
             dependencyInjector.getWebSocketManager().forceReconnect("Stream broken: подписка на события была остановлена. Переподключаемся...");
           }
         }

@@ -101,7 +101,7 @@ public class WebSocketService extends ABaseService {
             WebSocket webSocket = res.result();
             currentWebSocket.set(webSocket);
             setupWebSocketHandlers(webSocket, promise);
-            startChannelOpenTimeout(promise);
+            startChannelOpenTimeoutTimer(promise);
 
             if(AppConfig.isEnablePing()){
               pingPongService.startPingTimer(webSocket);
@@ -306,19 +306,17 @@ public class WebSocketService extends ABaseService {
   /**
    * Запуск таймаута на открытие канала (получение channel.opened)
    */
-  private void startChannelOpenTimeout(Promise<JsonObject> promise) {
+  private void startChannelOpenTimeoutTimer(Promise<JsonObject> promise) {
+    cancelChannelOpenTimeout();
+
     channelOpenTimeoutTimerId = vertx.setTimer(CHANNEL_OPEN_TIMEOUT_SEC * 1000, timerId -> {
 
       if (!channelOpened.get()) {
-        String errorMsg = String.format(
-          "Channel open timeout: no 'channel.opened' event received within %d seconds",
-          CHANNEL_OPEN_TIMEOUT_SEC
-        );
-
+        String errorMsg = "Channel open timeout: no 'channel.opened' event received within " + CHANNEL_OPEN_TIMEOUT_SEC + " seconds";
         if (!promise.future().isComplete()) {
           promise.tryFail(errorMsg);
         }
-
+        cancelAllTimeouts();
         dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
       }
       channelOpenTimeoutTimerId = null;
@@ -343,7 +341,7 @@ public class WebSocketService extends ABaseService {
     }
   }
 
-  private void cancelAllTimeouts() {
+  public void cancelAllTimeouts() {
     cancelConnectionTimeout();
     cancelChannelOpenTimeout();
     cancelMessageTimeout();
