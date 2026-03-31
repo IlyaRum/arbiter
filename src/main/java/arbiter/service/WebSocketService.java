@@ -23,7 +23,7 @@ public class WebSocketService extends ABaseService {
   private final AtomicBoolean channelOpened = new AtomicBoolean(false);
   private final DependencyInjector dependencyInjector;
   private final PingPongService pingPongService;
-  private Long messageTimeoutTimerId;
+  private Long messageTimeoutTimerId = null;
   private Long connectionTimeoutTimerId;
   private Long channelOpenTimeoutTimerId;     // Таймаут на открытие канала
   //таймаут чтения данных
@@ -290,19 +290,17 @@ public class WebSocketService extends ABaseService {
    * Запуск таймаута ожидания сообщений
    */
   private void startMessageTimeout() {
-    logger.debug("старт таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
     cancelMessageTimeout();
 
-    messageTimeoutTimerId = vertx.setTimer(MESSAGE_TIMEOUT_MS, timerId -> {
-        if (channelOpened.get()) {
-          String errorMsg = "Message timeout: no data received for " + MESSAGE_TIMEOUT_MS + "ms";
-          logger.error(errorMsg);
-
-          dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
-        }
-      messageTimeoutTimerId = null;
-      logger.debug("Обнуляем таимаут чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
-    });
+    if (isChannelOpened()) {
+      messageTimeoutTimerId = vertx.setTimer(MESSAGE_TIMEOUT_MS, timerId -> {
+        cancelAllTimeouts();
+        channelOpened.set(false);
+        String errorMsg = "Message timeout: no data received for " + MESSAGE_TIMEOUT_MS + "ms";
+        dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
+        messageTimeoutTimerId = null;
+      });
+    }
   }
 
   /**
@@ -316,7 +314,6 @@ public class WebSocketService extends ABaseService {
           "Channel open timeout: no 'channel.opened' event received within %d seconds",
           CHANNEL_OPEN_TIMEOUT_SEC
         );
-        logger.error(errorMsg);
 
         if (!promise.future().isComplete()) {
           promise.tryFail(errorMsg);
@@ -332,17 +329,14 @@ public class WebSocketService extends ABaseService {
    * Сброс таймаута при получении каждого сообщения из СК-11
    */
   public void resetMessageTimeout() {
-    logger.debug("Start сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
     WebSocket webSocket = currentWebSocket.get();
     if (webSocket != null && !webSocket.isClosed() && channelOpened.get()) {
 //      cancelMessageTimeout();
-      logger.debug("End сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
       startMessageTimeout();
     }
   }
 
   public void cancelMessageTimeout() {
-    logger.debug("Отмена сброса таимаута чтения данных messageTimeoutTimerId: " + messageTimeoutTimerId);
     if (messageTimeoutTimerId != null) {
       vertx.cancelTimer(messageTimeoutTimerId);
       messageTimeoutTimerId = null;
