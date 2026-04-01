@@ -318,13 +318,13 @@ public class WebSocketService extends ABaseService {
     cancelMessageTimeout();
 
     if (!isChannelOpened()) {
-      logger.debug("Cannot start message timeout - channel is not opened");
+      logger.debug("Невозможно запустить таймаут сообщений - канал не открыт");
       return;
     }
 
     WebSocket webSocket = currentWebSocket.get();
     if (webSocket == null || webSocket.isClosed()) {
-      logger.debug("Cannot start message timeout - WebSocket is not connected");
+      logger.debug("Невозможно запустить таймаут сообщений - WebSocket не подключен");
       return;
     }
 
@@ -336,32 +336,27 @@ public class WebSocketService extends ABaseService {
       long timeSinceLastMessage = triggerTime - lastMsgTime;
       long configuredTimeoutMs = currentTimeoutSeconds * 1000;
 
-      // КРИТИЧЕСКАЯ ПРОВЕРКА: действительно ли не было сообщений?
       boolean isRealTimeout = timeSinceLastMessage > configuredTimeoutMs;
 
       if (isRealTimeout) {
-        // Реальный таймаут - сообщения действительно не приходят
-        logger.error("REAL TIMEOUT DETECTED! No messages for '" + timeSinceLastMessage +
-          "' ms (threshold: '" + configuredTimeoutMs + "' ms)");
+        logger.error("ОБНАРУЖЕН РЕАЛЬНЫЙ ТАЙМАУТ! Нет сообщений в течение '" + timeSinceLastMessage +
+          "' мс (порог: '" + configuredTimeoutMs + "' мс)");
         cancelAllTimeouts();
         channelOpened.set(false);
-        String errorMsg = "Message timeout: no data received for '" + messageTimeoutSeconds + "' seconds";
+        String errorMsg = "Таймаут сообщений: данные не поступали в течение '" + messageTimeoutSeconds + "' секунд";
         dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
       } else {
-        // Ложное срабатывание - сообщения идут, но сработал старый таймер
         falseTimeoutCounter.incrementAndGet();
-        logger.warn("FALSE TIMEOUT DETECTED! Messages are still coming. " +
-          "Last message was '" + timeSinceLastMessage + "' ms ago (less than '" + configuredTimeoutMs + "' ms threshold). " +
-          "False timeout count: '" + falseTimeoutCounter.get() + "'");
+        logger.warn("ОБНАРУЖЕНО ЛОЖНОЕ СРАБАТЫВАНИЕ ТАЙМАУТА! Сообщения продолжают поступать. " +
+          "Последнее сообщение было '" + timeSinceLastMessage + "' мс назад (меньше порога '" + configuredTimeoutMs + "' мс). " +
+          "Количество ложных срабатываний: '" + falseTimeoutCounter.get() + "'");
 
-        // Не делаем reconnect, просто проверяем состояние
         if (isChannelOpened() && isConnected()) {
-          // Перезапускаем таймер, если соединение активно
-          logger.info("Restarting message timeout after false trigger");
+          logger.info("Перезапуск таймаута сообщений после ложного срабатывания");
           startMessageTimeout();
         } else {
-          logger.warn("Channel or WebSocket not active after false timeout. " +
-            "Channel opened: '" + channelOpened.get() + "', Connected: '" + isConnected() + "'");
+          logger.warn("Канал или WebSocket не активен после ложного срабатывания. " +
+            "Канал открыт: '" + channelOpened.get() + "', Подключен: '" + isConnected() + "'");
         }
       }
       messageTimeoutTimerId = null;
@@ -377,7 +372,7 @@ public class WebSocketService extends ABaseService {
     lastMessageTime.set(now);
     long timeSinceLastReset = now - lastResetTime.get();
     if (timeSinceLastReset < MIN_RESET_INTERVAL_MS) {
-      logger.trace("resetMessageTimeout called too frequently ( '" + timeSinceLastReset + "' ms since last reset), skipping");
+      logger.trace("resetMessageTimeout вызван слишком часто (" + timeSinceLastReset + " мс с момента последнего сброса), пропускаем");
       return;
     }
     lastResetTime.set(now);
@@ -461,8 +456,14 @@ public class WebSocketService extends ABaseService {
   }
 
   private void loadMessageTimeoutConfig(Integer websocketReadDataTimeout){
-    this.messageTimeoutSeconds = websocketReadDataTimeout;
-    logger.info("Read data interval set to '" + messageTimeoutSeconds + "' seconds");
+    if(websocketReadDataTimeout <= 0){
+      this.messageTimeoutSeconds = DEFAULT_MESSAGE_TIMEOUT_SECONDS;
+      logger.warn("Invalid or missing read data timeout value ('" + websocketReadDataTimeout + "'). Using default value: '"
+          + DEFAULT_MESSAGE_TIMEOUT_SECONDS + "' seconds");
+    }else {
+      this.messageTimeoutSeconds = websocketReadDataTimeout;
+      logger.info("Read data interval set to '" + messageTimeoutSeconds + "' seconds");
+    }
   }
 
   private void loadChannelOpenTimeoutConfig(Integer openChanelTimeout){

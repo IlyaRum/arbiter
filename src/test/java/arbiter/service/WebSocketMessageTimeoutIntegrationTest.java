@@ -8,6 +8,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
+import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.junit5.VertxExtension;
 import io.vertx.junit5.VertxTestContext;
@@ -25,8 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
@@ -56,6 +56,7 @@ public class WebSocketMessageTimeoutIntegrationTest {
   private static final String TEST_CHANNEL_ID = "channel-123";
   private static final int MESSAGE_TIMEOUT_SECONDS = 2;
   private static final int CHANNEL_OPEN_TIMEOUT_SECONDS = 5;
+  AtomicReference<WebSocket> serverWebSocket = new AtomicReference<>();
 
   @BeforeEach
   public void setUp(Vertx vertx, VertxTestContext testContext) {
@@ -74,23 +75,10 @@ public class WebSocketMessageTimeoutIntegrationTest {
     when(unitCollection.getWebsocketReadDataTimeout()).thenReturn(MESSAGE_TIMEOUT_SECONDS);
     when(unitCollection.getOpenChanelTimeout()).thenReturn(CHANNEL_OPEN_TIMEOUT_SECONDS);
 
-    when(handleDataService.handleTextMessage(any(Promise.class)))
-      .thenAnswer(invocation -> {
-        Promise<JsonObject> promise = invocation.getArgument(0);
-        return (Handler<String>) message -> {
-          JsonObject json = new JsonObject(message);
-          if ("channel.opened".equals(json.getString("type"))) {
-            promise.complete(json);
-          }
-        };
-      });
-
-
-
     webSocketService = new WebSocketService(vertx, dependencyInjector);
     webSocketService.setEnableSubprotocol(false);
 
-    testServer = new TestWebSocketServer(vertx);
+    testServer = new TestWebSocketServer(vertx, serverWebSocket);
 
     testServer.start()
       .onComplete(ar -> {
@@ -131,18 +119,29 @@ public class WebSocketMessageTimeoutIntegrationTest {
       return null;
     }).when(webSocketManager).forceReconnect(anyString());
 
-        serverStarted.countDown();
-        webSocketService.connectToWebSocketServer(TEST_TOKEN)
-          .onComplete(connectAr -> {
-            if (connectAr.succeeded()) {
-              JsonObject result = connectAr.result();
-              String channelId = result.getString("subject");
-              webSocketService.onChannelOpened(channelId);
-              connectionEstablished.countDown();
-            } else {
-              testContext.failNow(connectAr.cause());
-            }
-          });
+    when(handleDataService.handleTextMessage(any(Promise.class)))
+      .thenAnswer(invocation -> {
+        Promise<JsonObject> promise = invocation.getArgument(0);
+        return (Handler<String>) message -> {
+          JsonObject json = new JsonObject(message);
+          if ("channel.opened".equals(json.getString("type"))) {
+            promise.complete(json);
+          }
+        };
+      });
+
+    serverStarted.countDown();
+    webSocketService.connectToWebSocketServer(TEST_TOKEN)
+      .onComplete(connectAr -> {
+        if (connectAr.succeeded()) {
+          JsonObject result = connectAr.result();
+          String channelId = result.getString("subject");
+          webSocketService.onChannelOpened(channelId);
+          connectionEstablished.countDown();
+        } else {
+          testContext.failNow(connectAr.cause());
+        }
+      });
 
     assertTrue(serverStarted.await(5, TimeUnit.SECONDS));
     assertTrue(connectionEstablished.await(5, TimeUnit.SECONDS));
@@ -151,53 +150,69 @@ public class WebSocketMessageTimeoutIntegrationTest {
       testContext.verify(() -> {
         assertTrue(reconnectCalled.get(), "Reconnect should be called after message timeout");
         assertNotNull(reconnectErrorMessage.get());
-        assertTrue(reconnectErrorMessage.get().contains("Message timeout"),"Error message should contain 'Message timeout'");
-        assertTrue(reconnectErrorMessage.get().contains(String.valueOf(MESSAGE_TIMEOUT_SECONDS)),"Error message should contain timeout value");
+        assertTrue(reconnectErrorMessage.get().contains("Таймаут сообщений"), "Сообщение об ошибке должно содержать 'Таймаут сообщений'");
+        assertTrue(reconnectErrorMessage.get().contains(String.valueOf(MESSAGE_TIMEOUT_SECONDS)), "Error message should contain timeout value");
         testContext.completeNow();
       });
     });
   }
 
-//  @Test
-//  public void testResetMessageTimeoutPreventsTimeout(VertxTestContext testContext) throws Exception {
-//    // Arrange
-//    AtomicBoolean reconnectCalled = new AtomicBoolean(false);
-//
-//    doAnswer(invocation -> {
-//      reconnectCalled.set(true);
-//      return null;
-//    }).when(webSocketManager).forceReconnect(anyString());
-//
-//    CountDownLatch connectionEstablished = new CountDownLatch(1);
-//
-//    // Act
-//    webSocketService.connectToWebSocketServer(TEST_TOKEN)
-//      .onComplete(ar -> {
-//        if (ar.succeeded()) {
-//          JsonObject result = ar.result();
-//          String channelId = result.getString("subject");
-//          webSocketService.onChannelOpened(channelId);
-//          connectionEstablished.countDown();
-//        }
-//      });
-//
-//    assertTrue(connectionEstablished.await(5, TimeUnit.SECONDS));
-//
-//    // Регулярно сбрасываем таймаут (каждую секунду)
-//    long timerId = vertx.setPeriodic(1000, periodicId -> {
-//      webSocketService.resetMessageTimeout();
-//      System.out.println("Message timeout reset at: " + System.currentTimeMillis());
-//    });
-//
-//    // Assert - ждем время больше таймаута
-//    vertx.setTimer((MESSAGE_TIMEOUT_SECONDS * 1000) + 1000, timerId2 -> {
-//      testContext.verify(() -> {
-//        assertFalse(reconnectCalled.get(), "Reconnect should not be called when message timeout is reset");
-//        vertx.cancelTimer(timerId);
-//        testContext.completeNow();
-//      });
-//    });
-//  }
+  @Test
+  public void testResetMessageTimeoutPreventsTimeout(VertxTestContext testContext) throws Exception {
+    AtomicBoolean reconnectCalled = new AtomicBoolean(false);
+
+    doAnswer(invocation -> {
+      reconnectCalled.set(true);
+      return null;
+    }).when(webSocketManager).forceReconnect(anyString());
+
+    when(handleDataService.handleTextMessage(any(Promise.class)))
+      .thenAnswer(invocation -> {
+        Promise<JsonObject> promise = invocation.getArgument(0);
+        return (Handler<String>) message -> {
+          JsonObject json = new JsonObject(message);
+          if ("channel.opened".equals(json.getString("type"))) {
+            promise.complete(json);
+          } else {
+            webSocketService.resetMessageTimeout();
+          }
+        };
+      });
+
+    CountDownLatch connectionEstablished = new CountDownLatch(1);
+
+    webSocketService.connectToWebSocketServer(TEST_TOKEN)
+      .onComplete(ar -> {
+        if (ar.succeeded()) {
+          JsonObject result = ar.result();
+          String channelId = result.getString("subject");
+          webSocketService.onChannelOpened(channelId);
+          connectionEstablished.countDown();
+        }
+      });
+
+    assertTrue(connectionEstablished.await(5, TimeUnit.SECONDS));
+
+    long periodicId = vertx.setPeriodic(1000, timerId -> {
+      WebSocket ws = serverWebSocket.get();
+      if (ws != null && !ws.isClosed()) {
+        JsonObject keepaliveMsg = new JsonObject()
+          .put("type", "keepalive.message")
+          .put("timestamp", System.currentTimeMillis());
+        ws.writeTextMessage(keepaliveMsg.encode());
+        System.out.println("Test server sent keepalive message");
+      }
+    });
+
+    // Assert - ждем время больше таймаута
+    vertx.setTimer((MESSAGE_TIMEOUT_SECONDS * 1000) + 1000, timerId2 -> {
+      testContext.verify(() -> {
+        assertFalse(reconnectCalled.get(), "Reconnect should not be called when message timeout is reset");
+        vertx.cancelTimer(periodicId);
+        testContext.completeNow();
+      });
+    });
+  }
 //
 //  @Test
 //  public void testChannelNotOpenedPreventsMessageTimeout(VertxTestContext testContext) throws Exception {
@@ -500,16 +515,18 @@ public class WebSocketMessageTimeoutIntegrationTest {
       private final Vertx vertx;
       private HttpServer server;
       private int port;
+      private AtomicReference<WebSocket> serverWebSocket;
 
-      public TestWebSocketServer(Vertx vertx) {
+      public TestWebSocketServer(Vertx vertx, AtomicReference<WebSocket> serverWebSocket) {
         this.vertx = vertx;
+        this.serverWebSocket = serverWebSocket;
       }
 
       public io.vertx.core.Future<Void> start() {
         return vertx.createHttpServer()
           .webSocketHandler(webSocket -> {
             System.out.println("Test server: WebSocket connected");
-
+            serverWebSocket.set(webSocket);
             JsonObject channelOpened = new JsonObject()
               .put("type", "channel.opened")
               .put("subject", TEST_CHANNEL_ID);
@@ -519,6 +536,7 @@ public class WebSocketMessageTimeoutIntegrationTest {
 
             webSocket.closeHandler(v -> {
               System.out.println("Test server: WebSocket closed");
+              serverWebSocket.set(null);
             });
 
             webSocket.textMessageHandler(msg -> {
