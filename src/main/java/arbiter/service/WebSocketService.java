@@ -39,6 +39,9 @@ public class WebSocketService extends ABaseService {
   private Runnable reconnectHandler;
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
+  private String webSocketUrl = "wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open";
+  private boolean enableSubprotocol = true;
+
   public WebSocketService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
     this.dependencyInjector = dependencyInjector;
@@ -71,6 +74,10 @@ public class WebSocketService extends ABaseService {
     };
 
     return  new PingPongService(vertx, handler);
+  }
+
+  public void setEnableSubprotocol(boolean enable) {
+    this.enableSubprotocol = enable;
   }
 
   private Future<JsonObject> connectToWebSocketServer(String token, RoutingContext context) {
@@ -234,12 +241,21 @@ public class WebSocketService extends ABaseService {
     return webSocket != null && !webSocket.isClosed();
   }
 
-  private static WebSocketConnectOptions createWebSocketConnectOptions(String token) {
-    return new WebSocketConnectOptions()
-      .setAbsoluteURI("wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open")
-      .addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL)
-      .setPort(443)
+  private WebSocketConnectOptions createWebSocketConnectOptions(String token) {
+    WebSocketConnectOptions options = new WebSocketConnectOptions()
+      .setAbsoluteURI(webSocketUrl)
+      .setPort(443);
+
+    if (enableSubprotocol) {
+      options.addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL);
+    }
+
+    return options
       .addHeader("authorization", "Bearer " + token);
+  }
+
+  public void setWebSocketUrl(String webSocketUrl) {
+    this.webSocketUrl = webSocketUrl;
   }
 
   public void connectToWebSocketServer(RoutingContext context) {
