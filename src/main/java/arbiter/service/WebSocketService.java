@@ -14,6 +14,8 @@ import io.vertx.ext.web.RoutingContext;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -21,6 +23,11 @@ public class WebSocketService extends ABaseService {
   private final WebSocketClient webSocketClient;
   private final AtomicReference<WebSocket> currentWebSocket = new AtomicReference<>();
   private final AtomicBoolean channelOpened = new AtomicBoolean(false);
+  private AtomicLong lastResetTime = new AtomicLong(0);
+  private final AtomicLong lastMessageTime = new AtomicLong(0);
+  private final AtomicInteger timeoutCounter = new AtomicInteger(0);
+  private final AtomicInteger falseTimeoutCounter = new AtomicInteger(0);
+  private static final long MIN_RESET_INTERVAL_MS = 100;
   private final DependencyInjector dependencyInjector;
   private final PingPongService pingPongService;
   private Long messageTimeoutTimerId = null;
@@ -310,14 +317,75 @@ public class WebSocketService extends ABaseService {
   private void startMessageTimeout() {
     cancelMessageTimeout();
 
-    if (isChannelOpened()) {
-      messageTimeoutTimerId = vertx.setTimer(messageTimeoutSeconds, timerId -> {
+    if (!isChannelOpened()) {
+      logger.debug("Cannot start message timeout - channel is not opened");
+      return;
+    }
+
+    WebSocket webSocket = currentWebSocket.get();
+    if (webSocket == null || webSocket.isClosed()) {
+      logger.debug("Cannot start message timeout - WebSocket is not connected");
+      return;
+    }
+
+    long currentTimeoutSeconds = messageTimeoutSeconds;
+
+    messageTimeoutTimerId = vertx.setTimer(currentTimeoutSeconds * 1000, timerId -> {
+      long triggerTime = System.currentTimeMillis();
+      long lastMsgTime = lastMessageTime.get();
+      long timeSinceLastMessage = triggerTime - lastMsgTime;
+      long configuredTimeoutMs = currentTimeoutSeconds * 1000;
+
+      // КРИТИЧЕСКАЯ ПРОВЕРКА: действительно ли не было сообщений?
+      boolean isRealTimeout = timeSinceLastMessage > configuredTimeoutMs;
+
+      if (isRealTimeout) {
+        // Реальный таймаут - сообщения действительно не приходят
+        logger.error("REAL TIMEOUT DETECTED! No messages for '" + timeSinceLastMessage +
+          "' ms (threshold: '" + configuredTimeoutMs + "' ms)");
         cancelAllTimeouts();
         channelOpened.set(false);
         String errorMsg = "Message timeout: no data received for '" + messageTimeoutSeconds + "' seconds";
         dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
-        messageTimeoutTimerId = null;
-      });
+      } else {
+        // Ложное срабатывание - сообщения идут, но сработал старый таймер
+        falseTimeoutCounter.incrementAndGet();
+        logger.warn("FALSE TIMEOUT DETECTED! Messages are still coming. " +
+          "Last message was '" + timeSinceLastMessage + "' ms ago (less than '" + configuredTimeoutMs + "' ms threshold). " +
+          "False timeout count: '" + falseTimeoutCounter.get() + "'");
+
+        // Не делаем reconnect, просто проверяем состояние
+        if (isChannelOpened() && isConnected()) {
+          // Перезапускаем таймер, если соединение активно
+          logger.info("Restarting message timeout after false trigger");
+          startMessageTimeout();
+        } else {
+          logger.warn("Channel or WebSocket not active after false timeout. " +
+            "Channel opened: '" + channelOpened.get() + "', Connected: '" + isConnected() + "'");
+        }
+      }
+      messageTimeoutTimerId = null;
+    });
+
+  }
+
+  /**
+   * Сброс таймаута при получении каждого сообщения из СК-11
+   */
+  public void resetMessageTimeout() {
+    long now = System.currentTimeMillis();
+    lastMessageTime.set(now);
+    long timeSinceLastReset = now - lastResetTime.get();
+    if (timeSinceLastReset < MIN_RESET_INTERVAL_MS) {
+      logger.trace("resetMessageTimeout called too frequently ( '" + timeSinceLastReset + "' ms since last reset), skipping");
+      return;
+    }
+    lastResetTime.set(now);
+
+    WebSocket webSocket = currentWebSocket.get();
+    if (webSocket != null && !webSocket.isClosed() && channelOpened.get()) {
+      cancelMessageTimeout();
+      startMessageTimeout();
     }
   }
 
@@ -340,17 +408,6 @@ public class WebSocketService extends ABaseService {
       channelOpenTimeoutTimerId = null;
     });
     logger.info("Channel open timer started with interval: '" + channelOpenTimeoutSeconds + "' seconds");
-  }
-
-  /**
-   * Сброс таймаута при получении каждого сообщения из СК-11
-   */
-  public void resetMessageTimeout() {
-    WebSocket webSocket = currentWebSocket.get();
-    if (webSocket != null && !webSocket.isClosed() && channelOpened.get()) {
-//      cancelMessageTimeout();
-      startMessageTimeout();
-    }
   }
 
   public void cancelMessageTimeout() {
@@ -376,11 +433,16 @@ public class WebSocketService extends ABaseService {
   public void onChannelOpened(String channelId) {
     logger.info("Channel opened successfully: " + channelId);
     channelOpened.set(true);
+    timeoutCounter.set(0);
+    falseTimeoutCounter.set(0);
 
     cancelChannelOpenTimeout();
-    if(isConnected()){
+
+    if (isConnected()) {
       startMessageTimeout();
       logger.info("Message timeout timer started with interval: '" + messageTimeoutSeconds + "' seconds");
+    } else {
+      logger.warn("Channel opened but WebSocket is not connected!");
     }
   }
 
@@ -406,5 +468,20 @@ public class WebSocketService extends ABaseService {
   private void loadChannelOpenTimeoutConfig(Integer openChanelTimeout){
     this.channelOpenTimeoutSeconds = openChanelTimeout;
     logger.info("Open channel interval set to '" + channelOpenTimeoutSeconds + "' seconds");
+  }
+
+  /**
+   * Получение статистики по таймаутам (для мониторинга)
+   */
+  public JsonObject getTimeoutStats() {
+    return new JsonObject()
+      .put("totalTimeouts", timeoutCounter.get())
+      .put("falseTimeouts", falseTimeoutCounter.get())
+      .put("lastMessageTimeMs", lastMessageTime.get())
+      .put("timeSinceLastMessageMs", System.currentTimeMillis() - lastMessageTime.get())
+      .put("messageTimeoutSeconds", messageTimeoutSeconds)
+      .put("hasActiveTimer", messageTimeoutTimerId != null)
+      .put("channelOpened", channelOpened.get())
+      .put("connected", isConnected());
   }
 }
