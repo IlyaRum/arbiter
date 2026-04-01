@@ -67,30 +67,25 @@ public class WebSocketMessageTimeoutIntegrationTest {
     when(dependencyInjector.getVertx()).thenReturn(vertx);
     when(dependencyInjector.getWebSocketManager()).thenReturn(webSocketManager);
     when(dependencyInjector.getHandleDataService()).thenReturn(handleDataService);
-
-    when(handleDataService.handleTextMessage(any(Promise.class)))
-      .thenAnswer(invocation -> {
-        Promise<JsonObject> promise = invocation.getArgument(0);
-        return (Handler<String>) message -> {
-          System.out.println("HandleDataService received: " + message);
-          try {
-            JsonObject json = new JsonObject(message);
-
-            if ("channel.opened".equals(json.getString("type"))) {
-              promise.complete(json);
-            }
-          } catch (Exception e) {
-            System.err.println("Error processing message: " + e.getMessage());
-            promise.tryFail(e);
-          }
-        };
-      });
+    when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
 
     when(unitCollection.getPingIntervalSeconds()).thenReturn(30);
     when(unitCollection.getPongTimeoutSeconds()).thenReturn(10);
     when(unitCollection.getWebsocketReadDataTimeout()).thenReturn(MESSAGE_TIMEOUT_SECONDS);
     when(unitCollection.getOpenChanelTimeout()).thenReturn(CHANNEL_OPEN_TIMEOUT_SECONDS);
-    when(dependencyInjector.getUnitCollection()).thenReturn(unitCollection);
+
+    when(handleDataService.handleTextMessage(any(Promise.class)))
+      .thenAnswer(invocation -> {
+        Promise<JsonObject> promise = invocation.getArgument(0);
+        return (Handler<String>) message -> {
+          JsonObject json = new JsonObject(message);
+          if ("channel.opened".equals(json.getString("type"))) {
+            promise.complete(json);
+          }
+        };
+      });
+
+
 
     webSocketService = new WebSocketService(vertx, dependencyInjector);
     webSocketService.setEnableSubprotocol(false);
