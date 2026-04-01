@@ -27,8 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
 
@@ -137,12 +136,7 @@ public class WebSocketMessageTimeoutIntegrationTest {
       return null;
     }).when(webSocketManager).forceReconnect(anyString());
 
-    testServer.start()
-      .onComplete(ar -> {
-      if (ar.succeeded()) {
-        webSocketService.setWebSocketUrl("ws://localhost:" + testServer.getPort());
         serverStarted.countDown();
-
         webSocketService.connectToWebSocketServer(TEST_TOKEN)
           .onComplete(connectAr -> {
             if (connectAr.succeeded()) {
@@ -154,10 +148,6 @@ public class WebSocketMessageTimeoutIntegrationTest {
               testContext.failNow(connectAr.cause());
             }
           });
-      } else {
-        testContext.failNow(ar.cause());
-      }
-    });
 
     assertTrue(serverStarted.await(5, TimeUnit.SECONDS));
     assertTrue(connectionEstablished.await(5, TimeUnit.SECONDS));
