@@ -196,6 +196,9 @@ public class WebSocketService extends ABaseService {
    * Закрытие соединения
    */
   public void closeConnection() {
+    cancelAllTimeouts();
+    pingPongService.stop();
+
     WebSocket webSocket = currentWebSocket.get();
     if (webSocket != null) {
       webSocket.close((short) 1000, "Manual closure");
@@ -339,7 +342,7 @@ public class WebSocketService extends ABaseService {
       boolean isRealTimeout = timeSinceLastMessage > configuredTimeoutMs;
 
       if (isRealTimeout) {
-        logger.error("ОБНАРУЖЕН РЕАЛЬНЫЙ ТАЙМАУТ! Нет сообщений в течение '" + timeSinceLastMessage +
+        logger.error("Нет сообщений в течение '" + timeSinceLastMessage +
           "' мс (порог: '" + configuredTimeoutMs + "' мс)");
         cancelAllTimeouts();
         channelOpened.set(false);
@@ -347,12 +350,8 @@ public class WebSocketService extends ABaseService {
         dependencyInjector.getWebSocketManager().forceReconnect(errorMsg);
       } else {
         falseTimeoutCounter.incrementAndGet();
-        logger.warn("ОБНАРУЖЕНО ЛОЖНОЕ СРАБАТЫВАНИЕ ТАЙМАУТА! Сообщения продолжают поступать. " +
-          "Последнее сообщение было '" + timeSinceLastMessage + "' мс назад (меньше порога '" + configuredTimeoutMs + "' мс). " +
-          "Количество ложных срабатываний: '" + falseTimeoutCounter.get() + "'");
-
         if (isChannelOpened() && isConnected()) {
-          logger.info("Перезапуск таймаута сообщений после ложного срабатывания");
+          cancelMessageTimeout();
           startMessageTimeout();
         } else {
           logger.warn("Канал или WebSocket не активен после ложного срабатывания. " +
