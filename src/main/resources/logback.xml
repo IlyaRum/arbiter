@@ -13,17 +13,26 @@
     </encoder>
   </appender>
 
-  <!-- Аппендер для файла -->
+  <!-- Аппендер для файла с ротацией по размеру и времени -->
   <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
     <file>${LOG_FILE}</file>
     <encoder>
       <pattern>${LOG_PATTERN}</pattern>
     </encoder>
-    <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-      <!-- Ежедневная ротация логов -->
-      <fileNamePattern>logs/vertx-app.%d{yyyy-MM-dd}.log</fileNamePattern>
+
+    <!-- Политика ротации: по времени и размеру -->
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <!-- Имя файла при ротации: дата + индекс -->
+      <fileNamePattern>logs/arbiter-api.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+
+      <!-- Максимальный размер одного файла лога -->
+      <maxFileSize>100MB</maxFileSize>
+
       <!-- Хранение логов за 30 дней -->
       <maxHistory>30</maxHistory>
+
+      <!-- Общий максимальный размер всех архивных логов (опционально) -->
+      <totalSizeCap>5GB</totalSizeCap>
     </rollingPolicy>
   </appender>
 
