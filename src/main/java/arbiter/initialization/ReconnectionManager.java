@@ -214,12 +214,16 @@ public class ReconnectionManager {
    * Остановка всех попыток переподключения
    */
   public void stopReconnecting() {
+    cancelReconnectTimer();
+    isReconnecting.set(false);
+    logger.info("Переподключение остановлено");
+  }
+
+  public void cancelReconnectTimer(){
     if (reconnectTimerId != -1) {
       dependencyInjector.getVertx().cancelTimer(reconnectTimerId);
       reconnectTimerId = -1;
     }
-    isReconnecting.set(false);
-    logger.info("Переподключение остановлено");
   }
 
   public void reconnectAttempts() {

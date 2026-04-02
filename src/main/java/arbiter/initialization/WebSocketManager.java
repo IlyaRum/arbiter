@@ -61,7 +61,7 @@ public class WebSocketManager {
 
   public void forceReconnect(String errorMsg) {
     logger.error(errorMsg);
-    reconnectionManager.stopReconnecting();
+    reconnectionManager.cancelReconnectTimer();
     dependencyInjector.getWebSocketService().closeConnection();
     reconnectionManager.reconnect(currentToken);
   }
