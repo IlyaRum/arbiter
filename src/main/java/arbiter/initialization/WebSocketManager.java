@@ -21,6 +21,7 @@ public class WebSocketManager {
     this.dependencyInjector = dependencyInjector;
     reconnectionManager = new ReconnectionManager(dependencyInjector);
     reconnectionManager.loadWebsocketReconnectIntervalConfig();
+    reconnectionManager.loadReconnectAttemptConfig();
   }
 
   public CompletableFuture<String> connectWebSocket(String token) {

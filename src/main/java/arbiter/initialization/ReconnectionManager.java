@@ -18,7 +18,7 @@ public class ReconnectionManager {
 
   private final AtomicBoolean isReconnecting = new AtomicBoolean(false);
   private final AtomicInteger reconnectAttempts = new AtomicInteger(0);
-  private final AtomicInteger maxReconnectAttempts = new AtomicInteger(100);
+  private final AtomicInteger maxReconnectAttempts = new AtomicInteger(10);
   private final AtomicInteger websocketReconnectDelay = new AtomicInteger(10);
   private long reconnectTimerId = -1;
 
@@ -167,14 +167,20 @@ public class ReconnectionManager {
 
   /**
    * Планирование переподключения с задержкой
+   * При достижении maxReconnectAttempts, пишет в лог сообщение. Счет переподключения reconnectAttempts начинает сначала.
    */
   public void scheduleReconnect(String currentToken) {
     if (reconnectTimerId != -1) {
       dependencyInjector.getVertx().cancelTimer(reconnectTimerId);
     }
 
+    if (reconnectAttempts.get() >= maxReconnectAttempts.get()) {
+      logger.warn("Достигнуто максимальное количество попыток ('" + maxReconnectAttempts.get() + "') открытия канала. Продолжаем попытки...");
+      reconnectAttempts.set(0);
+    }
+
     int delay = websocketReconnectDelay.get();
-    logger.info(String.format("Планируем переподключение через %d секунд", delay));
+    logger.info(String.format("Планируем переподключение через %d сек.", delay));
 
     reconnectTimerId = dependencyInjector.getVertx().setTimer(delay * 1000L, timerId -> {
       reconnectTimerId = -1;
@@ -244,6 +250,14 @@ public class ReconnectionManager {
     public void loadWebsocketReconnectIntervalConfig() {
       websocketReconnectDelay.set(dependencyInjector.getUnitCollection().getWebsocketReconnectDelay());
       logger.info("Websocket reconnect delay set to '" + websocketReconnectDelay + "' seconds");
+    }
+
+    /**
+     * Загрузка настройки количества попыток подключиться к вебсокету(открыть канал) из конфигурации
+     */
+    public void loadReconnectAttemptConfig() {
+      maxReconnectAttempts.set(dependencyInjector.getUnitCollection().getOpenChanelAttempts());
+      logger.info("Open channel attempts set to '" + maxReconnectAttempts + "' seconds");
     }
 
 }

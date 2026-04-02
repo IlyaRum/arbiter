@@ -38,6 +38,6 @@ public class ShutdownManager {
 //      }
 //    }
 
-    logger.info("Завершение работы завершено");
+    logger.info("Работа завершена");
   }
 }
