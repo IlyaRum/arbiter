@@ -31,11 +31,11 @@ public class WebSocketService extends ABaseService {
   private final DependencyInjector dependencyInjector;
   private final PingPongService pingPongService;
   private Long messageTimeoutTimerId = null;
-  private Long connectionTimeoutTimerId;
-  private Long channelOpenTimeoutTimerId;
   private static final long DEFAULT_MESSAGE_TIMEOUT_SECONDS = 20;
-  private static final long DEFAULT_CONNECTION_TIMEOUT_SECONDS = 30;
+  private Long channelOpenTimeoutTimerId;
   private static final long DEFAULT_CHANNEL_OPEN_TIMEOUT_SECONDS = 20;
+//  private Long connectionTimeoutTimerId;
+//  private static final long DEFAULT_CONNECTION_TIMEOUT_SECONDS = 30;
   private long messageTimeoutSeconds = DEFAULT_MESSAGE_TIMEOUT_SECONDS;
   private long channelOpenTimeoutSeconds = DEFAULT_CHANNEL_OPEN_TIMEOUT_SECONDS;
 
@@ -125,12 +125,12 @@ public class WebSocketService extends ABaseService {
               logger.warn("Ping is disabled");
             }
 
-            connectionTimeoutTimerId = vertx.setTimer(DEFAULT_CONNECTION_TIMEOUT_SECONDS * 1000, timerId -> {
-              if (!promise.future().isComplete()) {
-                promise.tryFail("WebSocket connection timeout - no opening message received");
-                cancelAllTimeouts();
-              }
-            });
+//            connectionTimeoutTimerId = vertx.setTimer(DEFAULT_CONNECTION_TIMEOUT_SECONDS * 1000, timerId -> {
+//              if (!promise.future().isComplete()) {
+//                promise.tryFail("WebSocket connection timeout - no opening message received");
+//                cancelAllTimeouts();
+//              }
+//            });
           } else {
             handleConnectionError(res.cause(), promise, context, options);
           }
@@ -448,12 +448,12 @@ public class WebSocketService extends ABaseService {
     }
   }
 
-  private void cancelConnectionTimeout() {
-    if (connectionTimeoutTimerId != null) {
-      vertx.cancelTimer(connectionTimeoutTimerId);
-      connectionTimeoutTimerId = null;
-    }
-  }
+//  private void cancelConnectionTimeout() {
+//    if (connectionTimeoutTimerId != null) {
+//      vertx.cancelTimer(connectionTimeoutTimerId);
+//      connectionTimeoutTimerId = null;
+//    }
+//  }
 
   private void loadMessageTimeoutConfig(Integer websocketReadDataTimeout){
     if(websocketReadDataTimeout <= 0){
