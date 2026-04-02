@@ -244,20 +244,31 @@ public class ReconnectionManager {
     return isReconnecting.get();
   }
 
-    /**
-     * Загрузка настройки задержки между попытками рекконекта из конфигурации
-     */
-    public void loadWebsocketReconnectIntervalConfig() {
-      websocketReconnectDelay.set(dependencyInjector.getUnitCollection().getWebsocketReconnectDelay());
-      logger.info("Websocket reconnect delay set to '" + websocketReconnectDelay + "' seconds");
+  /**
+   * Загрузка настройки задержки между попытками переключения из конфигурации
+   */
+  public void loadWebsocketReconnectIntervalConfig() {
+    Integer websocketReconnectDelay = dependencyInjector.getUnitCollection().getWebsocketReconnectDelay();
+    if (websocketReconnectDelay <= 0) {
+      logger.warn("Invalid or missing reconnect delay value ('" + websocketReconnectDelay + "'). Using default value: '"
+        + this.websocketReconnectDelay.get() + "' seconds");
+      return;
     }
+    this.websocketReconnectDelay.set(websocketReconnectDelay);
+    logger.info("Websocket reconnect delay set to '" + websocketReconnectDelay + "' seconds");
+  }
 
-    /**
-     * Загрузка настройки количества попыток подключиться к вебсокету(открыть канал) из конфигурации
-     */
-    public void loadReconnectAttemptConfig() {
-      maxReconnectAttempts.set(dependencyInjector.getUnitCollection().getOpenChanelAttempts());
-      logger.info("Open channel attempts set to '" + maxReconnectAttempts + "' seconds");
+  /**
+   * Загрузка настройки количества попыток подключиться к вебсокету(открыть канал) из конфигурации
+   */
+  public void loadReconnectAttemptConfig() {
+    Integer openChanelAttempts = dependencyInjector.getUnitCollection().getOpenChanelAttempts();
+    if (openChanelAttempts <= 0) {
+      logger.warn("Invalid or missing reconnect attempts value ('" + openChanelAttempts + "'). Using default value: '"
+        + maxReconnectAttempts.get() + "' seconds");
+      return;
     }
-
+    maxReconnectAttempts.set(openChanelAttempts);
+    logger.info("Reconnect attempts set to '" + maxReconnectAttempts + "' seconds");
+  }
 }

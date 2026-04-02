@@ -36,9 +36,7 @@ public class WebSocketManager {
         return channelId;
       }).exceptionally(throwable -> {
         logger.error("Ошибка подключения: " + throwable.getMessage());
-        //TODO[IER] Нужно реализовать и добавить метод для переподключения веб сокета,
-        //если канал не открылся по какой-то причине
-        //reconnectToWebSocketServer();
+        forceReconnect("Ошибка подключения: " + throwable.getMessage());
         throw new RuntimeException(throwable);
       });
   }
@@ -64,7 +62,6 @@ public class WebSocketManager {
   public void forceReconnect(String errorMsg) {
     logger.error(errorMsg);
     reconnectionManager.stopReconnecting();
-    reconnectionManager.reconnectAttempts();
     dependencyInjector.getWebSocketService().closeConnection();
     reconnectionManager.reconnect(currentToken);
   }
