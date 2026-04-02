@@ -76,7 +76,7 @@ public class WebSocketMessageTimeoutIntegrationTest {
     when(unitCollection.getOpenChanelTimeout()).thenReturn(CHANNEL_OPEN_TIMEOUT_SECONDS);
 
     webSocketService = new WebSocketService(vertx, dependencyInjector);
-    webSocketService.setEnableSubprotocol(false);
+    webSocketService.setEnableSubProtocol(false);
 
     testServer = new TestWebSocketServer(vertx, serverWebSocket);
 

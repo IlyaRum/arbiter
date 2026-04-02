@@ -175,7 +175,7 @@ public class ReconnectionManager {
     }
 
     if (reconnectAttempts.get() >= maxReconnectAttempts.get()) {
-      logger.warn("Достигнуто максимальное количество попыток ('" + maxReconnectAttempts.get() + "') открытия канала. Продолжаем попытки...");
+      logger.warn("Достигнуто максимальное количество попыток ('" + maxReconnectAttempts.get() + "'). Продолжаем попытки...");
       reconnectAttempts.set(0);
     }
 

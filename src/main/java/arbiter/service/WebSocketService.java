@@ -47,7 +47,7 @@ public class WebSocketService extends ABaseService {
   private static final Logger logger = LoggerFactory.getLogger(WebSocketService.class);
 
   private String webSocketUrl = "wss://ia-oc-w-aiptst.cdu.so/api/public/core/v2.1/channels/open";
-  private boolean enableSubprotocol = true;
+  private boolean enableSubProtocol = true;
 
   public WebSocketService(Vertx vertx, DependencyInjector dependencyInjector) {
     super(vertx);
@@ -83,8 +83,8 @@ public class WebSocketService extends ABaseService {
     return  new PingPongService(vertx, handler);
   }
 
-  public void setEnableSubprotocol(boolean enable) {
-    this.enableSubprotocol = enable;
+  public void setEnableSubProtocol(boolean enable) {
+    this.enableSubProtocol = enable;
   }
 
   private Future<JsonObject> connectToWebSocketServer(String token, RoutingContext context) {
@@ -256,7 +256,7 @@ public class WebSocketService extends ABaseService {
       .setAbsoluteURI(webSocketUrl)
       .setPort(443);
 
-    if (enableSubprotocol) {
+    if (enableSubProtocol) {
       options.addSubProtocol(AppConfig.CLOUDEVENTS_PROTOCOL);
     }
 
