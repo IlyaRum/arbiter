@@ -97,10 +97,10 @@ public class AppConfig {
   }
 
   public static String getArbiterConfigJsonFile() {
-    String filePath = ".\\" + arbiterConfigJsonFile;
+    String filePath = "./" + arbiterConfigJsonFile;
     File file = new File(filePath);
     if (!file.exists()) {
-      filePath = ".\\src\\main\\resources\\" + arbiterConfigJsonFile;
+      filePath = "./src/main/resources/" + arbiterConfigJsonFile;
     }
     return filePath;
   }

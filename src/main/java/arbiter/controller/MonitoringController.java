@@ -4,8 +4,11 @@ import arbiter.config.AppConfig;
 import arbiter.di.DependencyInjector;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.bridge.PermittedOptions;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.sockjs.SockJSBridgeOptions;
+import io.vertx.ext.web.handler.sockjs.SockJSHandler;
 
 public class MonitoringController extends ABaseController{
 
@@ -22,6 +25,17 @@ public class MonitoringController extends ABaseController{
     router.get(AppConfig.METRICS).handler(this::handleMetricsRequest);
     router.get(AppConfig.INFO).handler(this::handleInfoRequest);
     router.get(AppConfig.RECONNECTION_STATS).handler(this::getReconnectionStats);
+
+    SockJSBridgeOptions options = new SockJSBridgeOptions()
+      .addInboundPermitted(new PermittedOptions().setAddress("api.inbound"))
+      .addOutboundPermitted(new PermittedOptions().setAddress("api.outbound"));
+
+    router.route("/api-eventbus/*").subRouter(SockJSHandler.create(vertx).bridge(options));
+
+    //TODO[IER] Для Тестов сокета с UI. Удалить
+    vertx.setPeriodic(3000, id -> {
+      vertx.eventBus().publish("api.outbound", "A message from the arbiter-api at " + System.currentTimeMillis());
+    });
   }
 
   private void handleRootRequest(RoutingContext ctx) {
