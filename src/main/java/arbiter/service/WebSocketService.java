@@ -166,10 +166,17 @@ public class WebSocketService extends ABaseService {
       logger.info("WebSocket connection closed");
       logger.info("Checking connect after close: " + isConnected());
 
+      Short closeCode = webSocket.closeStatusCode();
+      String closeReason = webSocket.closeReason();
+
+      logger.info("Close code: " + closeCode + ", reason: " + closeReason);
+
       pingPongService.stop();
       cancelAllTimeouts();
 
-      if (!promise.future().isComplete()) {
+      if (webSocket.closeStatusCode() == 1008 || webSocket.closeStatusCode() == 4001) {
+        dependencyInjector.getWebSocketManager().forceReconnectWithTokenRefresh("WebSocket closed with auth error code: " + webSocket.closeStatusCode());
+      } else if (!promise.future().isComplete()) {
         promise.tryFail("WebSocket connection closed unexpectedly");
       }
       if (closeHandler != null) {

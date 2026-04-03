@@ -66,6 +66,18 @@ public class WebSocketManager {
     reconnectionManager.reconnect(currentToken);
   }
 
+  public void forceReconnectWithTokenRefresh(String errorMsg) {
+    logger.error(errorMsg);
+    reconnectionManager.cancelReconnectTimer();
+    dependencyInjector.getWebSocketService().closeConnection();
+
+    dependencyInjector.getTokenService().getTokenAsync()
+      .thenCompose(newToken -> {
+        this.currentToken = newToken;
+        return reconnectionManager.reconnect(newToken);
+      });
+  }
+
   /**
    * Остановка всех попыток переподключения
    */
